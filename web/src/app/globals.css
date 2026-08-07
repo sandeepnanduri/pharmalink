@@ -1,0 +1,212 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html,
+  body {
+    @apply bg-surface text-ink antialiased;
+    /* Disambiguate 0/O and 1/l — this is a catalogue of CAS numbers and prices. */
+    font-feature-settings: 'cv05' 1, 'ss01' 1;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display tracking-tight;
+    text-wrap: balance;
+  }
+  /* Space Grotesk is a display face: it earns its keep at heading and hero-figure
+     sizes and loses to Inter below ~15px, so it is never applied globally. */
+  .fig {
+    @apply font-display font-bold tracking-tight;
+    font-variant-numeric: proportional-nums;
+  }
+  /* Figures line up in columns and never reflow while a value changes. */
+  table,
+  .mono,
+  .font-mono,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Visible keyboard focus everywhere — accessibility baseline. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-teal ring-offset-2;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card border border-line bg-white p-5;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-light;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-white text-slate2 hover:border-brand-mid hover:bg-brand-pale;
+  }
+  .btn-accent {
+    @apply btn bg-accent text-white hover:bg-accent-dark;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-pale;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-semibold text-slate2;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold;
+  }
+  .badge-verified {
+    @apply badge bg-ok-pale text-green-700;
+  }
+  .badge-pending {
+    @apply badge bg-warn-pale text-amber-700;
+  }
+  .badge-rejected {
+    @apply badge bg-danger-pale text-red-700;
+  }
+  .badge-info {
+    @apply badge bg-brand-pale text-brand;
+  }
+  .badge-neutral {
+    @apply badge bg-slate-100 text-slate2;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-[11px] font-semibold text-slate2;
+  }
+  .th {
+    @apply border-b border-line bg-surface px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-wide text-muted;
+  }
+  .td {
+    @apply border-b border-slate-100 px-4 py-3 align-middle text-sm;
+  }
+
+  /* --- Form validation ------------------------------------------------
+     A field in error is marked three ways, never by colour alone: red
+     border, an icon-led message beneath it, and aria-invalid for assistive
+     tech. Colour-blind users and screen readers both need a second signal. */
+  .input-error {
+    @apply border-danger bg-red-50/40 focus:border-danger focus:ring-red-100;
+  }
+  .field-error {
+    @apply mt-1.5 flex items-start gap-1.5 text-xs font-semibold text-red-700;
+  }
+  /* The required marker. Decorative asterisk; the real signal for assistive
+     tech is the `required`/`aria-required` attribute on the control. */
+  .required-mark {
+    @apply ml-0.5 font-bold text-danger;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Capsule loader — see components/capsule-loader.tsx
+   Two halves of a capsule part, rotate and rejoin. Sized by the parent's
+   width/height so one definition serves button-, panel- and page-sized uses.
+--------------------------------------------------------------------------- */
+.pl-capsule {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  animation: pl-capsule-spin 1.6s linear infinite;
+}
+.pl-capsule-half {
+  position: absolute;
+  left: 25%;
+  width: 50%;
+  height: 50%;
+  box-sizing: border-box;
+}
+.pl-capsule-top {
+  top: 0;
+  border-radius: 999px 999px 0 0;
+  background: currentColor;
+  animation: pl-capsule-open-top 1.6s ease-in-out infinite;
+}
+.pl-capsule-bottom {
+  bottom: 0;
+  border-radius: 0 0 999px 999px;
+  /* Hollow half, so the two ends read as different halves of one capsule
+     rather than a single solid blob. */
+  border: 2px solid currentColor;
+  border-top: 0;
+  animation: pl-capsule-open-bottom 1.6s ease-in-out infinite;
+}
+
+@keyframes pl-capsule-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes pl-capsule-open-top {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-22%);
+  }
+}
+@keyframes pl-capsule-open-bottom {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(22%);
+  }
+}
+
+/* Motion is decorative here — the accessible status text carries the meaning,
+   so drop to a gentle pulse when the user has asked for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  .pl-capsule,
+  .pl-capsule-half {
+    animation: pl-capsule-pulse 2s ease-in-out infinite;
+  }
+  @keyframes pl-capsule-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+}
+
+@layer utilities {
+  /* Toast entrance. Respects reduced motion via the global guard below. */
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to   { opacity: 1; transform: none; }
+  }
+  /* Skeleton shimmer. A pulse alone reads as "broken"; a sweep reads as
+     "loading", which is the difference between a user waiting and leaving. */
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: theme('colors.mist');
+    border-radius: 8px;
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .75), transparent);
+    animation: shimmer 1.4s infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton::after { animation: none; }
+  }
+}

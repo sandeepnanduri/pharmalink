@@ -1,0 +1,88 @@
+# PharmaLink on an Oracle Cloud "Always Free" VM.
+#
+# Two services: the app container (built from the repo root Dockerfile) and a
+# Caddy reverse proxy that terminates TLS and gets a free Let's Encrypt cert
+# automatically. The app is NOT published to the host — only Caddy is — so the
+# only ways in are :80 and :443.
+#
+#   cd deploy/oci
+#   cp .env.oci.example .env      # then edit it
+#   docker compose -f docker-compose.oci.yml up -d --build
+#
+# See README.md in this directory for the full walkthrough.
+
+name: pharmalink
+
+services:
+  app:
+    build:
+      # Build context is the `web/` directory (two levels up from this file).
+      # Compose resolves this relative to the compose file, not your shell's cwd.
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        # Baked into the client bundle at build time — MUST equal the final
+        # public URL. Change it and you must rebuild, not just restart.
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set NEXT_PUBLIC_SITE_URL in .env}
+        SEED: ${SEED:-true}
+    environment:
+      # Quoted: the message contains a colon, which bare YAML reads as a mapping.
+      AUTH_SECRET: '${AUTH_SECRET:?generate one with `openssl rand -base64 32` and set it in .env}'
+      # Caddy terminates TLS and forwards over the private compose network, so
+      # the request host the app sees is internal. Trust the proxy headers and
+      # pin the public origin explicitly.
+      AUTH_TRUST_HOST: 'true'
+      AUTH_URL: ${AUTH_URL:?set AUTH_URL in .env}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+      # DATABASE_URL + UPLOAD_DIR are fixed to /data/* inside the image; the
+      # named volume below is what makes them durable across restarts.
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      BOXYHQ_SAML_ISSUER: ${BOXYHQ_SAML_ISSUER:-}
+      BOXYHQ_SAML_CLIENT_ID: ${BOXYHQ_SAML_CLIENT_ID:-}
+      BOXYHQ_SAML_CLIENT_SECRET: ${BOXYHQ_SAML_CLIENT_SECRET:-}
+    volumes:
+      - data:/data
+    # Deliberately no `ports:` — the app is reachable only through Caddy.
+    expose:
+      - '3000'
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      # HTTP/3. Harmless if the OCI security list doesn't allow UDP.
+      - '443:443/udp'
+    environment:
+      # ':80'                    -> plain HTTP, no certificate (quick smoke test)
+      # 'pharmalink.duckdns.org' -> automatic HTTPS via Let's Encrypt
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and ACME account keys. Keep this volume or you will
+      # re-request certs on every recreate and can hit Let's Encrypt rate limits.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  # SQLite database + uploaded documents. This is the one that holds real data —
+  # back it up (see README "Backups"). `docker compose down -v` destroys it.
+  data:
+  caddy_data:
+  caddy_config:

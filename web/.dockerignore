@@ -1,0 +1,39 @@
+# Deps & build output — reinstalled/rebuilt inside the image
+node_modules
+.next
+out
+build
+dist
+
+# Local databases & env (never bake secrets or dev data into the image)
+*.db
+*.db-journal
+prisma/dev.db
+prisma/test.db
+.env
+.env.*
+!.env.docker.example
+
+# VCS & tooling
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Tests & artifacts (app image doesn't run them)
+playwright-report
+test-results
+coverage
+e2e
+playwright.config.ts
+
+# Docker / docs (not needed inside the image)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+DOCKER.md
+# Host-side deployment assets (compose files, proxy config, provisioning
+# scripts). They orchestrate the image from outside; baking them in would also
+# drag deploy/oci/.env into the build context.
+deploy

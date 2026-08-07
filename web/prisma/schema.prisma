@@ -1,0 +1,1068 @@
+// PharmaLink Global — Phase 1 (MVP) data model
+// Maps to BACKLOG.md epics F0–F7. See ARCHITECTURE.md §7.
+//
+// Provider note: SQLite is used for zero-setup local dev + fast CI/e2e runs.
+// Production target is PostgreSQL (ARCHITECTURE.md). To switch:
+//   1. provider = "postgresql", url = env("DATABASE_URL")
+//   2. String status/role fields below can become native enums
+//   3. Float money fields should become Decimal(12, 4)
+// The schema is deliberately written to be portable across both.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------------------------------------------------------
+// Identity & access (F0.2, F0.3)
+// --------------------------------------------------------------------------
+
+/// role: "buyer" | "seller" | "both" | "admin"
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String? // null for SSO-only users
+  role          String    @default("buyer")
+  /// Within a trading organization: "owner" manages the team + billing, "member"
+  /// trades. Null for staff (no org). The first user of an org is the owner.
+  orgRole       String    @default("member")
+  /// Direct contact number. SSO gives us no phone, so account setup collects it —
+  /// counterparties need a human to reach on a live RFQ.
+  phone         String?
+  emailVerified DateTime?
+  image         String?
+  active        Boolean   @default(true)
+  deletedAt     DateTime?
+
+  orgId String?
+  org   Organization? @relation(fields: [orgId], references: [id])
+
+  // Granular consent capture (ARCHITECTURE.md §8.3 item 3)
+  consentTermsAt     DateTime?
+  consentPrivacyAt   DateTime?
+  consentMarketingAt DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+
+  accounts      Account[]
+  sessions      Session[]
+  messages      Message[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  dsarRequests  DsarRequest[]
+
+  @@index([orgId])
+  @@index([role])
+}
+
+/// NextAuth adapter model — links OAuth/SAML identities to a local User.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --------------------------------------------------------------------------
+// Organizations & verification (F2, F3, F6.1)
+// --------------------------------------------------------------------------
+
+/// kind: "buyer" | "seller" | "both"
+/// status: "draft" | "pending" | "verified" | "rejected"
+model Organization {
+  id        String  @id @default(cuid())
+  name      String
+  kind      String  @default("buyer")
+  status    String  @default("draft")
+  country   String  @default("India")
+  city      String?
+  regNumber String? // GST / CIN / registration number
+  duns      String?
+  website   String?
+  about     String?
+
+  // --- Buyer-specific ---
+  companyType        String? // finished-dosage | cdmo | generic | trader
+  /// Sourcing preferences (F3.3) — drive RFQ routing + a personalised catalog.
+  /// Comma-separated by design: small, fixed vocabularies read as a whole set,
+  /// never joined or aggregated on. Anything queried per-value gets a table.
+  sourcingCategories String? // "API,Excipient"
+  regulatoryMarkets  String? // "US,EU,WHO"
+  preferredOrigins   String? // "India,China"
+
+  // --- Seller-specific ---
+  exportMarkets String? // comma-separated: "US,EU,WHO"
+  /// Declared DMF / CEP / ASMF reference numbers (F2.3).
+  dmfNumbers    String?
+  /// Is this org the actual manufacturer, or an intermediary?
+  /// "manufacturer" | "cdmo" | "distributor" | "trader"
+  ///
+  /// The highest-value trust signal in API trade: a reseller presenting itself
+  /// as the manufacturer is the principal counterparty fraud. A manufacturer
+  /// claim is only credible alongside a declared site + a site-level GMP
+  /// certificate, which is why lib/onboarding.ts requires one.
+  supplierType  String?
+
+  // --- Default commercial terms (F2.4), pre-filled onto new quotes ---
+  defaultIncoterm     String?
+  defaultPaymentTerms String?
+  defaultLeadTime     String?
+
+  /// Subscription plan: "free" | "growth" | "enterprise". Entitlements and
+  /// limits live in lib/plans.ts. NOTE: the platform takes no cut of trade value
+  /// and processes no marketplace payments — subscription is the only revenue.
+  plan          String    @default("free")
+  planStartedAt DateTime?
+  planRenewsAt  DateTime?
+
+  verifiedAt     DateTime?
+  rejectedReason String?
+  reviewedById   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  sites          Site[]
+  certifications Certification[]
+  documents      Document[]
+  products       Product[]
+  rfqs           Rfq[]           @relation("BuyerRfqs")
+  quotes         Quote[]         @relation("SellerQuotes")
+  broadcasts     RfqSupplier[]
+  messages       Message[]
+  invoices       Invoice[]
+  apiKeys        ApiKey[]
+  webhooks       Webhook[]
+
+  reviewsReceived   Review[]           @relation("SupplierReviews")
+  reviewsWritten    Review[]           @relation("AuthorReviews")
+  savedSuppliers    SavedSupplier[]    @relation("SaverOrg")
+  savedByOrgs       SavedSupplier[]    @relation("SavedSupplierOrg")
+  buyerSamples      SampleRequest[]    @relation("BuyerSamples")
+  sellerSamples     SampleRequest[]    @relation("SellerSamples")
+  regulatoryActions RegulatoryAction[]
+
+  // --- Identity & scale (supplier profile, sections A/B) --------------------
+  // `duns`, `website`, `exportMarkets`, `defaultIncoterm` and
+  // `defaultPaymentTerms` already exist above and are reused rather than
+  // duplicated — a second column holding the same fact is a data-integrity bug
+  // waiting to happen.
+  /// Brand name where it differs from the registered legal name.
+  tradingName  String?
+  /// Resolved from the company domain — see src/lib/logo.ts. Never hotlinked
+  /// from the supplier's own site.
+  logoUrl      String?
+  foundedYear  Int?
+  employees    Int?
+  /// Stock listing, e.g. "NSE: SUNPHARMA · NYSE: SUN". null = unlisted.
+  listedOn     String?
+  /// Registration identifiers a buyer's compliance team checks. `regNumber`
+  /// above is the generic one; these are the specific registers.
+  gstin        String?
+  iec          String?
+  feiNumber    String?
+  /// Which trade association vouches for this supplier, e.g. "BDMA,Pharmexcil".
+  associations String?
+
+  @@index([status])
+  @@index([kind])
+}
+
+// --------------------------------------------------------------------------
+// Buyer trust — supplier ratings/reviews + saved (shortlisted) suppliers.
+// --------------------------------------------------------------------------
+
+/// Regulatory enforcement history against a supplier — warning letters, import
+/// alerts, 483 observations, EU non-compliance. Sourced from openFDA and the
+/// EudraGMDP register, never self-declared: an active import alert is a
+/// deal-breaker and a supplier cannot be trusted to disclose their own.
+model RegulatoryAction {
+  id    String       @id @default(cuid())
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  /// warning_letter | import_alert | form_483 | eu_noncompliance | recall
+  kind      String
+  /// open | closed | resolved
+  status    String    @default("open")
+  reference String?
+  site      String?
+  summary   String?
+  issuedAt  DateTime
+  closedAt  DateTime?
+
+  sourceName String
+  sourceUrl  String?
+  /// Upstream natural key so re-ingesting is idempotent.
+  sourceRef  String  @unique
+
+  ingestedAt DateTime @default(now())
+
+  @@index([orgId, status])
+  @@index([kind])
+}
+
+model Review {
+  id            String       @id @default(cuid())
+  supplierOrgId String
+  supplierOrg   Organization @relation("SupplierReviews", fields: [supplierOrgId], references: [id], onDelete: Cascade)
+  authorOrgId   String
+  authorOrg     Organization @relation("AuthorReviews", fields: [authorOrgId], references: [id], onDelete: Cascade)
+  authorUserId  String?
+
+  rating Int // 1..5
+  title  String?
+  body   String?
+  tags   String? // comma-separated: "Quality,Fast response"
+
+  /// True when the author org has a completed deal with this supplier — a
+  /// verified-purchase signal. Reviews are only allowed from verified buyers.
+  verifiedBuyer Boolean @default(false)
+  status        String  @default("published") // published | hidden (ops moderation)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([supplierOrgId, authorOrgId]) // one review per buyer-org per supplier
+  @@index([supplierOrgId, status])
+}
+
+model SavedSupplier {
+  id            String       @id @default(cuid())
+  orgId         String // the buyer org that shortlisted
+  org           Organization @relation("SaverOrg", fields: [orgId], references: [id], onDelete: Cascade)
+  supplierOrgId String
+  supplierOrg   Organization @relation("SavedSupplierOrg", fields: [supplierOrgId], references: [id], onDelete: Cascade)
+  note          String?
+  createdAt     DateTime     @default(now())
+
+  @@unique([orgId, supplierOrgId])
+  @@index([orgId])
+}
+
+model Site {
+  id           String       @id @default(cuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name         String
+  /// Human-readable summary ("Halol, Gujarat"). Kept for display and for rows
+  /// created before the structured address below existed.
+  location     String
+  /// Free-text claim captured at onboarding. The authoritative, ops-verified
+  /// record is the Certification rows below — never trust this for matching.
+  certsClaimed String?
+
+  // --- Structured address ------------------------------------------------
+  // A GMP certificate names one specific site. Ops has to match the address on
+  // the certificate against a real, checkable place, which free text does not
+  // support — hence the discrete fields.
+  addressLine  String?
+  city         String?
+  state        String?
+  postalCode   String?
+  country      String?
+  /// "manufacturing" | "packaging" | "warehouse" | "laboratory"
+  siteType     String  @default("manufacturing")
+  /// Regulatory site identifier: FDA FEI, EudraGMDP reference, CDSCO site code.
+  /// This is what lets a verifier look the site up in the issuing authority's
+  /// own register instead of trusting the uploaded PDF.
+  regulatoryId String?
+
+  certifications Certification[]
+
+  @@index([orgId])
+}
+
+/// status: "pending" | "verified" | "rejected"
+/// A certification belongs to an Organization, and optionally to a specific
+/// manufacturing Site (a GMP cert is issued per site, not per company — F2.2).
+model Certification {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  siteId      String?
+  site        Site?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  name        String // "US FDA GMP" | "EU GMP" | "WHO PQ" | "CDSCO" | "NMPA" | ...
+  status      String       @default("pending")
+  expiresAt   DateTime?
+  verifiedVia String? // "FDA drug database" | "EudraGMDP" | "CDSCO portal"
+
+  /// "certification" (GMP, ISO, WHO PQ) or "licence" (manufacturing licence,
+  /// wholesale drug licence, IEC).
+  ///
+  /// Licences share this model rather than getting their own because they are
+  /// structurally identical for our purposes — both are issued by an authority,
+  /// carry a number, expire, and are evidenced by a document. Reusing it means
+  /// licences get the expiry register in lib/compliance.ts for free instead of
+  /// silently falling outside it.
+  category         String    @default("certification")
+  /// The number printed on the certificate or licence, e.g. "MFG/GJ/2019/1183".
+  number           String?
+  issuingAuthority String?
+  issuedAt         DateTime?
+  /// The certificate file this claim was verified against.
+  documentId       String?   @unique
+  document         Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([orgId])
+  @@index([siteId])
+  @@index([status])
+  @@index([expiresAt]) // drives the cert-expiry register (F6.5)
+}
+
+/// kind: "gmp_cert" | "mfg_licence" | "company_reg" | "drug_licence" | "coa" | "spec"
+/// status: "pending" | "verified" | "rejected"
+model Document {
+  id        String       @id @default(cuid())
+  /// The org that owns (uploaded) the file — always set, drives access control.
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  kind      String
+  filename  String
+  mimeType  String?
+  sizeBytes Int?
+
+  // --- Optional attachment targets -------------------------------------
+  // A document is either a company/regulatory doc (all null) or attached to
+  // exactly one of these: an RFQ spec sheet, a quote's CoA, or a message file.
+  rfqId     String?
+  rfq       Rfq?     @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  quoteId   String?
+  quote     Quote?   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  messageId String?
+  message   Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  certification Certification?
+  /// Opaque storage key (local FS in dev, object-storage key in prod).
+  /// Never a public URL — downloads are always brokered by /api/documents/[id].
+  storageKey    String?
+  /// SHA-256 of the bytes — document integrity (ARCHITECTURE.md §8.2, R18 precursor)
+  sha256        String?
+  status        String         @default("pending")
+  reason        String?
+  reviewedById  String?
+  reviewedAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([orgId])
+  @@index([status])
+  @@index([sha256]) // verify-by-hash lookup (ARCHITECTURE.md §8.2)
+  @@index([rfqId])
+  @@index([quoteId])
+  @@index([messageId])
+}
+
+/// In-app notification centre (BACKLOG F5.1). Email/WhatsApp fan-out reads the
+/// same rows via lib/email.ts so channels never drift apart.
+model Notification {
+  id     String    @id @default(cuid())
+  userId String
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind   String // "rfq.matched" | "quote.received" | "quote.accepted" | "org.verified" | ...
+  title  String
+  body   String?
+  link   String?
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+}
+
+// --------------------------------------------------------------------------
+// Catalog (F1, F2.4)
+// --------------------------------------------------------------------------
+
+/// category: "API" | "Intermediate" | "KSM" | "Excipient"
+/// status: "draft" | "live" | "unpublished"
+model Product {
+  id              String       @id @default(cuid())
+  orgId           String
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name            String
+  cas             String
+  category        String       @default("API")
+  grade           String? // IP / BP / USP / EP
+  purity          String?
+  moqKg           Int          @default(1)
+  leadTime        String?
+  priceMin        Float?
+  priceMax        Float?
+  shelfLife       String?
+  storage         String?
+  formula         String? // molecular formula, e.g. C8H9NO2
+  /// Whether the supplier can provide a paid/free sample of this product.
+  sampleAvailable Boolean      @default(false)
+  status          String       @default("draft")
+
+  // --- Per-product compliance (F2.4) ---
+  /// Drug Master File / Certificate of Suitability / Certificate of Pharmaceutical Product.
+  dmfNumber          String?
+  cepNumber          String?
+  coppNumber         String?
+  /// Controlled-substance schedule (e.g. "DEA II", "NDPS"). null = not controlled.
+  /// Listings with a schedule set are held for manual review — the jurisdiction-aware
+  /// policy engine is Phase 3 (gap G13).
+  controlledSchedule String?
+
+  // --- Taxonomy (see src/lib/taxonomy.ts) ------------------------------------
+  /// api | ksm | intermediate | raw_material | excipient | fdf | specialty
+  productType String  @default("api")
+  /// Facet within the segment: therapeutic area for APIs, dose form for FDFs,
+  /// function for excipients. One column because a product has exactly one.
+  facet       String?
+
+  // --- Technical specification -----------------------------------------------
+  /// Numeric purity so it can be range-filtered. `purity` above stays as the
+  /// human string ("≥ 99.0%, HPLC") because the spec sheet wording matters.
+  purityPct      Float?
+  particleSize   String?
+  chirality      String?
+  polymorphForm  String?
+  synthesisRoute String?
+
+  // --- Commercial ------------------------------------------------------------
+  /// Comma-separated incoterms this listing is offered on, e.g. "FOB,CIF,DDP".
+  incoterms    String?
+  /// ambient | refrigerated | frozen | ultracold
+  coldChain    String?
+  packaging    String?
+  /// in_stock | made_to_order | low
+  stockStatus  String  @default("made_to_order")
+  /// Annual capacity in metric tonnes, for scale-up questions.
+  capacityMtYr Float?
+  /// European Active Substance Master File reference.
+  asmfNumber   String?
+
+  certifications ProductCertification[]
+  priceTiers     ProductPriceTier[]
+  sampleRequests SampleRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([cas])
+  @@index([status])
+  @@index([controlledSchedule])
+}
+
+/// A buyer's request for a product sample; the seller approves/ships/declines.
+model SampleRequest {
+  id            String       @id @default(cuid())
+  productId     String
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  buyerOrgId    String
+  buyerOrg      Organization @relation("BuyerSamples", fields: [buyerOrgId], references: [id], onDelete: Cascade)
+  sellerOrgId   String
+  sellerOrg     Organization @relation("SellerSamples", fields: [sellerOrgId], references: [id], onDelete: Cascade)
+  requestUserId String?
+
+  /// requested → approved → shipped | declined
+  status        String  @default("requested")
+  quantityG     Int? // grams requested
+  shipTo        String?
+  note          String?
+  declineReason String?
+  trackingRef   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, buyerOrgId]) // one open request per buyer per product
+  @@index([sellerOrgId, status])
+  @@index([buyerOrgId])
+}
+
+/// Volume price break for a product — cheaper per-kg above a quantity threshold.
+model ProductPriceTier {
+  id         String  @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  minQtyKg   Int
+  pricePerKg Float
+
+  @@index([productId])
+}
+
+/// Certifications claimed for a specific product (distinct from the org/site-level
+/// certifications that gate RFQ matching).
+model ProductCertification {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+
+  @@unique([productId, name])
+  @@index([productId])
+}
+
+// --------------------------------------------------------------------------
+// RFQ → Quote → Deal (F4)
+// --------------------------------------------------------------------------
+
+/// status: "draft" | "open" | "quoted" | "accepted" | "expired" | "closed"
+model Rfq {
+  id              String       @id @default(cuid())
+  reference       String       @unique // RFQ-2041
+  buyerOrgId      String
+  buyerOrg        Organization @relation("BuyerRfqs", fields: [buyerOrgId], references: [id], onDelete: Cascade)
+  productName     String
+  cas             String
+  quantityKg      Int
+  requiredBy      DateTime
+  grade           String?
+  minPurity       String?
+  /// comma-separated mandatory certs, e.g. "US FDA GMP,WHO PQ"
+  requiredCerts   String?
+  incoterm        String?
+  destination     String?
+  targetPrice     Float?
+  sampleRequested Boolean      @default(false)
+  notes           String?
+  status          String       @default("draft")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quotes      Quote[]
+  broadcasts  RfqSupplier[]
+  messages    Message[]
+  deal        Deal?
+  attachments Document[] // buyer's specification sheet(s)
+
+  @@index([buyerOrgId])
+  @@index([status])
+}
+
+/// The rule-based broadcast list (F4.2). A supplier can decline (no-bid) so the
+/// buyer and the ops RFQ-monitor can tell "won't quote" from "hasn't looked".
+model RfqSupplier {
+  rfqId String
+  orgId String
+  rfq   Rfq          @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  notifiedAt    DateTime  @default(now())
+  declinedAt    DateTime?
+  declineReason String?
+
+  @@id([rfqId, orgId])
+  @@index([orgId])
+}
+
+/// status: "submitted" | "accepted" | "rejected" | "expired"
+model Quote {
+  id           String       @id @default(cuid())
+  rfqId        String
+  rfq          Rfq          @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  sellerOrgId  String
+  sellerOrg    Organization @relation("SellerQuotes", fields: [sellerOrgId], references: [id], onDelete: Cascade)
+  unitPrice    Float
+  currency     String       @default("USD")
+  moqKg        Int
+  leadTime     String
+  incoterm     String
+  paymentTerms String
+  validUntil   DateTime
+  notes        String?
+  status       String       @default("submitted")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deal        Deal?
+  attachments Document[] // CoA sample, spec sheet (F4.3)
+  counters    CounterOffer[]
+
+  @@unique([rfqId, sellerOrgId])
+  @@index([sellerOrgId])
+  @@index([status])
+}
+
+/// Quote acceptance produces an immutable deal record + PDF trail (F4.6)
+model Deal {
+  id        String @id @default(cuid())
+  reference String @unique // DEAL-1188
+  rfqId     String @unique
+  rfq       Rfq    @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  quoteId   String @unique
+  quote     Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  /// Frozen snapshot of agreed terms at acceptance — never mutated afterwards.
+  totalValue Float
+  currency   String @default("USD")
+  termsJson  String
+
+  shipment Shipment?
+
+  createdAt DateTime @default(now())
+}
+
+// --------------------------------------------------------------------------
+// Post-deal fulfilment — order/shipment tracking (NO payments/escrow).
+// --------------------------------------------------------------------------
+
+model Shipment {
+  id     String @id @default(cuid())
+  dealId String @unique
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  /// pending → shipped → in_transit → delivered → confirmed (buyer confirms receipt)
+  status      String    @default("pending")
+  carrier     String?
+  trackingRef String?
+  eta         DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  confirmedAt DateTime? // buyer-confirmed receipt
+  note        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --------------------------------------------------------------------------
+// Structured negotiation — counter-offers on a quote (bilateral).
+// --------------------------------------------------------------------------
+
+model CounterOffer {
+  id      String @id @default(cuid())
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  /// The org that proposed this counter (buyer or seller). The other party responds.
+  byOrgId       String
+  proposedPrice Float
+  proposedQtyKg Int?
+  note          String?
+  status        String  @default("open") // open | accepted | declined | superseded
+
+  createdAt DateTime @default(now())
+
+  @@index([quoteId])
+}
+
+// --------------------------------------------------------------------------
+// Messaging (F5)
+// --------------------------------------------------------------------------
+
+model Message {
+  id     String       @id @default(cuid())
+  rfqId  String
+  rfq    Rfq          @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  orgId  String
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId String
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body   String
+
+  attachments Document[]
+
+  createdAt DateTime @default(now())
+
+  @@index([rfqId])
+}
+
+// --------------------------------------------------------------------------
+// Subscription billing
+//
+// The platform charges a SUBSCRIPTION only. It never holds, escrows or routes
+// buyer↔seller trade value, and takes no GMV commission — so it stays out of
+// PCI/KYC-AML scope. Invoices are issued here and settled OFF-PLATFORM (bank
+// transfer / external payment link); no card data is ever stored.
+// --------------------------------------------------------------------------
+
+/// status: "issued" | "paid" | "void"
+model Invoice {
+  id          String       @id @default(cuid())
+  number      String       @unique // INV-2026-0001
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  plan        String
+  periodStart DateTime
+  periodEnd   DateTime
+  amount      Float
+  currency    String       @default("USD")
+  taxRate     Float        @default(0) // e.g. 18 for GST
+  status      String       @default("issued")
+  issuedAt    DateTime     @default(now())
+  paidAt      DateTime?
+
+  @@index([orgId])
+  @@index([status])
+}
+
+// --------------------------------------------------------------------------
+// Open API & webhooks — the integration surface other platforms plug into.
+//
+// A partner (e.g. a supply-chain / ERP / procurement tool) is issued an API key
+// scoped to an organization, calls the read API under /api/v1, and/or registers
+// webhooks to receive domain events (rfq.posted, quote.received, org.verified…)
+// in near-real-time. This is the outward-facing half of the event catalogue in
+// ARCHITECTURE.md §5.
+// --------------------------------------------------------------------------
+
+/// An API credential. The raw key is shown ONCE at creation; only its SHA-256
+/// hash is stored, so a database leak never yields a working key.
+model ApiKey {
+  id        String        @id @default(cuid())
+  orgId     String?
+  org       Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  /// Short non-secret prefix shown in the UI so a key is identifiable ("pk_live_A1B2…").
+  prefix    String
+  /// SHA-256 of the full key. Never the key itself.
+  hashedKey String        @unique
+  /// Space-separated scopes, e.g. "catalog:read rfq:read".
+  scopes    String        @default("catalog:read")
+  active    Boolean       @default(true)
+
+  createdById String?
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+
+  @@index([orgId])
+  @@index([prefix])
+}
+
+/// A subscriber endpoint. On each matching event we POST the payload with an
+/// HMAC-SHA256 signature so the receiver can verify it came from us.
+model Webhook {
+  id     String        @id @default(cuid())
+  orgId  String?
+  org    Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  url    String
+  /// Signing secret (HMAC). Shown once, then only used server-side.
+  secret String
+  /// Comma-separated event names, or "*" for all.
+  events String        @default("*")
+  active Boolean       @default(true)
+
+  createdAt   DateTime  @default(now())
+  lastEventAt DateTime?
+  failCount   Int       @default(0)
+
+  deliveries WebhookDelivery[]
+
+  @@index([orgId])
+}
+
+/// One delivery attempt — an audit trail for partners debugging their endpoint.
+model WebhookDelivery {
+  id         String  @id @default(cuid())
+  webhookId  String
+  webhook    Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event      String
+  status     String  @default("pending") // "delivered" | "failed"
+  statusCode Int?
+  error      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([webhookId])
+}
+
+// --------------------------------------------------------------------------
+// Editorial news / announcements for the public homepage.
+//
+// Deliberately AUTHORED by ops, not scraped or invented: publishing unverified
+// regulatory claims about named manufacturers would be defamatory and would
+// destroy the trust the whole marketplace rests on. Automated ingestion of FDA
+// warning letters / EudraGMDP status / recalls is R17 (Phase 3) and requires a
+// licensed source.
+// --------------------------------------------------------------------------
+
+/// category: "platform" | "regulatory" | "market"
+/// status: "draft" | "published"
+model NewsPost {
+  id        String  @id @default(cuid())
+  /// Posts are written per-locale rather than machine-translated — regulatory
+  /// wording must not be paraphrased by a translation engine.
+  locale    String  @default("en")
+  title     String
+  summary   String
+  body      String?
+  category  String  @default("platform")
+  /// Link to the primary source (e.g. the FDA notice itself) so a reader can
+  /// verify the claim rather than trust our summary.
+  sourceUrl String?
+  status    String  @default("draft")
+
+  publishedAt DateTime?
+  authorId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([locale])
+}
+
+// --------------------------------------------------------------------------
+// Data-subject rights — GDPR Art. 15 (access/portability) & Art. 17 (erasure),
+// India DPDP. Requests are recorded so the statutory clock is auditable.
+// ARCHITECTURE.md §8.1 / §8.3 item 11.
+// --------------------------------------------------------------------------
+
+/// kind: "export" | "erasure"
+/// status: "requested" | "in_progress" | "completed" | "rejected"
+model DsarRequest {
+  id          String  @id @default(cuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind        String
+  status      String  @default("requested")
+  /// Storage key of the generated export bundle (export requests only).
+  downloadKey String?
+  /// Set when erasure completes — the record itself is retained (pseudonymised)
+  /// to evidence that the request was honoured.
+  handledById String?
+  note        String?
+
+  requestedAt DateTime  @default(now())
+  /// Statutory deadline; ops dashboards alert as this approaches.
+  dueAt       DateTime?
+  completedAt DateTime?
+
+  @@index([userId])
+  @@index([status])
+  @@index([dueAt])
+}
+
+// --------------------------------------------------------------------------
+// CMS content — ops-curated homepage content. Either authored in the CMS
+// (kind="article") or a crawled external link (kind="link").
+// --------------------------------------------------------------------------
+
+model ContentItem {
+  id     String @id @default(cuid())
+  kind   String @default("article") // "article" | "link"
+  locale String @default("en")
+
+  title      String
+  summary    String?
+  body       String? // article prose (sanitized on save)
+  imageUrl   String? // OG image (link) or supplied image (article)
+  sourceUrl  String? // external target for kind="link" (or citation)
+  sourceName String? // publisher / site name
+
+  /// Canonical URL of a crawled link — unique so the same source can't be
+  /// added twice. Null for authored articles (SQLite/Postgres allow many nulls).
+  canonicalUrl String? @unique
+
+  category String  @default("news") // news | insight | resource | announcement | event
+  tags     String? // comma-separated
+  status   String  @default("draft") // draft | published | archived
+
+  /// Homepage curation: featured items surface in the "Spotlight" section,
+  /// ordered by sortOrder (ascending).
+  featured  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  publishedAt DateTime?
+  fetchedAt   DateTime? // when the link was last crawled
+  authorId    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, featured, sortOrder])
+  @@index([locale, status, publishedAt])
+}
+
+// --------------------------------------------------------------------------
+// Audit (F0.7 / SOX-style trail, ARCHITECTURE.md §8.3 item 6)
+// --------------------------------------------------------------------------
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  actorId  String?
+  actor    User?   @relation(fields: [actorId], references: [id])
+  action   String // "seller.verified" | "quote.accepted" | ...
+  entity   String
+  entityId String
+  reason   String?
+  meta     String? // JSON
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+// --------------------------------------------------------------------------
+// Market data & price prediction
+//
+// Design note: these models are deliberately keyed on the CAS number as a plain
+// string rather than by FK to Product. A market price for Paracetamol exists
+// whether or not anyone on this platform lists it, and most rows come from
+// public sources (customs unit values, tender awards) that know a molecule but
+// know nothing about our catalog.
+// --------------------------------------------------------------------------
+
+/// One observed price point for a molecule, normalised to USD per kilogram.
+/// Rows come from platform activity (quotes/deals) AND external public sources.
+model PriceObservation {
+  id          String   @id @default(cuid())
+  cas         String
+  productName String
+  observedAt  DateTime
+
+  /// Normalised price — ALWAYS USD per kilogram, whatever the source quoted.
+  /// All maths uses this field and only this field.
+  unitPriceUsdKg Float
+  /// What the source actually published, kept for audit. Never used in maths.
+  rawPrice       Float
+  rawCurrency    String @default("USD")
+  rawUnit        String @default("kg")
+
+  /// Kilograms behind this observation — drives volume weighting. null = unknown.
+  quantityKg Float?
+  incoterm   String?
+  /// ISO-3166 alpha-2 of the observed market, or "WLD" for world aggregates.
+  region     String  @default("WLD")
+
+  /// internal_quote | internal_deal | customs | tender | listing
+  sourceType String
+  sourceName String
+  sourceUrl  String?
+  /// Upstream natural key — unique, so re-ingesting a source is idempotent.
+  sourceRef  String  @unique
+
+  /// 0..1 evidence weight. A signed deal is stronger evidence than a customs
+  /// aggregate covering a whole HS line; the model must not pretend otherwise.
+  weight     Float    @default(1)
+  ingestedAt DateTime @default(now())
+
+  @@index([cas, observedAt])
+  @@index([sourceType])
+}
+
+/// A macro driver series (FX, freight, input-cost index). NOT a price of the
+/// molecule — a candidate explanatory variable to correlate against one.
+model MarketSignal {
+  id          String   @id @default(cuid())
+  key         String // "fx.usdinr" | "trade.volume.294190" | ...
+  label       String
+  periodStart DateTime
+  value       Float
+  unit        String   @default("")
+  sourceName  String
+  sourceUrl   String?
+  ingestedAt  DateTime @default(now())
+
+  @@unique([key, periodStart])
+  @@index([key])
+}
+
+/// A supply-side disruption. Shortages, recalls and regulatory actions lead
+/// price moves, so they are captured as facts rather than left inside news text.
+model SupplyEvent {
+  id String @id @default(cuid())
+
+  cas        String?
+  /// Molecule/product name exactly as published upstream (CAS is often absent).
+  subject    String
+  company    String?
+  /// shortage | discontinuation | recall | import_alert | warning_letter
+  eventType  String
+  /// low | medium | high
+  severity   String   @default("medium")
+  occurredAt DateTime
+  detail     String?
+
+  sourceName String
+  sourceUrl  String?
+  sourceRef  String  @unique
+
+  ingestedAt DateTime @default(now())
+
+  @@index([cas, occurredAt])
+  @@index([eventType])
+}
+
+/// A forecast exactly as it was issued, kept immutably so the platform can show
+/// how its past predictions actually turned out. A forecast with no scoreboard
+/// is marketing, not analytics.
+model PriceForecast {
+  id           String   @id @default(cuid())
+  cas          String
+  /// First day of the month being predicted.
+  horizonMonth DateTime
+  issuedAt     DateTime @default(now())
+
+  /// naive | drift | holt — whichever won the rolling-origin backtest.
+  model String
+  p10   Float
+  p50   Float
+  p90   Float
+
+  /// Backtest error of the chosen model, in percent (MAPE).
+  mape         Float?
+  observations Int
+  /// insufficient | low | medium | high
+  confidence   String
+
+  @@unique([cas, horizonMonth, issuedAt])
+  @@index([cas])
+}
+
+/// One execution of one external connector. Ingestion that fails silently is
+/// worse than no ingestion, so every run is recorded whether it worked or not.
+model IngestRun {
+  id         String    @id @default(cuid())
+  source     String
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  /// running | ok | failed
+  status     String    @default("running")
+  fetched    Int       @default(0)
+  inserted   Int       @default(0)
+  skipped    Int       @default(0)
+  error      String?
+
+  @@index([source, startedAt])
+}

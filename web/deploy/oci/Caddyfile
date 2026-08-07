@@ -1,0 +1,32 @@
+# Caddy in front of the PharmaLink app container.
+#
+# SITE_ADDRESS drives everything:
+#   SITE_ADDRESS=:80                       -> plain HTTP, no certificate
+#   SITE_ADDRESS=pharmalink.duckdns.org    -> automatic HTTPS (Let's Encrypt)
+#   SITE_ADDRESS=app.yourdomain.com        -> automatic HTTPS (Let's Encrypt)
+#
+# With a real hostname Caddy solves the ACME HTTP-01 challenge on :80 and
+# redirects HTTP->HTTPS by itself. Nothing else to configure.
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# The app already sets CSP, HSTS, X-Frame-Options, etc. in next.config.ts,
+	# so this proxy deliberately adds no security headers of its own — two
+	# sources for one header is how you end up with a policy nobody can explain.
+	#
+	# reverse_proxy sets X-Forwarded-Proto/For/Host automatically, which is what
+	# Next.js and Auth.js need to build correct absolute URLs behind TLS.
+	reverse_proxy app:3000 {
+		# Document uploads can take a while on a slow connection.
+		transport http {
+			read_timeout 120s
+			write_timeout 120s
+		}
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

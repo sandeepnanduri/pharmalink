@@ -1,0 +1,16 @@
+
+# secrets — never commit env files
+.env
+.env.*
+# ...but the templates carry no secrets and must be committed. The glob covers
+# .env.example, .env.docker.example and deploy/oci/.env.oci.example alike.
+!.env*.example
+
+# local upload store (dev)
+.uploads/
+
+# local sqlite databases
+dev.db
+dev.db-journal
+test.db
+test.db-journal

@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# Test output
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
+# Secrets — never commit env files. The templates carry no secrets and must be
+# committed, so the negation below re-includes *.example only.
+.env
+.env.*
+!.env*.example
+
+# Local databases and uploads
+*.db
+*.db-journal
+.uploads/
+
+# Tooling / OS noise
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+*.log
+
+# Shipped container images (built locally and scp'd — see deploy/oci)
+*.tgz

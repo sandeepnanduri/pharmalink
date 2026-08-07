@@ -1,0 +1,76 @@
+# PharmaLink on OCI — prebuilt-image variant.
+#
+# Identical to docker-compose.oci.yml except it RUNS a preloaded image instead
+# of building one. Use this on the Always Free AMD micro shape: 1 GB of RAM
+# cannot compile Next.js, but it runs the result comfortably. Build on a machine
+# with headroom, then transfer:
+#
+#   docker build -t pharmalink:1 --build-arg NEXT_PUBLIC_SITE_URL=<public url> .
+#   docker save pharmalink:1 | gzip > pharmalink.tgz
+#   scp -i <key> pharmalink.tgz ubuntu@<ip>:~/
+#   ssh -i <key> ubuntu@<ip> "gunzip -c pharmalink.tgz | docker load"
+#
+# Then on the VM:
+#   cd ~/pharmalink/deploy/oci
+#   docker compose -f docker-compose.prebuilt.yml up -d
+#
+# NOTE: NEXT_PUBLIC_SITE_URL is compiled into the browser bundle, so changing
+# the public URL means rebuilding the image on the build machine — editing .env
+# here is not enough.
+
+name: pharmalink
+
+services:
+  app:
+    image: ${APP_IMAGE:-pharmalink:1}
+    environment:
+      AUTH_SECRET: '${AUTH_SECRET:?generate one with `openssl rand -base64 32` and set it in .env}'
+      AUTH_TRUST_HOST: 'true'
+      AUTH_URL: ${AUTH_URL:?set AUTH_URL in .env}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set NEXT_PUBLIC_SITE_URL in .env}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      BOXYHQ_SAML_ISSUER: ${BOXYHQ_SAML_ISSUER:-}
+      BOXYHQ_SAML_CLIENT_ID: ${BOXYHQ_SAML_CLIENT_ID:-}
+      BOXYHQ_SAML_CLIENT_SECRET: ${BOXYHQ_SAML_CLIENT_SECRET:-}
+    volumes:
+      - data:/data
+    expose:
+      - '3000'
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # Generous on a 1/8-OCPU burstable shape: first boot copies the template
+      # database onto the volume before the server starts listening.
+      start_period: 90s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      # ':80' = plain HTTP. Set a hostname here (and rebuild the app image with
+      # a matching https:// NEXT_PUBLIC_SITE_URL) to get automatic HTTPS.
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  data:
+  caddy_data:
+  caddy_config:

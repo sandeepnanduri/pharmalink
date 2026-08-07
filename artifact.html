@@ -1,0 +1,2066 @@
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --p:#4F46E5;--pl:#6366F1;--pale:#EEF2FF;--mid:#C7D2FE;--dh:#1E1B4B;
+  --acc:#06B6D4;--dk:#0F172A;--sl:#334155;--mu:#64748B;--bd:#E2E8F0;--of:#F8FAFC;
+  --gn:#16A34A;--gnl:#DCFCE7;--am:#D97706;--aml:#FEF3C7;--rd:#DC2626;--rdl:#FEE2E2;
+  --nav-w:236px;--radius:12px;
+}
+html{color-scheme:light}
+html,body{height:100%;font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--of);color:var(--dk);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4,.syne{font-family:'Syne',sans-serif}
+.mono{font-family:'DM Mono',monospace}
+a{color:inherit;text-decoration:none}
+button{font-family:'DM Sans',sans-serif;cursor:pointer}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
+
+/* ── SHELL ─────────────────────────────── */
+.shell{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.topbar{height:52px;background:linear-gradient(135deg,var(--dh),#2D2B55);display:flex;align-items:center;padding:0 18px;gap:14px;flex-shrink:0;z-index:100;border-bottom:1px solid rgba(255,255,255,.08)}
+.logo{display:flex;align-items:center;gap:9px;border-right:1px solid rgba(255,255,255,.12);padding-right:16px}
+.mark{width:30px;height:30px;background:linear-gradient(135deg,var(--p),var(--acc));border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Syne';font-weight:800;font-size:13px;color:#fff}
+.brand{font-family:'Syne';font-weight:700;font-size:15px;color:#fff}.brand span{color:var(--acc)}
+.pill{font-size:9px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(6,182,212,.18);border:1px solid rgba(6,182,212,.35);color:#67E8F9;letter-spacing:.5px}
+.screen-crumb{font-size:12px;color:rgba(255,255,255,.45);font-weight:500}
+.screen-crumb b{color:#fff;font-family:'Syne';font-weight:700;margin-left:2px}
+.roles{margin-left:auto;display:flex;gap:5px;background:rgba(0,0,0,.2);padding:4px;border-radius:10px}
+.role-btn{padding:6px 13px;border-radius:7px;font-size:12px;font-weight:600;border:none;background:transparent;color:rgba(255,255,255,.6);transition:.15s}
+.role-btn:hover{color:#fff}
+.role-btn.active{background:var(--p);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,.5)}
+.topbar-user{display:flex;align-items:center;gap:8px;padding-left:6px}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#818CF8,#22D3EE);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700}
+
+.body-area{display:flex;flex:1;overflow:hidden}
+.sidenav{width:var(--nav-w);flex-shrink:0;background:#fff;border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow-y:auto;padding:14px 10px}
+.nav-role-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--mu);padding:6px 10px 10px}
+.nav-group-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:#94A3B8;padding:14px 10px 6px}
+.nav-btn{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:10px;border:none;background:transparent;width:100%;text-align:left;color:var(--sl);font-size:13px;font-weight:500;transition:.12s;margin-bottom:1px}
+.nav-btn:hover{background:var(--of)}
+.nav-btn.active{background:var(--pale);color:var(--p);font-weight:600}
+.nav-btn .ic{font-size:16px;width:20px;text-align:center}
+.nav-btn .badge-n{margin-left:auto;background:var(--rd);color:#fff;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.nav-cta{margin:14px 10px 4px;padding:11px;border-radius:10px;background:linear-gradient(135deg,var(--p),var(--pl));color:#fff;border:none;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 4px 14px rgba(79,70,229,.3)}
+.nav-note{margin:auto 10px 4px;font-size:10.5px;color:var(--mu);background:var(--of);border:1px solid var(--bd);border-radius:9px;padding:9px 11px;line-height:1.5}
+
+.main{flex:1;overflow-y:auto;background:var(--of)}
+.page{max-width:1180px;margin:0 auto;padding:28px 32px 60px}
+
+/* ── COMPONENTS ─────────────────────────── */
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.page-title{font-size:24px;font-weight:800;letter-spacing:-.5px}
+.page-sub{font-size:13.5px;color:var(--mu);margin-top:4px;max-width:640px;line-height:1.5}
+.btn{padding:10px 18px;border-radius:9px;font-size:13px;font-weight:600;border:1px solid transparent;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+.btn-primary{background:var(--p);color:#fff}.btn-primary:hover{background:#4338CA;transform:translateY(-1px);box-shadow:0 4px 14px rgba(79,70,229,.35)}
+.btn-ghost{background:#fff;color:var(--sl);border-color:var(--bd)}.btn-ghost:hover{border-color:var(--mid);background:var(--pale)}
+.btn-accent{background:var(--acc);color:#fff}.btn-accent:hover{background:#0891B2}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:8px}
+.card{background:#fff;border:1px solid var(--bd);border-radius:var(--radius);padding:20px}
+.card-pad0{background:#fff;border:1px solid var(--bd);border-radius:var(--radius);overflow:hidden}
+.grid{display:grid;gap:16px}
+
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.b-verified{background:var(--gnl);color:#15803D}
+.b-pending{background:var(--aml);color:#B45309}
+.b-rejected{background:var(--rdl);color:#B91C1C}
+.b-info{background:var(--pale);color:var(--p)}
+.b-neutral{background:#F1F5F9;color:var(--sl)}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:8px;background:var(--of);border:1px solid var(--bd);color:var(--sl)}
+.chip .exp{color:var(--mu);font-weight:500;font-size:10.5px}
+
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:22px}
+.kpi{background:#fff;border:1px solid var(--bd);border-radius:var(--radius);padding:16px 18px}
+.kpi .lbl{font-size:11.5px;font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px}
+.kpi .val{font-size:28px;font-weight:800;margin-top:6px;font-family:'Syne'}
+.kpi .delta{font-size:11.5px;font-weight:600;margin-top:4px;display:flex;align-items:center;gap:4px}
+.up{color:var(--gn)}.down{color:var(--rd)}
+
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);padding:12px 16px;border-bottom:1px solid var(--bd);background:var(--of)}
+.tbl td{padding:13px 16px;border-bottom:1px solid #F1F5F9;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr.click:hover{background:var(--pale);cursor:pointer}
+.tbl .sub{font-size:11.5px;color:var(--mu)}
+
+.section-title{font-size:15px;font-weight:700;font-family:'Syne';margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.link{color:var(--p);font-weight:600;font-size:13px}.link:hover{text-decoration:underline}
+.divide{height:1px;background:var(--bd);margin:18px 0}
+
+/* stepper */
+.stepper{display:flex;align-items:center;margin-bottom:26px}
+.step{display:flex;align-items:center;gap:10px;flex:1}
+.step .num{width:30px;height:30px;border-radius:50%;background:#fff;border:2px solid var(--bd);color:var(--mu);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.step .stxt{font-size:12px;font-weight:600;color:var(--mu)}
+.step.done .num{background:var(--gn);border-color:var(--gn);color:#fff}
+.step.active .num{background:var(--p);border-color:var(--p);color:#fff;box-shadow:0 0 0 4px var(--pale)}
+.step.active .stxt{color:var(--p)}
+.step .line{flex:1;height:2px;background:var(--bd);margin:0 4px}
+.step.done .line{background:var(--gn)}
+
+/* form */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;color:var(--sl)}
+.field .hint{font-size:11px;color:var(--mu);font-weight:400;margin-left:4px}
+.input,.select,textarea.input{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:9px;font-size:13px;font-family:'DM Sans';background:#fff;color:var(--dk)}
+.input:focus{outline:none;border-color:var(--p);box-shadow:0 0 0 3px var(--pale)}
+.form-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.dropzone{border:2px dashed var(--mid);border-radius:11px;padding:22px;text-align:center;color:var(--mu);font-size:13px;background:var(--pale)}
+.wizard-actions{display:flex;justify-content:space-between;margin-top:24px;padding-top:20px;border-top:1px solid var(--bd)}
+
+/* filter sidebar (catalog) */
+.catalog{display:grid;grid-template-columns:250px 1fr;gap:22px;align-items:start}
+.filters{background:#fff;border:1px solid var(--bd);border-radius:var(--radius);padding:18px;position:sticky;top:0}
+.filter-group{padding:12px 0;border-bottom:1px solid #F1F5F9}
+.filter-group:last-child{border-bottom:none}
+.filter-group h5{font-size:12px;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--sl)}
+.check{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--sl);padding:4px 0;cursor:pointer}
+.check input{accent-color:var(--p);width:15px;height:15px}
+.result-card{background:#fff;border:1px solid var(--bd);border-radius:var(--radius);padding:16px;display:flex;gap:14px;transition:.15s;cursor:pointer}
+.result-card:hover{border-color:var(--mid);box-shadow:0 6px 20px rgba(15,23,42,.06);transform:translateY(-1px)}
+.sup-logo{width:52px;height:52px;border-radius:11px;background:linear-gradient(135deg,var(--pale),var(--mid));display:flex;align-items:center;justify-content:center;font-family:'Syne';font-weight:800;color:var(--p);font-size:18px;flex-shrink:0}
+
+.searchbar{display:flex;gap:10px;margin-bottom:20px}
+.searchbar .input{flex:1}
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.count{font-size:13px;color:var(--mu)}.count b{color:var(--dk)}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--bd);margin-bottom:20px}
+.tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--mu);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:var(--p);border-bottom-color:var(--p)}
+.tab:hover:not(.active){color:var(--sl)}
+
+/* hero */
+.hero{background:linear-gradient(135deg,var(--dh),#312E81 60%,#1E3A8A);border-radius:18px;padding:44px 40px;color:#fff;position:relative;overflow:hidden;margin-bottom:26px}
+.hero::after{content:'';position:absolute;right:-60px;top:-60px;width:300px;height:300px;background:radial-gradient(circle,rgba(6,182,212,.25),transparent 70%)}
+.hero h1{font-size:34px;font-weight:800;letter-spacing:-1px;max-width:640px;line-height:1.15}
+.hero p{font-size:15px;color:rgba(255,255,255,.8);max-width:560px;margin-top:14px;line-height:1.6}
+.hero .cta-row{display:flex;gap:12px;margin-top:24px}
+.hero-search{margin-top:26px;background:#fff;border-radius:12px;padding:6px;display:flex;gap:6px;max-width:600px}
+.hero-search input{flex:1;border:none;padding:12px 14px;font-size:14px;font-family:'DM Sans';border-radius:8px}
+.hero-search input:focus{outline:none}
+.cat-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.cat-tile{background:#fff;border:1px solid var(--bd);border-radius:var(--radius);padding:18px;transition:.15s;cursor:pointer}
+.cat-tile:hover{border-color:var(--p);transform:translateY(-2px);box-shadow:0 8px 24px rgba(15,23,42,.07)}
+.cat-tile .ci{font-size:26px}
+.cat-tile h4{font-size:15px;margin-top:10px}
+.cat-tile .c{font-size:12px;color:var(--mu);margin-top:3px}
+.steps-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.hstep{text-align:center;padding:8px}
+.hstep .hn{width:44px;height:44px;border-radius:50%;background:var(--pale);color:var(--p);font-family:'Syne';font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+
+.alert{display:flex;gap:12px;padding:14px 16px;border-radius:11px;font-size:13px;align-items:flex-start}
+.alert-info{background:var(--pale);color:#3730A3;border:1px solid var(--mid)}
+.alert-warn{background:var(--aml);color:#92400E;border:1px solid #FCD34D}
+.alert .ai{font-size:18px;line-height:1}
+
+.timeline{position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--bd)}
+.tl-item{position:relative;padding-bottom:18px}
+.tl-item::before{content:'';position:absolute;left:-24px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--mid)}
+.tl-item.done::before{background:var(--gn);border-color:var(--gn)}
+.tl-item.active::before{background:var(--p);border-color:var(--p);box-shadow:0 0 0 4px var(--pale)}
+.tl-item .tt{font-size:13px;font-weight:600}
+.tl-item .td{font-size:11.5px;color:var(--mu);margin-top:2px}
+
+/* thread */
+.msg{max-width:74%;padding:11px 14px;border-radius:12px;font-size:13px;line-height:1.5;margin-bottom:12px}
+.msg .who{font-size:11px;font-weight:700;margin-bottom:4px;opacity:.75}
+.msg.them{background:#fff;border:1px solid var(--bd);border-top-left-radius:3px}
+.msg.me{background:var(--p);color:#fff;margin-left:auto;border-top-right-radius:3px}
+.msg.me .who{color:rgba(255,255,255,.8)}
+
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;max-width:520px;width:100%;padding:26px;box-shadow:0 24px 60px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto}
+.modal h3{font-size:19px;font-weight:800}
+.modal .x{float:right;font-size:22px;color:var(--mu);background:none;border:none;line-height:1}
+
+.compare-tbl th:first-child,.compare-tbl td:first-child{position:sticky;left:0;background:var(--of);z-index:1;font-weight:600;color:var(--sl)}
+.best{background:var(--gnl)!important;position:relative}
+.best-tag{font-size:9px;font-weight:800;color:var(--gn);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px}
+
+.empty{text-align:center;padding:50px 20px;color:var(--mu)}
+.empty .ei{font-size:40px;margin-bottom:12px;opacity:.5}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,20px);background:var(--dk);color:#fff;padding:13px 20px;border-radius:11px;font-size:13px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:.25s;z-index:300;max-width:90vw}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* workflows */
+.wf-actor{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;white-space:nowrap}
+.wf-actor .d{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.wf-legend{display:flex;gap:8px;flex-wrap:wrap}
+.wf-flow{display:flex;flex-direction:column}
+.wf-step{display:flex;gap:14px;position:relative;padding-bottom:12px}
+.wf-step:not(:last-child)::before{content:'';position:absolute;left:19px;top:42px;bottom:0;width:2px;background:var(--bd)}
+.wf-num{width:40px;height:40px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-family:'Syne',sans-serif;font-size:15px;z-index:1}
+.wf-card{flex:1;background:#fff;border:1px solid var(--bd);border-left-width:3px;border-radius:11px;padding:11px 15px}
+.wf-card .wf-role{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px}
+.wf-card .wf-act{font-size:13.5px;font-weight:700;margin:2px 0 3px}
+.wf-card .wf-out{font-size:12px;color:var(--mu);line-height:1.5}
+.wf-outcome{display:flex;gap:12px;align-items:center;background:var(--gnl);border:1px solid #86EFAC;border-radius:12px;padding:14px 16px;margin-top:10px}
+
+/* architecture */
+.arch-layer{border:1px solid var(--bd);border-radius:12px;padding:13px 15px;background:#fff}
+.arch-lbl{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);margin-bottom:9px}
+.arch-boxes{display:flex;gap:9px;flex-wrap:wrap}
+.arch-box{flex:1;min-width:120px;background:var(--of);border:1px solid var(--bd);border-radius:9px;padding:10px 12px}
+.arch-box b{font-size:12.5px;display:block}
+.arch-box .s{font-size:10.5px;color:var(--mu);margin-top:2px;line-height:1.45}
+.arch-arrow{text-align:center;color:#94A3B8;font-size:13px;margin:4px 0;font-weight:700}
+.arch-bus{background:linear-gradient(135deg,#EDE9FE,#EEF2FF);border-color:var(--mid)}
+.arch-bus .arch-box{background:#fff;border-color:var(--mid)}
+
+/* cookie consent */
+#cookie{position:fixed;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;background:#fff;border:1px solid var(--bd);border-radius:14px;box-shadow:0 18px 44px rgba(15,23,42,.22);padding:16px 18px;z-index:250;display:none}
+#cookie.show{display:block}
+#cookie h4{font-size:14px;margin-bottom:5px}
+#cookie p{font-size:12px;color:var(--mu);line-height:1.55}
+#cookie .row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+
+.two-col{display:grid;grid-template-columns:1fr 320px;gap:22px;align-items:start}
+.mini-list{display:flex;flex-direction:column;gap:2px}
+.mini-item{display:flex;align-items:center;gap:11px;padding:10px;border-radius:9px}
+.mini-item:hover{background:var(--of)}
+.mini-item .mt{font-size:12.5px;font-weight:600}
+.mini-item .ms{font-size:11px;color:var(--mu)}
+
+.progress{height:7px;background:#F1F5F9;border-radius:6px;overflow:hidden}
+.progress .bar{height:100%;background:linear-gradient(90deg,var(--p),var(--acc));border-radius:6px}
+
+@media(max-width:860px){
+  .catalog,.two-col{grid-template-columns:1fr}
+  .form-2{grid-template-columns:1fr}
+  .roles{display:none}
+}
+</style>
+
+
+<div class="shell">
+  <div class="topbar">
+    <div class="logo">
+      <div class="mark">PL</div>
+      <div class="brand">Pharma<span>Link</span></div>
+    </div>
+    <span class="pill">MVP MOCK · v0.1</span>
+    <span class="screen-crumb" id="crumb">Public site<b>Home</b></span>
+    <div class="roles" id="roleSwitch">
+      <button class="role-btn active" data-role="public">Public</button>
+      <button class="role-btn" data-role="buyer">Buyer</button>
+      <button class="role-btn" data-role="seller">Seller</button>
+      <button class="role-btn" data-role="admin">Ops / Admin</button>
+      <button class="role-btn" data-role="wf" style="color:#FBBF24">Workflows</button>
+      <button class="role-btn" data-role="arch" style="color:#5EEAD4">Architecture</button>
+      <button class="role-btn" data-role="roadmap" style="color:#67E8F9">Roadmap ›</button>
+    </div>
+    <div class="topbar-user">
+      <div class="avatar" id="avatar">RM</div>
+    </div>
+  </div>
+  <div class="body-area">
+    <nav class="sidenav" id="sidenav"></nav>
+    <main class="main" id="main"></main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modalBody"></div>
+</div>
+<div id="toast"></div>
+<div id="cookie">
+  <h4>🍪 Your privacy</h4>
+  <p>We use essential cookies to run PharmaLink and, with your consent, analytics to improve it. Auth tokens are stored in <b>HttpOnly, Secure</b> cookies — never readable by scripts. See <b>Architecture → Sessions &amp; JWT</b>.</p>
+  <div class="row">
+    <button class="btn btn-primary btn-sm" onclick="consent('all')">Accept all</button>
+    <button class="btn btn-ghost btn-sm" onclick="consent('essential')">Essential only</button>
+    <span class="link" style="font-size:12px" data-nav="arch/compliance">Privacy details</span>
+  </div>
+</div>
+
+<script>
+/* ============ MOCK DATA ============ */
+const SUPPLIERS = [
+  {id:'sun', name:'Sun Pharma API Division', country:'India', city:'Mumbai', logo:'SP', verified:true, vdate:'12 Jun 2026', products:127, sites:4, markets:['US','EU','WHO'], regScore:'AAA', certs:[['US FDA GMP','2027-04'],['EU GMP','2026-11'],['WHO PQ','2028-01'],['ISO 9001','2027-09']], years:28},
+  {id:'divis', name:"Divi's Laboratories", country:'India', city:'Hyderabad', logo:'DL', verified:true, vdate:'09 Jun 2026', products:98, sites:3, markets:['US','EU','JP'], regScore:'AAA', certs:[['US FDA GMP','2027-02'],['EU GMP','2027-06'],['PMDA','2026-12']], years:34},
+  {id:'auro', name:'Aurobindo Pharma', country:'India', city:'Hyderabad', logo:'AP', verified:true, vdate:'14 Jun 2026', products:143, sites:5, markets:['US','EU','WHO'], regScore:'AA', certs:[['US FDA GMP','2027-08'],['EU GMP','2026-10'],['CDSCO','2028-03']], years:38},
+  {id:'hetero', name:'Hetero Drugs', country:'India', city:'Hyderabad', logo:'HD', verified:true, vdate:'11 Jun 2026', products:112, sites:4, markets:['WHO','EU','Africa'], regScore:'AA', certs:[['EU GMP','2027-01'],['WHO PQ','2027-05'],['CDSCO','2028-01']], years:32},
+  {id:'cadila', name:'Zydus Lifesciences', country:'India', city:'Ahmedabad', logo:'ZL', verified:false, vdate:null, products:0, sites:2, markets:['India','WHO'], regScore:'—', certs:[['US FDA GMP','pending'],['CDSCO','2027-11']], years:29},
+];
+const PRODUCTS = [
+  {id:'para', name:'Paracetamol (Acetaminophen)', cas:'103-90-2', cat:'API', grade:'IP / BP / USP', purity:'99.8%', supId:'sun', moq:'25 kg', lead:'2–3 wks', price:'$4.20–5.10/kg'},
+  {id:'metf', name:'Metformin HCl', cas:'1115-70-4', cat:'API', grade:'IP / USP', purity:'99.5%', supId:'divis', moq:'100 kg', lead:'3–4 wks', price:'$3.80–4.60/kg'},
+  {id:'ator', name:'Atorvastatin Calcium', cas:'134523-03-8', cat:'API', grade:'USP / EP', purity:'99.2%', supId:'auro', moq:'5 kg', lead:'4–5 wks', price:'$310–420/kg'},
+  {id:'amox', name:'Amoxicillin Trihydrate', cas:'61336-70-7', cat:'API', grade:'IP / BP', purity:'99.0%', supId:'hetero', moq:'50 kg', lead:'3 wks', price:'$28–34/kg'},
+  {id:'ibup', name:'Ibuprofen', cas:'15687-27-1', cat:'API', grade:'BP / USP', purity:'99.7%', supId:'sun', moq:'25 kg', lead:'2 wks', price:'$6.10–7.40/kg'},
+  {id:'panto', name:'Pantoprazole Sodium', cas:'138786-67-1', cat:'API', grade:'EP', purity:'99.4%', supId:'divis', moq:'10 kg', lead:'4 wks', price:'$180–240/kg'},
+  {id:'mcc', name:'Microcrystalline Cellulose', cas:'9004-34-6', cat:'Excipient', grade:'NF / EP', purity:'—', supId:'auro', moq:'500 kg', lead:'2 wks', price:'$2.10–2.80/kg'},
+  {id:'lact', name:'Lactose Monohydrate', cas:'64044-51-5', cat:'Excipient', grade:'NF / EP', purity:'—', supId:'hetero', moq:'1000 kg', lead:'2 wks', price:'$1.40–1.90/kg'},
+];
+const RFQS = [
+  {id:'RFQ-2041', product:'Paracetamol (Acetaminophen)', cas:'103-90-2', qty:'2,000 kg', status:'Quoted', quotes:5, posted:'2 days ago', due:'22 Jul 2026', grade:'USP', certs:['US FDA GMP','WHO PQ']},
+  {id:'RFQ-2038', product:'Atorvastatin Calcium', cas:'134523-03-8', qty:'50 kg', status:'Open', quotes:2, posted:'5 hrs ago', due:'25 Jul 2026', grade:'EP', certs:['EU GMP']},
+  {id:'RFQ-2035', product:'Metformin HCl', cas:'1115-70-4', qty:'5,000 kg', status:'Accepted', quotes:7, posted:'6 days ago', due:'18 Jul 2026', grade:'IP', certs:['CDSCO']},
+  {id:'RFQ-2030', product:'Amoxicillin Trihydrate', cas:'61336-70-7', qty:'500 kg', status:'Expired', quotes:1, posted:'14 days ago', due:'10 Jul 2026', grade:'BP', certs:['WHO PQ']},
+];
+const QUOTES = [
+  {sup:'Sun Pharma API Division', supId:'sun', price:'$4.35/kg', total:'$8,700', lead:'2 wks', moq:'25 kg', incoterm:'FOB Mumbai', pay:'30% adv, 70% BL', valid:'20 Jul', certs:['US FDA GMP','WHO PQ','ISO 9001'], best:true},
+  {sup:"Divi's Laboratories", supId:'divis', price:'$4.62/kg', total:'$9,240', lead:'3 wks', moq:'50 kg', incoterm:'CIF Rotterdam', pay:'LC at sight', valid:'24 Jul', certs:['US FDA GMP','WHO PQ']},
+  {sup:'Aurobindo Pharma', supId:'auro', price:'$4.48/kg', total:'$8,960', lead:'2–3 wks', moq:'25 kg', incoterm:'FOB Chennai', pay:'50% adv, 50% BL', valid:'21 Jul', certs:['US FDA GMP']},
+  {sup:'Hetero Drugs', supId:'hetero', price:'$4.90/kg', total:'$9,800', lead:'4 wks', moq:'100 kg', incoterm:'CIF Hamburg', pay:'LC 60 days', valid:'26 Jul', certs:['WHO PQ']},
+];
+const VERIF_QUEUE = [
+  {co:'Zydus Lifesciences', type:'Seller', doc:'US FDA GMP Certificate', sub:'2 hrs ago', sla:'46h left', status:'pending', cas:'—'},
+  {co:'Mangalam Drugs', type:'Seller', doc:'Drug Manufacturing Licence', sub:'5 hrs ago', sla:'43h left', status:'pending'},
+  {co:'Cipla Ltd (Procurement)', type:'Buyer KYB', doc:'Wholesale Drug Licence', sub:'1 hr ago', sla:'47h left', status:'pending'},
+  {co:'Neuland Labs', type:'Seller', doc:'EU GMP Certificate', sub:'1 day ago', sla:'24h left', status:'review'},
+  {co:'Laurus Labs', type:'Seller', doc:'WHO PQ + DMF', sub:'2 days ago', sla:'Done', status:'verified'},
+  {co:'Unknown Trader Co', type:'Buyer KYB', doc:'GST mismatch', sub:'3 days ago', sla:'—', status:'rejected'},
+];
+
+/* ============ HELPERS ============ */
+const sup = id => SUPPLIERS.find(s=>s.id===id) || SUPPLIERS[0];
+const el = h => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstChild; };
+function badge(type,txt){const m={verified:'b-verified',pending:'b-pending',rejected:'b-rejected',info:'b-info',neutral:'b-neutral'};return `<span class="badge ${m[type]||'b-neutral'}">${txt}</span>`;}
+function statusBadge(s){const m={Quoted:['info','● Quoted'],Open:['pending','● Open'],Accepted:['verified','✓ Accepted'],Expired:['neutral','Expired'],Draft:['neutral','Draft'],Closed:['neutral','Closed']};const [t,l]=m[s]||['neutral',s];return badge(t,l);}
+function certChip(name,exp){const expd = exp==='pending'? '<span class="exp" style="color:var(--am)">pending</span>' : `<span class="exp">exp ${exp}</span>`;return `<span class="chip">🛡️ ${name} ${expd}</span>`;}
+function kpi(lbl,val,delta,dir){const d=delta?`<div class="delta ${dir}">${dir==='up'?'▲':dir==='down'?'▼':''} ${delta}</div>`:'';return `<div class="kpi"><div class="lbl">${lbl}</div><div class="val">${val}</div>${d}</div>`;}
+function pageHead(title,sub,actions=''){return `<div class="page-head"><div><div class="page-title">${title}</div>${sub?`<div class="page-sub">${sub}</div>`:''}</div><div style="display:flex;gap:10px">${actions}</div></div>`;}
+
+/* ============ NAV CONFIG ============ */
+const NAV = {
+  public:{tag:'Not signed in', user:['RM','Guest'], groups:[
+    {label:'Marketplace', items:[
+      ['public/home','🏠','Home'],
+      ['public/catalog','🔎','Browse marketplace'],
+      ['public/supplier','🏭','Supplier profile'],
+      ['public/product','💊','Product page'],
+    ]},
+    {label:'Get started', items:[
+      ['public/register','✳️','Create account'],
+    ]},
+  ], cta:['public/register','Sign up free'], note:'Public pages are SEO-indexable. Contact & quote actions require login (F1.6).'},
+
+  buyer:{tag:'Buyer · Cipla Procurement', user:['RM','Riya Mehta'], groups:[
+    {label:'Overview', items:[
+      ['buyer/dashboard','📊','Dashboard'],
+    ]},
+    {label:'Sourcing', items:[
+      ['buyer/rfq-new','➕','Post RFQ'],
+      ['buyer/rfqs','📋','My RFQs',3],
+      ['public/catalog','🔎','Browse suppliers'],
+    ]},
+    {label:'Comms', items:[
+      ['buyer/inbox','💬','Messages',2],
+    ]},
+    {label:'Account', items:[
+      ['buyer/onboarding','🧭','Onboarding (3 steps)'],
+    ]},
+  ], cta:['buyer/rfq-new','Post an RFQ'], note:'Trust in MVP = human-verified GMP certs + ops, not AI/blockchain.'},
+
+  seller:{tag:'Supplier · Sun Pharma', user:['SK','Suresh Kumar'], groups:[
+    {label:'Overview', items:[
+      ['seller/dashboard','📊','Dashboard'],
+    ]},
+    {label:'Catalog', items:[
+      ['seller/listings','💊','My products'],
+    ]},
+    {label:'Demand', items:[
+      ['seller/inquiries','📨','Inquiries & quotes',4],
+      ['seller/inbox','💬','Messages',1],
+    ]},
+    {label:'Account', items:[
+      ['seller/onboarding','🧭','Onboarding (4 steps)'],
+    ]},
+  ], cta:['seller/listings','Add a product'], note:'Only verified suppliers appear in search or receive RFQs (F2.5).'},
+
+  admin:{tag:'Operations console', user:['OP','Ops · Priya'], groups:[
+    {label:'Operations', items:[
+      ['admin/dashboard','📊','Ops dashboard'],
+      ['admin/verification','✅','Verification queue',4],
+      ['admin/moderation','🛡️','Listing moderation'],
+      ['admin/rfq-monitor','📡','RFQ monitor'],
+    ]},
+  ], cta:['admin/verification','Work the queue'], note:'The admin back office is missing from the v3 design — the MVP cannot run without it (F6).'},
+
+  roadmap:{tag:'Phase 2 preview · not in MVP', user:['PL','Preview mode'], groups:[
+    {label:'Deals & fulfilment (P2)', items:[
+      ['roadmap/samples','🧪','Sample management'],
+      ['roadmap/negotiation','🔄','Negotiation engine'],
+      ['roadmap/escrow','🔐','Escrow & orders'],
+      ['roadmap/orders','🚚','Order & shipment'],
+      ['roadmap/disputes','⚖️','Dispute resolution'],
+      ['roadmap/ratings','⭐','Ratings & reviews'],
+    ]},
+    {label:'Intelligence & accounts (P2)', items:[
+      ['roadmap/compliance','🛡️','Compliance hub'],
+      ['roadmap/pricing','📈','Price intelligence'],
+      ['roadmap/team','👥','Team & approvals'],
+      ['roadmap/billing','💳','Billing & plans'],
+    ]},
+  ], cta:['public/home','← Back to MVP'], note:'Phase-2 mockups (months 2–4) — the Must-Have roadmap from BACKLOG.md Part B, R1–R10. NOT built in the 6-week MVP.'},
+
+  wf:{tag:'Product workflows', user:['WF','Team view'], groups:[
+    {label:'Start here', items:[
+      ['wf/overview','🗺️','All workflows'],
+    ]},
+    {label:'MVP flows', items:[
+      ['wf/seller-onboarding','🏭','Supplier onboarding'],
+      ['wf/buyer-onboarding','🛒','Buyer onboarding'],
+      ['wf/listing','💊','List a product'],
+      ['wf/discovery','🔎','Discover & shortlist'],
+      ['wf/rfq','🔁','RFQ → Quote → Deal'],
+      ['wf/verification','✅','Ops verification'],
+      ['wf/rfq-monitor','📡','RFQ monitoring'],
+    ]},
+    {label:'Phase-2 flows', items:[
+      ['wf/sample','🧪','Sample evaluation'],
+      ['wf/escrow','🔐','Escrow & fulfilment'],
+      ['wf/dispute','⚖️','Dispute resolution'],
+      ['wf/reviews','⭐','Ratings & reviews'],
+      ['wf/team-approval','👥','Team approvals'],
+      ['wf/billing','💳','Billing & fees'],
+    ]},
+  ], cta:['wf/overview','View the map'], note:'Reference view for your team — actors, steps and the outcome of every product flow. Share this tab to explain how PharmaLink is used.'},
+
+  arch:{tag:'Implementation architecture', user:['AR','Architecture'], groups:[
+    {label:'Design', items:[
+      ['arch/overview','🏛️','System overview'],
+      ['arch/events','📨','Event-driven & MQ'],
+      ['arch/security','🔐','Sessions & JWT'],
+      ['arch/compliance','🛡️','Compliance controls'],
+      ['arch/stack','🧱','Stack & deploy'],
+    ]},
+  ], cta:['arch/overview','View overview'], note:'How it gets built — event-driven, RabbitMQ backbone, JWT + secure cookies, compliance changes. Full detail in ARCHITECTURE.md.'},
+};
+
+/* ============ SCREENS ============ */
+const S = {};
+
+/* ---- PUBLIC ---- */
+S['public/home'] = () => `
+<div class="page">
+  <div class="hero">
+    <h1>The global B2B marketplace for GMP-verified pharma ingredients.</h1>
+    <p>Source APIs, intermediates, KSMs and excipients from human-verified suppliers. Post an RFQ, compare quotes side-by-side, and close deals with a documented trail — in days, not weeks.</p>
+    <div class="hero-search">
+      <input placeholder="Search by product name or CAS number  ·  e.g. Paracetamol, 103-90-2">
+      <button class="btn btn-primary" data-nav="public/catalog">Search</button>
+    </div>
+    <div class="cta-row">
+      <button class="btn btn-accent" data-nav="public/register">Get started free</button>
+      <button class="btn btn-ghost" style="background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.25)" data-nav="public/catalog">Browse suppliers</button>
+    </div>
+  </div>
+
+  <div class="section-title">Browse by category</div>
+  <div class="cat-tiles" style="margin-bottom:30px">
+    <div class="cat-tile" data-nav="public/catalog"><div class="ci">💊</div><h4>APIs</h4><div class="c">Active Pharmaceutical Ingredients</div></div>
+    <div class="cat-tile" data-nav="public/catalog"><div class="ci">⚗️</div><h4>Intermediates</h4><div class="c">Synthesis intermediates</div></div>
+    <div class="cat-tile" data-nav="public/catalog"><div class="ci">🧪</div><h4>KSMs</h4><div class="c">Key Starting Materials</div></div>
+    <div class="cat-tile" data-nav="public/catalog"><div class="ci">🧫</div><h4>Excipients</h4><div class="c">Binders, fillers, coatings</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:30px">
+    <div class="section-title">How it works</div>
+    <div class="steps-row">
+      <div class="hstep"><div class="hn">1</div><b style="font-size:13px">Register & verify</b><p class="page-sub" style="font-size:12px">Upload GMP certs — ops verifies in ≤48h.</p></div>
+      <div class="hstep"><div class="hn">2</div><b style="font-size:13px">List or discover</b><p class="page-sub" style="font-size:12px">Sellers list products; buyers search & filter.</p></div>
+      <div class="hstep"><div class="hn">3</div><b style="font-size:13px">Post an RFQ</b><p class="page-sub" style="font-size:12px">Matched to verified suppliers holding your certs.</p></div>
+      <div class="hstep"><div class="hn">4</div><b style="font-size:13px">Compare quotes</b><p class="page-sub" style="font-size:12px">Side-by-side, export to PDF.</p></div>
+      <div class="hstep"><div class="hn">5</div><b style="font-size:13px">Accept & close</b><p class="page-sub" style="font-size:12px">Deal record + PDF trail; ops white-glove.</p></div>
+    </div>
+  </div>
+
+  <div class="section-title">Featured verified suppliers</div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+    ${SUPPLIERS.filter(s=>s.verified).slice(0,4).map(s=>`
+      <div class="result-card" data-nav="public/supplier">
+        <div class="sup-logo">${s.logo}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+            <b style="font-size:14px">${s.name}</b> ${badge('verified','✓ Verified')}
+          </div>
+          <div class="sub" style="font-size:12px;color:var(--mu);margin:3px 0 8px">${s.city}, ${s.country} · ${s.products} products</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">${s.certs.slice(0,2).map(c=>`<span class="chip" style="font-size:10.5px;padding:3px 7px">${c[0]}</span>`).join('')}</div>
+        </div>
+      </div>`).join('')}
+  </div>
+</div>`;
+
+const CAT_LABELS = [['APIs','API'],['Intermediates','Intermediate'],['KSMs','KSM'],['Excipients','Excipient']];
+const CERT_LABELS = ['US FDA GMP','EU GMP','WHO PQ','CDSCO'];
+const COUNTRY_LABELS = ['India','China','Italy','USA'];
+const MOQ_OPTS = [['Any',1e9],['≤ 25 kg',25],['≤ 100 kg',100],['≤ 500 kg',500]];
+const moqNum = str => parseInt(String(str).replace(/[,]/g,''),10) || 0;
+
+function catalogCard(p){ const s=sup(p.supId); return `
+  <div class="result-card" data-nav="public/product">
+    <div class="sup-logo" style="background:linear-gradient(135deg,#E0F2FE,#BAE6FD);color:#0369A1">${p.cat==='Excipient'?'🧫':'💊'}</div>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:15px">${p.name}</b> ${badge('neutral',p.cat)}</div>
+      <div class="sub" style="margin:4px 0 8px">CAS ${p.cas} · Grade ${p.grade} · Purity ${p.purity} · MOQ ${p.moq}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:12.5px;color:var(--mu)">by</span><b style="font-size:13px">${s.name}</b>
+        ${s.verified?badge('verified','✓ Verified'):badge('pending','Pending')}
+        <span style="font-size:12px;color:var(--mu)">· ${s.city}, ${s.country}</span>
+      </div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div class="mono" style="font-size:13px;font-weight:700;color:var(--p)">${p.price}</div>
+      <div class="sub">Lead ${p.lead}</div>
+      <button class="btn btn-primary btn-sm" style="margin-top:10px" data-nav="public/register" onclick="event.stopPropagation()">Request quote</button>
+    </div>
+  </div>`; }
+
+function filterProducts(){
+  const q = (document.getElementById('catSearch')?.value || '').trim().toLowerCase();
+  const cats = [...document.querySelectorAll('[data-cat]:checked')].map(c=>c.dataset.cat);
+  const certs = [...document.querySelectorAll('[data-cert]:checked')].map(c=>c.dataset.cert);
+  const countries = [...document.querySelectorAll('[data-country]:checked')].map(c=>c.dataset.country);
+  const moqCap = moqNum(document.querySelector('[data-moq]:checked')?.dataset.moq || '1000000000');
+  return PRODUCTS.filter(p=>{
+    const s = sup(p.supId);
+    if(q && !(p.name.toLowerCase().includes(q) || p.cas.includes(q))) return false;
+    if(cats.length && !cats.includes(p.cat)) return false;
+    if(certs.length && !certs.every(c=> s.certs.some(sc=>sc[0]===c))) return false; // must hold ALL selected certs
+    if(countries.length && !countries.includes(s.country)) return false;
+    if(moqNum(p.moq) > moqCap) return false;
+    return true;
+  });
+}
+function applyCatalogFilters(){
+  const list = filterProducts();
+  const res = document.getElementById('catResults');
+  const cnt = document.getElementById('catCount');
+  if(!res) return;
+  res.innerHTML = list.length ? list.map(catalogCard).join('') : `<div class="empty"><div class="ei">🔍</div>No products match these filters.<br><span class="sub">Try removing a certification requirement or broadening the category.</span></div>`;
+  if(cnt) cnt.innerHTML = `<b>${list.length}</b> product${list.length===1?'':'s'} from <b>${new Set(list.map(p=>p.supId)).size}</b> verified supplier${new Set(list.map(p=>p.supId)).size===1?'':'s'}`;
+}
+
+S['public/catalog'] = () => `
+<div class="page">
+  ${pageHead('Marketplace', 'Search v1 — keyword (name / CAS) + filters. Sorted by verification level, then recency. No AI ranking in MVP. <b>Filters are live</b> — try them.')}
+  <div class="searchbar">
+    <input id="catSearch" class="input" placeholder="🔎  Search product name or CAS number…" value="">
+    <button class="btn btn-primary" onclick="applyCatalogFilters()">Search</button>
+  </div>
+  <div class="catalog">
+    <aside class="filters">
+      <div class="filter-group">
+        <h5>Category</h5>
+        ${CAT_LABELS.map(([lbl,val],i)=>`<label class="check"><input type="checkbox" data-cat="${val}" ${i===0||i===3?'checked':''}>${lbl}</label>`).join('')}
+      </div>
+      <div class="filter-group">
+        <h5>Certification <span class="sub" style="font-weight:400;text-transform:none">held by supplier</span></h5>
+        ${CERT_LABELS.map(c=>`<label class="check"><input type="checkbox" data-cert="${c}">${c}</label>`).join('')}
+      </div>
+      <div class="filter-group">
+        <h5>Supplier country</h5>
+        ${COUNTRY_LABELS.map((c,i)=>`<label class="check"><input type="checkbox" data-country="${c}" ${i===0?'checked':''}>${c}</label>`).join('')}
+      </div>
+      <div class="filter-group">
+        <h5>Max MOQ</h5>
+        ${MOQ_OPTS.map(([lbl,val],i)=>`<label class="check"><input type="radio" name="moq" data-moq="${val}" ${i===0?'checked':''} style="accent-color:var(--p)">${lbl}</label>`).join('')}
+      </div>
+    </aside>
+    <div>
+      <div class="toolbar">
+        <div class="count" id="catCount"><b>${PRODUCTS.length}</b> products from <b>${SUPPLIERS.filter(s=>s.verified).length}</b> verified suppliers</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="count">Sort:</span>
+          <select class="select" style="width:auto"><option>Verification level</option><option>Recently listed</option><option>MOQ (low→high)</option></select>
+        </div>
+      </div>
+      <div class="grid" style="grid-template-columns:1fr" id="catResults"></div>
+    </div>
+  </div>
+</div>`;
+
+S['public/product'] = () => { const p=PRODUCTS[0]; const s=sup(p.supId); return `
+<div class="page">
+  <div style="font-size:12px;color:var(--mu);margin-bottom:14px"><span class="link" data-nav="public/catalog">Marketplace</span> › APIs › ${p.name}</div>
+  <div class="two-col">
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="font-size:22px">${p.name}</h2>${badge('neutral',p.cat)}</div>
+            <div class="mono" style="color:var(--mu);margin-top:6px">CAS ${p.cas}</div>
+          </div>
+          <div class="mono" style="font-size:17px;font-weight:700;color:var(--p)">${p.price}</div>
+        </div>
+        <div class="divide"></div>
+        <div class="grid" style="grid-template-columns:1fr 1fr 1fr">
+          ${[['Pharmacopeia grade',p.grade],['Purity',p.purity],['MOQ',p.moq],['Lead time',p.lead],['Shelf life','36 months'],['Storage','15–25°C, dry']].map(([k,v])=>`<div><div class="sub">${k}</div><b style="font-size:13.5px">${v}</b></div>`).join('')}
+        </div>
+        <div class="divide"></div>
+        <div class="section-title" style="font-size:13px">Compliance & documentation</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${s.certs.map(c=>certChip(c[0],c[1])).join('')}</div>
+        <div class="alert alert-info" style="margin-top:14px"><span class="ai">🔒</span><div>CoA, DMF letter of access and full certificates are downloadable to <b>logged-in verified counterparties only</b> (F7.2).</div></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px">
+          <div class="sup-logo">${s.logo}</div>
+          <div><b style="font-size:14px">${s.name}</b><div class="sub">${s.city}, ${s.country}</div></div>
+        </div>
+        ${badge('verified','✓ Verified Supplier')} <span class="sub" style="margin-left:6px">since ${s.vdate}</span>
+        <div class="divide"></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" data-nav="public/register">Request a quote</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:8px" data-nav="public/supplier">View supplier profile</button>
+        <div class="alert alert-warn" style="margin-top:14px;font-size:12px"><span class="ai">🔑</span><div>Sign in to contact this supplier or request a sample.</div></div>
+      </div>
+    </div>
+  </div>
+</div>`; };
+
+S['public/supplier'] = () => { const s=SUPPLIERS[0]; const prods=PRODUCTS.filter(p=>p.supId===s.id); return `
+<div class="page">
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+      <div class="sup-logo" style="width:66px;height:66px;font-size:22px">${s.logo}</div>
+      <div style="flex:1;min-width:200px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="font-size:22px">${s.name}</h2>${badge('verified','✓ Verified Supplier')}</div>
+        <div class="sub" style="margin-top:5px">${s.city}, ${s.country} · ${s.years} yrs in operation · ${s.sites} manufacturing sites · Exports to ${s.markets.join(', ')}</div>
+        <div style="display:flex;gap:16px;margin-top:12px">
+          <div><div class="sub">Products</div><b style="font-size:16px">${s.products}</b></div>
+          <div><div class="sub">Verified</div><b style="font-size:16px">${s.vdate}</b></div>
+          <div><div class="sub">Reg. score</div><b style="font-size:16px;color:var(--gn)">${s.regScore}</b></div>
+        </div>
+      </div>
+      <button class="btn btn-primary" data-nav="public/register">Request quote</button>
+    </div>
+  </div>
+
+  <div class="tabs" data-tabgroup="sup">
+    <button class="tab active" data-tab="sup-certs">Certifications</button>
+    <button class="tab" data-tab="sup-prods">Products (${prods.length} shown)</button>
+    <button class="tab" data-tab="sup-about">About & facilities</button>
+  </div>
+
+  <div data-tabpane="sup-certs">
+    <div class="card">
+      <div class="section-title" style="font-size:13px">Verified certifications — cross-checked against issuing authorities (F2.5)</div>
+      <table class="tbl">
+        <thead><tr><th>Certification</th><th>Status</th><th>Expiry</th><th>Verified via</th></tr></thead>
+        <tbody>${s.certs.map(c=>`<tr><td><b>${c[0]}</b></td><td>${c[1]==='pending'?badge('pending','Pending review'):badge('verified','✓ Verified')}</td><td class="mono">${c[1]}</td><td class="sub">${c[0].includes('FDA')?'FDA drug database':c[0].includes('EU')?'EudraGMDP':c[0].includes('CDSCO')?'CDSCO portal':'Issuing body'}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>
+  <div data-tabpane="sup-prods" style="display:none">
+    <div class="grid" style="grid-template-columns:1fr">
+      ${prods.map(p=>`<div class="result-card" data-nav="public/product"><div class="sup-logo" style="background:linear-gradient(135deg,#E0F2FE,#BAE6FD);color:#0369A1">💊</div><div style="flex:1"><b>${p.name}</b><div class="sub">CAS ${p.cas} · ${p.grade} · MOQ ${p.moq}</div></div><div class="mono" style="color:var(--p);font-weight:700">${p.price}</div></div>`).join('')}
+    </div>
+  </div>
+  <div data-tabpane="sup-about" style="display:none">
+    <div class="card"><p style="font-size:13.5px;line-height:1.7;color:var(--sl)">${s.name} operates ${s.sites} GMP-certified manufacturing facilities across India, producing ${s.products}+ APIs and intermediates for regulated markets including ${s.markets.join(', ')}. All facilities are subject to periodic inspection by the respective regulatory authorities.</p>
+    <div class="alert alert-info" style="margin-top:14px"><span class="ai">ℹ️</span><div>Ratings, reviews and transaction history are a <b>Phase-2</b> roadmap feature (transaction-gated). Not shown in the MVP.</div></div></div>
+  </div>
+</div>`; };
+
+S['public/register'] = () => `
+<div class="page" style="max-width:760px">
+  ${pageHead('Create your account', 'Choose how you\'ll use PharmaLink. This determines your onboarding flow — sellers verify GMP credentials, buyers complete a light KYB.')}
+  <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:22px">
+    <div class="cat-tile" data-nav="buyer/onboarding" style="text-align:center"><div class="ci">🛒</div><h4>I'm a Buyer</h4><div class="c">Procurement, R&D, QA — source verified ingredients</div></div>
+    <div class="cat-tile" data-nav="seller/onboarding" style="text-align:center"><div class="ci">🏭</div><h4>I'm a Supplier</h4><div class="c">List GMP-verified products, receive RFQs</div></div>
+    <div class="cat-tile" data-nav="buyer/onboarding" style="text-align:center"><div class="ci">🔁</div><h4>Both</h4><div class="c">Buy and sell (trader / hybrid)</div></div>
+  </div>
+  <div class="card">
+    <div class="form-2">
+      <div class="field"><label>Work email</label><input id="regEmail" class="input" placeholder="you@company.com"><div id="regEmailErr" class="hint" style="color:var(--rd);display:none;margin-top:5px">Enter a valid work email to receive your OTP.</div></div>
+      <div class="field"><label>Phone / WhatsApp <span class="hint">for OTP</span></label><input class="input" placeholder="+91 ·············"></div>
+      <div class="field"><label>Company name</label><input class="input" placeholder="Legal entity name"></div>
+      <div class="field"><label>Country</label><select class="select"><option>India</option><option>United States</option><option>Germany</option></select></div>
+    </div>
+    <div class="alert alert-info" style="margin:6px 0 16px"><span class="ai">📲</span><div>We'll send a one-time passcode to your <b>email and WhatsApp</b> to verify you before onboarding (F0.2).</div></div>
+    <button class="btn btn-primary" onclick="submitRegister()">Send OTP & continue →</button>
+  </div>
+</div>`;
+
+/* ---- BUYER ---- */
+S['buyer/onboarding'] = () => `
+<div class="page" style="max-width:820px">
+  ${pageHead('Buyer onboarding', 'Condensed from the design\'s 6 steps to 3. Ops runs a light KYB before RFQ posting is enabled — trust is two-sided (F3).')}
+  <div class="stepper">
+    <div class="step done" data-wstep="1"><div class="num">✓</div><div class="stxt">Account</div><div class="line"></div></div>
+    <div class="step active" data-wstep="2"><div class="num">2</div><div class="stxt">Company & licence</div><div class="line"></div></div>
+    <div class="step" data-wstep="3"><div class="num">3</div><div class="stxt">Sourcing preferences</div></div>
+  </div>
+
+  <div class="card" data-wpane="2">
+    <div class="section-title" style="font-size:14px">Step 2 — Company & licence</div>
+    <div class="form-2">
+      <div class="field"><label>Company type</label><select class="select"><option>Finished-dosage manufacturer</option><option>CDMO</option><option>Generic manufacturer</option><option>Trader / distributor</option></select></div>
+      <div class="field"><label>GST / registration number</label><input class="input" placeholder="27ABCDE1234F1Z5"></div>
+      <div class="field" style="grid-column:1/-1"><label>Drug / wholesale licence <span class="hint">upload where applicable</span></label>
+        <div class="dropzone">📄 Drag & drop or <b style="color:var(--p)">browse</b> — PDF/JPG, max 10 MB</div>
+      </div>
+    </div>
+    <div class="alert alert-warn"><span class="ai">🔍</span><div><b>Light KYB by ops</b> runs before RFQ posting is enabled — this protects sellers from fake demand and time-wasters (G2).</div></div>
+    <div class="wizard-actions">
+      <button class="btn btn-ghost" data-wgo="1">← Back</button>
+      <button class="btn btn-primary" data-wgo="3">Continue to preferences →</button>
+    </div>
+  </div>
+
+  <div class="card" data-wpane="1" style="display:none">
+    <div class="section-title" style="font-size:14px">Step 1 — Account</div>
+    <div class="form-2">
+      <div class="field"><label>Your role</label><select class="select"><option>Procurement</option><option>R&D</option><option>Quality Assurance</option><option>Trader</option></select></div>
+      <div class="field"><label>Work email <span class="hint">OTP verified</span></label><input class="input" value="riya.mehta@cipla.com"></div>
+      <div class="field"><label>Company</label><input class="input" value="Cipla Ltd"></div>
+      <div class="field"><label>Country</label><select class="select"><option>India</option></select></div>
+    </div>
+    <div class="wizard-actions"><span></span><button class="btn btn-primary" data-wgo="2">Continue →</button></div>
+  </div>
+
+  <div class="card" data-wpane="3" style="display:none">
+    <div class="section-title" style="font-size:14px">Step 3 — Sourcing preferences</div>
+    <div class="field"><label>API categories of interest</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${['Analgesics','Antibiotics','Cardiovascular','Anti-diabetic','GI','Excipients'].map((c,i)=>`<label class="chip" style="cursor:pointer"><input type="checkbox" ${i<3?'checked':''} style="accent-color:var(--p)"> ${c}</label>`).join('')}</div>
+    </div>
+    <div class="form-2" style="margin-top:12px">
+      <div class="field"><label>Regulatory markets sourced for</label><select class="select"><option>US + EU + WHO</option><option>India only</option><option>EU only</option></select></div>
+      <div class="field"><label>Preferred origins</label><select class="select"><option>India</option><option>No preference</option></select></div>
+    </div>
+    <div class="alert alert-info"><span class="ai">✅</span><div>Preferences drive rule-based RFQ routing and your personalised catalog. <b>No payment capture</b> — fees are waived during MVP (A5).</div></div>
+    <div class="wizard-actions">
+      <button class="btn btn-ghost" data-wgo="2">← Back</button>
+      <button class="btn btn-primary" data-nav="buyer/dashboard">Finish & go to dashboard →</button>
+    </div>
+  </div>
+</div>`;
+
+S['buyer/dashboard'] = () => `
+<div class="page">
+  ${pageHead('Welcome back, Riya', 'Cipla Ltd · Procurement · Verified buyer', '<button class="btn btn-primary" data-nav="buyer/rfq-new">➕ Post an RFQ</button>')}
+  <div class="kpi-row">
+    ${kpi('Active RFQs','3','1 new quote','up')}
+    ${kpi('Quotes to review','7','','')}
+    ${kpi('Deals closed','2','+1 this month','up')}
+    ${kpi('Verified suppliers','40','in your categories','')}
+  </div>
+  <div class="two-col">
+    <div>
+      <div class="card-pad0" style="margin-bottom:16px">
+        <div style="padding:16px 18px;display:flex;justify-content:space-between;align-items:center"><div class="section-title" style="margin:0">Active RFQs</div><span class="link" data-nav="buyer/rfqs">View all →</span></div>
+        <table class="tbl">
+          <thead><tr><th>RFQ</th><th>Product</th><th>Qty</th><th>Quotes</th><th>Status</th></tr></thead>
+          <tbody>${RFQS.slice(0,3).map(r=>`<tr class="click" data-nav="buyer/rfq-detail"><td><b class="mono" style="font-size:12px">${r.id}</b><div class="sub">${r.posted}</div></td><td>${r.product}<div class="sub">CAS ${r.cas}</div></td><td>${r.qty}</td><td><b>${r.quotes}</b></td><td>${statusBadge(r.status)}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="alert alert-warn"><span class="ai">⏰</span><div><b>RFQ-2038</b> (Atorvastatin) has 2 quotes and closes in 3 days. <span class="link" data-nav="buyer/rfq-detail">Review quotes →</span></div></div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-title" style="font-size:13px">Compliance alerts</div>
+        <div class="mini-list">
+          <div class="mini-item"><span class="dot" style="background:var(--am)"></span><div><div class="mt">Sun Pharma — EU GMP expires in 60 days</div><div class="ms">Cert renewal reminder</div></div></div>
+          <div class="mini-item"><span class="dot" style="background:var(--gn)"></span><div><div class="mt">Aurobindo — re-verified</div><div class="ms">US FDA GMP valid to Aug 2027</div></div></div>
+        </div>
+        <div class="alert alert-info" style="margin-top:10px;font-size:11.5px"><span class="ai">ℹ️</span><div>Automated expiry alerts are a Phase-2 feature. In MVP, ops maintains the register.</div></div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="font-size:13px">Shortlisted suppliers</div>
+        <div class="mini-list">
+          ${SUPPLIERS.filter(s=>s.verified).slice(0,3).map(s=>`<div class="mini-item" data-nav="public/supplier"><div class="sup-logo" style="width:34px;height:34px;font-size:12px">${s.logo}</div><div><div class="mt">${s.name}</div><div class="ms">${s.products} products · ${s.regScore}</div></div></div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+S['buyer/rfq-new'] = () => `
+<div class="page" style="max-width:840px">
+  ${pageHead('Post a Request for Quote', 'A 3-step wizard (as designed, simplified). Your RFQ is rule-matched to verified sellers holding the certs you require — no AI scoring in MVP (F4.1–F4.2).')}
+  <div class="stepper">
+    <div class="step active" data-wstep="1"><div class="num">1</div><div class="stxt">Product & quantity</div><div class="line"></div></div>
+    <div class="step" data-wstep="2"><div class="num">2</div><div class="stxt">Specs & requirements</div><div class="line"></div></div>
+    <div class="step" data-wstep="3"><div class="num">3</div><div class="stxt">Review & match</div></div>
+  </div>
+
+  <div class="card" data-wpane="1">
+    <div class="section-title" style="font-size:14px">Step 1 — What do you need?</div>
+    <div class="form-2">
+      <div class="field"><label>Product name</label><input class="input" value="Paracetamol (Acetaminophen)"></div>
+      <div class="field"><label>CAS number</label><input class="input mono" value="103-90-2"></div>
+      <div class="field"><label>Quantity required</label><input class="input" value="2,000 kg"></div>
+      <div class="field"><label>Required by</label><input class="input" type="date" value="2026-08-15"></div>
+    </div>
+    <div class="wizard-actions"><span></span><button class="btn btn-primary" data-wgo="2">Continue →</button></div>
+  </div>
+
+  <div class="card" data-wpane="2" style="display:none">
+    <div class="section-title" style="font-size:14px">Step 2 — Specifications & requirements</div>
+    <div class="form-2">
+      <div class="field"><label>Pharmacopeia grade</label><select class="select"><option>USP</option><option>IP</option><option>BP</option><option>EP</option></select></div>
+      <div class="field"><label>Minimum purity</label><input class="input" value="99.5%"></div>
+      <div class="field"><label>Incoterm</label><select class="select"><option>FOB</option><option>CIF</option><option>EXW</option></select></div>
+      <div class="field"><label>Destination port</label><input class="input" value="Nhava Sheva, India"></div>
+      <div class="field"><label>Target price <span class="hint">optional</span></label><input class="input" placeholder="$/kg"></div>
+      <div class="field"><label>Preferred origin</label><select class="select"><option>Any</option><option>India</option></select></div>
+    </div>
+    <div class="field"><label>Mandatory certifications <span class="hint">only matching suppliers are contacted</span></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${['US FDA GMP','EU GMP','WHO PQ','CDSCO'].map((c,i)=>`<label class="chip" style="cursor:pointer"><input type="checkbox" ${i===0||i===2?'checked':''} style="accent-color:var(--p)"> ${c}</label>`).join('')}</div>
+    </div>
+    <div class="form-2" style="margin-top:6px">
+      <div class="field"><label>Attach specification document <span class="hint">optional</span></label><div class="dropzone" style="padding:14px">📎 Attach spec sheet</div></div>
+      <div class="field"><label>Request a sample?</label><label class="chip" style="cursor:pointer;margin-top:4px"><input type="checkbox" checked style="accent-color:var(--p)"> Yes — request sample + CoA alongside the RFQ (G1)</label></div>
+    </div>
+    <div class="wizard-actions"><button class="btn btn-ghost" data-wgo="1">← Back</button><button class="btn btn-primary" data-wgo="3">Review matched suppliers →</button></div>
+  </div>
+
+  <div class="card" data-wpane="3" style="display:none">
+    <div class="section-title" style="font-size:14px">Step 3 — Matched verified suppliers</div>
+    <div class="alert alert-info" style="margin-bottom:14px"><span class="ai">🎯</span><div><b>4 verified suppliers</b> match "Paracetamol / USP / US FDA GMP + WHO PQ". Untick any you don't want to contact, then broadcast.</div></div>
+    ${QUOTES.map(q=>{const s=sup(q.supId);return `<label class="result-card" style="cursor:pointer;align-items:center"><input type="checkbox" checked style="accent-color:var(--p);width:17px;height:17px"><div class="sup-logo" style="width:42px;height:42px;font-size:15px">${s.logo}</div><div style="flex:1"><b>${q.sup}</b> ${badge('verified','✓ Verified')}<div class="sub">${s.city}, ${s.country} · Holds: ${q.certs.join(', ')}</div></div></label>`;}).join('')}
+    <div class="wizard-actions"><button class="btn btn-ghost" data-wgo="2">← Back</button><button class="btn btn-primary" data-nav="buyer/rfqs">📡 Broadcast RFQ to 4 suppliers</button></div>
+  </div>
+</div>`;
+
+S['buyer/rfqs'] = () => `
+<div class="page">
+  ${pageHead('My RFQs', 'Lifecycle: Draft → Open → Quoted → Accepted / Expired / Closed. Expiry deadlines send reminders (F4.7).', '<button class="btn btn-primary" data-nav="buyer/rfq-new">➕ New RFQ</button>')}
+  <div class="tabs">
+    <button class="tab active">All (${RFQS.length})</button><button class="tab">Open</button><button class="tab">Quoted</button><button class="tab">Accepted</button>
+  </div>
+  <div class="card-pad0">
+    <table class="tbl">
+      <thead><tr><th>RFQ</th><th>Product</th><th>Qty</th><th>Grade / Certs</th><th>Quotes</th><th>Due</th><th>Status</th></tr></thead>
+      <tbody>${RFQS.map(r=>`<tr class="click" data-nav="buyer/rfq-detail">
+        <td><b class="mono" style="font-size:12px">${r.id}</b><div class="sub">${r.posted}</div></td>
+        <td>${r.product}<div class="sub">CAS ${r.cas}</div></td>
+        <td>${r.qty}</td>
+        <td>${r.grade}<div class="sub">${r.certs.join(', ')}</div></td>
+        <td><b style="font-size:15px">${r.quotes}</b></td>
+        <td class="sub">${r.due}</td>
+        <td>${statusBadge(r.status)}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>
+</div>`;
+
+S['buyer/rfq-detail'] = () => { const r=RFQS[0]; return `
+<div class="page">
+  <div style="font-size:12px;color:var(--mu);margin-bottom:12px"><span class="link" data-nav="buyer/rfqs">My RFQs</span> › ${r.id}</div>
+  ${pageHead(`${r.product}`, `${r.id} · ${r.qty} · Grade ${r.grade} · Certs: ${r.certs.join(', ')} · Due ${r.due}`, `${statusBadge(r.status)}`)}
+
+  <div class="tabs" data-tabgroup="rfq">
+    <button class="tab active" data-tab="rfq-compare">Compare quotes (${QUOTES.length})</button>
+    <button class="tab" data-tab="rfq-thread">Messages</button>
+    <button class="tab" data-tab="rfq-spec">RFQ spec</button>
+  </div>
+
+  <div data-tabpane="rfq-compare">
+    <div class="toolbar"><div class="count"><b>${QUOTES.length}</b> quotes received · median time-to-first-quote <b>19h</b></div><button class="btn btn-ghost btn-sm">⬇ Export comparison PDF</button></div>
+    <div class="card-pad0" style="overflow-x:auto">
+      <table class="tbl compare-tbl" style="min-width:720px">
+        <thead><tr><th>Criteria</th>${QUOTES.map(q=>`<th class="${q.best?'best':''}">${q.best?'<span class="best-tag">Best overall</span>':''}${q.sup}</th>`).join('')}</tr></thead>
+        <tbody>
+          <tr><td>Unit price</td>${QUOTES.map(q=>`<td class="${q.best?'best':''}"><b class="mono" style="color:var(--p)">${q.price}</b></td>`).join('')}</tr>
+          <tr><td>Total (2,000 kg)</td>${QUOTES.map(q=>`<td class="${q.best?'best':''}">${q.total}</td>`).join('')}</tr>
+          <tr><td>Lead time</td>${QUOTES.map(q=>`<td class="${q.best?'best':''}">${q.lead}</td>`).join('')}</tr>
+          <tr><td>MOQ</td>${QUOTES.map(q=>`<td class="${q.best?'best':''}">${q.moq}</td>`).join('')}</tr>
+          <tr><td>Incoterm</td>${QUOTES.map(q=>`<td class="${q.best?'best':''}">${q.incoterm}</td>`).join('')}</tr>
+          <tr><td>Payment terms</td>${QUOTES.map(q=>`<td class="${q.best?'best':''}">${q.pay}</td>`).join('')}</tr>
+          <tr><td>Certifications</td>${QUOTES.map(q=>`<td class="${q.best?'best':''}" style="font-size:11px">${q.certs.map(c=>`<div>✓ ${c}</div>`).join('')}</td>`).join('')}</tr>
+          <tr><td>Valid until</td>${QUOTES.map(q=>`<td class="${q.best?'best':''}">${q.valid}</td>`).join('')}</tr>
+          <tr><td></td>${QUOTES.map(q=>`<td class="${q.best?'best':''}"><button class="btn ${q.best?'btn-primary':'btn-ghost'} btn-sm" onclick="acceptQuote('${q.sup.replace(/'/g,'')}')">Accept</button></td>`).join('')}</tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="alert alert-info" style="margin-top:14px"><span class="ai">🤝</span><div>Accepting a quote generates a <b>Deal record + PDF trail</b> and alerts ops for a white-glove hand-off. Payment & logistics settle off-platform in MVP (F4.6).</div></div>
+  </div>
+
+  <div data-tabpane="rfq-thread" style="display:none">
+    <div class="card">
+      <div class="section-title" style="font-size:13px">Thread with Sun Pharma API Division</div>
+      <div style="padding:8px 0">
+        <div class="msg them"><div class="who">Suresh · Sun Pharma</div>Thanks for the RFQ. We can supply USP-grade at $4.35/kg FOB Mumbai, 2-week lead. CoA sample attached. 📎 CoA_Paracetamol_B2214.pdf</div>
+        <div class="msg me"><div class="who">You</div>Can you hold that price for a 6-month contract? And confirm WHO PQ validity.</div>
+        <div class="msg them"><div class="who">Suresh · Sun Pharma</div>Yes — price held for 6 months on annual commitment. WHO PQ valid to Jan 2028, cert on our profile.</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px"><input class="input" placeholder="Write a message…"><button class="btn btn-primary">Send</button></div>
+      <div class="alert alert-info" style="margin-top:12px;font-size:11.5px"><span class="ai">ℹ️</span><div>Structured counter-offers (price/volume/lead-time) are a Phase-2 feature; MVP uses message threads (F4.5).</div></div>
+    </div>
+  </div>
+
+  <div data-tabpane="rfq-spec" style="display:none">
+    <div class="card">
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        ${[['Product',r.product],['CAS',r.cas],['Quantity',r.qty],['Grade',r.grade],['Purity','≥ 99.5%'],['Incoterm','FOB Nhava Sheva'],['Required certs',r.certs.join(', ')],['Sample requested','Yes — CoA required']].map(([k,v])=>`<div style="padding:10px 0;border-bottom:1px solid #F1F5F9"><div class="sub">${k}</div><b style="font-size:13.5px">${v}</b></div>`).join('')}
+      </div>
+    </div>
+  </div>
+</div>`; };
+
+S['buyer/inbox'] = () => messagesScreen('buyer');
+
+/* ---- SELLER ---- */
+S['seller/onboarding'] = () => `
+<div class="page" style="max-width:840px">
+  ${pageHead('Supplier onboarding', 'Condensed from the design\'s 8 steps to 4. Every seller is human-verified against issuing authorities before going live (F2).')}
+  <div class="stepper">
+    <div class="step done" data-wstep="1"><div class="num">✓</div><div class="stxt">Account</div><div class="line"></div></div>
+    <div class="step done" data-wstep="2"><div class="num">✓</div><div class="stxt">Company & sites</div><div class="line"></div></div>
+    <div class="step active" data-wstep="3"><div class="num">3</div><div class="stxt">Regulatory docs</div><div class="line"></div></div>
+    <div class="step" data-wstep="4"><div class="num">4</div><div class="stxt">Products & terms</div></div>
+  </div>
+
+  <div class="card" data-wpane="3">
+    <div class="section-title" style="font-size:14px">Step 3 — Regulatory documents</div>
+    <p class="page-sub" style="margin-bottom:16px">Upload the certificates below. Each is manually cross-checked against the issuing authority. Status: <b>Pending → Verified / Rejected (with reason)</b>.</p>
+    <div class="card-pad0">
+      <table class="tbl">
+        <thead><tr><th>Document</th><th>Requirement</th><th>File</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><b>US FDA GMP Certificate</b></td><td>${badge('info','Required')}</td><td class="sub">FDA_GMP_Sun_2024.pdf</td><td>${badge('verified','✓ Verified')}</td></tr>
+          <tr><td><b>EU GMP Certificate</b></td><td>${badge('info','Required')}</td><td class="sub">EU_GMP_Sun.pdf</td><td>${badge('pending','● Pending review')}</td></tr>
+          <tr><td><b>Drug Manufacturing Licence</b></td><td>${badge('info','Required')}</td><td class="sub">Mfg_Licence_MH.pdf</td><td>${badge('verified','✓ Verified')}</td></tr>
+          <tr><td>WHO PQ / ICH Q7 / PMDA</td><td>${badge('neutral','Optional')}</td><td><span class="link">＋ Upload</span></td><td>—</td></tr>
+          <tr><td>DMF / CEP numbers</td><td>${badge('neutral','Declare')}</td><td><input class="input" style="padding:6px 10px" placeholder="e.g. DMF 32145"></td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="alert alert-info" style="margin-top:14px"><span class="ai">🛡️</span><div>Documents are hashed for authenticity in a <b>Phase-3</b> blockchain registry. In MVP, verification is a "Verified by PharmaLink" stamp + expiry tracking.</div></div>
+    <div class="wizard-actions"><button class="btn btn-ghost" data-wgo="2">← Back</button><button class="btn btn-primary" data-wgo="4">Continue to products →</button></div>
+  </div>
+
+  <div class="card" data-wpane="1" style="display:none"><div class="section-title" style="font-size:14px">Step 1 — Account</div><div class="form-2"><div class="field"><label>Work email</label><input class="input" value="suresh.kumar@sunpharma.com"></div><div class="field"><label>WhatsApp</label><input class="input" value="+91 98••• •••21"></div></div><div class="wizard-actions"><span></span><button class="btn btn-primary" data-wgo="2">Continue →</button></div></div>
+
+  <div class="card" data-wpane="2" style="display:none">
+    <div class="section-title" style="font-size:14px">Step 2 — Company & manufacturing sites</div>
+    <div class="form-2"><div class="field"><label>Legal entity</label><input class="input" value="Sun Pharmaceutical Industries Ltd"></div><div class="field"><label>GST / CIN</label><input class="input" value="27AAACS1234M1Z8"></div><div class="field"><label>DUNS <span class="hint">optional</span></label><input class="input" placeholder="65-••••-•••"></div><div class="field"><label>Export markets</label><input class="input" value="US, EU, WHO"></div></div>
+    <div class="section-title" style="font-size:13px;margin-top:10px">Manufacturing sites</div>
+    <div class="card-pad0"><table class="tbl"><thead><tr><th>Site</th><th>Location</th><th>Certifications claimed</th></tr></thead><tbody><tr><td>Halol Unit-1</td><td>Gujarat, India</td><td class="sub">US FDA GMP, EU GMP</td></tr><tr><td>Dadra API</td><td>D&NH, India</td><td class="sub">WHO PQ, CDSCO</td></tr></tbody></table></div>
+    <div class="wizard-actions"><button class="btn btn-ghost" data-wgo="1">← Back</button><button class="btn btn-primary" data-wgo="3">Continue →</button></div>
+  </div>
+
+  <div class="card" data-wpane="4" style="display:none">
+    <div class="section-title" style="font-size:14px">Step 4 — Products & commercial terms</div>
+    <div class="alert alert-info" style="margin-bottom:14px"><span class="ai">📥</span><div>Add products manually, or <b>bulk import via CSV/Excel</b> using our template (F2.4).</div></div>
+    <div style="display:flex;gap:10px;margin-bottom:14px"><button class="btn btn-ghost btn-sm">＋ Add product manually</button><button class="btn btn-ghost btn-sm">⬆ Upload CSV template</button></div>
+    <div class="card-pad0"><table class="tbl"><thead><tr><th>Product</th><th>CAS</th><th>Grade</th><th>MOQ</th><th>Lead</th></tr></thead><tbody>${PRODUCTS.filter(p=>p.supId==='sun').map(p=>`<tr><td>${p.name}</td><td class="mono sub">${p.cas}</td><td>${p.grade}</td><td>${p.moq}</td><td>${p.lead}</td></tr>`).join('')}</tbody></table></div>
+    <div class="form-2" style="margin-top:14px"><div class="field"><label>Default Incoterm</label><select class="select"><option>FOB Mumbai</option></select></div><div class="field"><label>Default payment terms</label><input class="input" value="30% advance, 70% against BL"></div></div>
+    <div class="wizard-actions"><button class="btn btn-ghost" data-wgo="3">← Back</button><button class="btn btn-primary" data-nav="seller/dashboard">Submit for verification →</button></div>
+  </div>
+</div>`;
+
+S['seller/dashboard'] = () => `
+<div class="page">
+  ${pageHead('Supplier dashboard', 'Sun Pharma API Division · Verified supplier since 12 Jun 2026', '<button class="btn btn-ghost" data-nav="seller/inquiries">📨 Inquiries</button><button class="btn btn-primary" data-nav="seller/listings">➕ Add product</button>')}
+  <div class="kpi-row">
+    ${kpi('Open inquiries','4','2 new today','up')}
+    ${kpi('Quotes submitted','11','','')}
+    ${kpi('Quote → win rate','38%','+6%','up')}
+    ${kpi('Response rate','92%','+4%','up')}
+    ${kpi('Avg. response time','6h','vs 24h SLA','up')}
+  </div>
+  <div class="two-col">
+    <div>
+      <div class="card-pad0" style="margin-bottom:16px">
+        <div style="padding:16px 18px;display:flex;justify-content:space-between;align-items:center"><div class="section-title" style="margin:0">Buyer inquiry pipeline</div><span class="link" data-nav="seller/inquiries">View all →</span></div>
+        <table class="tbl">
+          <thead><tr><th>Buyer</th><th>Product</th><th>Qty</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>Cipla Ltd ${badge('verified','✓')}</td><td>Paracetamol</td><td>2,000 kg</td><td>${badge('pending','● Needs quote')}</td><td><button class="btn btn-primary btn-sm" onclick="quoteModal('Paracetamol','Cipla Ltd')">Quote</button></td></tr>
+            <tr><td>Torrent Pharma ${badge('verified','✓')}</td><td>Paracetamol</td><td>500 kg</td><td>${badge('pending','● Needs quote')}</td><td><button class="btn btn-primary btn-sm" onclick="quoteModal('Paracetamol','Torrent Pharma')">Quote</button></td></tr>
+            <tr><td>Dr. Reddy's ${badge('verified','✓')}</td><td>Ibuprofen</td><td>800 kg</td><td>${badge('info','● Quoted $6.80/kg')}</td><td><button class="btn btn-ghost btn-sm">View</button></td></tr>
+            <tr><td>Mankind Pharma ${badge('verified','✓')}</td><td>Metformin HCl</td><td>3,000 kg</td><td>${badge('verified','✓ Won')}</td><td><button class="btn btn-ghost btn-sm">Deal record</button></td></tr>
+            <tr><td>Alkem Labs ${badge('verified','✓')}</td><td>Ibuprofen</td><td>1,200 kg</td><td>${badge('neutral','Lost — price')}</td><td><span class="sub">—</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-pad0">
+        <div style="padding:16px 18px;display:flex;justify-content:space-between;align-items:center"><div class="section-title" style="margin:0">Product performance</div><span class="link" data-nav="seller/listings">Manage products →</span></div>
+        <table class="tbl">
+          <thead><tr><th>Product</th><th>Catalog views</th><th>Inquiries</th><th>Watchers</th><th>Demand</th></tr></thead>
+          <tbody>
+            <tr><td><b>Paracetamol</b><div class="sub">CAS 103-90-2</div></td><td>1,284</td><td>9</td><td>14</td><td><span class="badge b-verified">▲ Rising</span></td></tr>
+            <tr><td><b>Ibuprofen</b><div class="sub">CAS 15687-27-1</div></td><td>742</td><td>5</td><td>8</td><td><span class="badge b-neutral">Steady</span></td></tr>
+            <tr><td><b>Metformin HCl</b><div class="sub">CAS 1115-70-4</div></td><td>0</td><td>0</td><td>0</td><td><span class="badge b-pending">Draft — publish</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-title" style="font-size:13px">Market position <span class="sub" style="font-weight:400;text-transform:none">· Analgesics</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+          <div><div class="sub">Category rank</div><b style="font-size:20px;font-family:'Syne'">#3 <span class="sub" style="font-size:12px">of 18</span></b></div>
+          <div style="text-align:right"><div class="sub">Regulatory score</div><b style="font-size:20px;font-family:'Syne';color:var(--gn)">AAA</b></div>
+        </div>
+        <div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span class="sub">Price competitiveness</span><b>Top 20%</b></div><div class="progress"><div class="bar" style="width:80%"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span class="sub">On-time fulfilment</span><b>96%</b></div><div class="progress"><div class="bar" style="width:96%"></div></div></div>
+        <div class="alert alert-info" style="margin-top:12px;font-size:11px"><span class="ai">ℹ️</span><div>Deeper analytics (demand signals, buyer watchers, forecasts) graduate in <b>Phase 3</b> as data accumulates.</div></div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-title" style="font-size:13px">Verification status</div>
+        <div class="mini-list">
+          <div class="mini-item"><span class="dot" style="background:var(--gn)"></span><div><div class="mt">US FDA GMP · Verified</div><div class="ms">Expires Apr 2027</div></div></div>
+          <div class="mini-item"><span class="dot" style="background:var(--am)"></span><div><div class="mt">EU GMP · Expiring soon</div><div class="ms">Renew before Nov 2026</div></div></div>
+          <div class="mini-item"><span class="dot" style="background:var(--gn)"></span><div><div class="mt">WHO PQ · Verified</div><div class="ms">Expires Jan 2028</div></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="font-size:13px">Profile completeness</div>
+        <div class="progress" style="margin:8px 0"><div class="bar" style="width:85%"></div></div>
+        <div class="sub">85% — add 2 more product CoAs to reach 100%.</div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+S['seller/listings'] = () => `
+<div class="page">
+  ${pageHead('My products', 'Product catalog — CAS, grade, purity, MOQ, per-product certs. Bulk import & bulk actions supported (F2.4).', '<button class="btn btn-ghost">⬆ CSV import</button><button class="btn btn-primary">➕ Add product</button>')}
+  <div class="card-pad0">
+    <table class="tbl">
+      <thead><tr><th>Product</th><th>CAS</th><th>Grade</th><th>Purity</th><th>MOQ</th><th>Price range</th><th>Status</th><th></th></tr></thead>
+      <tbody>${PRODUCTS.filter(p=>p.supId==='sun').concat(PRODUCTS.filter(p=>p.supId!=='sun').slice(0,3)).map((p,i)=>`
+        <tr><td><b>${p.name}</b></td><td class="mono sub">${p.cas}</td><td>${p.grade}</td><td>${p.purity}</td><td>${p.moq}</td><td class="mono">${p.price}</td><td>${i%4===3?badge('pending','Draft'):badge('verified','✓ Live')}</td><td><span class="link">Edit</span></td></tr>`).join('')}</tbody>
+    </table>
+  </div>
+</div>`;
+
+S['seller/inquiries'] = () => `
+<div class="page">
+  ${pageHead('Inquiries & quotes', 'RFQs matched to your listings. Respond fast — the platform promises buyers a 24h first-quote SLA.', '')}
+  <div class="tabs"><button class="tab active">Needs quote (2)</button><button class="tab">Quoted (1)</button><button class="tab">Won (1)</button></div>
+  <div class="card-pad0">
+    <table class="tbl">
+      <thead><tr><th>RFQ</th><th>Buyer</th><th>Product</th><th>Qty</th><th>Required certs</th><th>Due</th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="font-size:12px">RFQ-2041</td><td>Cipla Ltd ${badge('verified','✓')}</td><td>Paracetamol<div class="sub">USP</div></td><td>2,000 kg</td><td class="sub">US FDA GMP, WHO PQ</td><td class="sub">22 Jul</td><td><button class="btn btn-primary btn-sm" onclick="quoteModal('Paracetamol','Cipla Ltd')">Submit quote</button></td></tr>
+        <tr><td class="mono" style="font-size:12px">RFQ-2044</td><td>Torrent Pharma ${badge('verified','✓')}</td><td>Paracetamol<div class="sub">BP</div></td><td>500 kg</td><td class="sub">WHO PQ</td><td class="sub">24 Jul</td><td><button class="btn btn-primary btn-sm" onclick="quoteModal('Paracetamol','Torrent Pharma')">Submit quote</button></td></tr>
+        <tr><td class="mono" style="font-size:12px">RFQ-2039</td><td>Dr. Reddy's ${badge('verified','✓')}</td><td>Ibuprofen<div class="sub">USP</div></td><td>800 kg</td><td class="sub">US FDA GMP</td><td class="sub">20 Jul</td><td>${badge('info','Quoted $6.80/kg')}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>`;
+
+S['seller/inbox'] = () => messagesScreen('seller');
+
+/* ---- ADMIN ---- */
+S['admin/dashboard'] = () => `
+<div class="page">
+  ${pageHead('Operations dashboard', 'The admin back office is absent from the v3 design — the MVP cannot run without it (F6). Metrics map directly to the launch success criteria.')}
+  <div class="kpi-row">
+    ${kpi('Verification SLA','31h','avg · target ≤48h','up')}
+    ${kpi('Pending verifications','4','','')}
+    ${kpi('Verified suppliers','40','+6 this week','up')}
+    ${kpi('Active RFQs','25','','')}
+  </div>
+  <div class="kpi-row">
+    ${kpi('Listings live','512','target ≥500','up')}
+    ${kpi('RFQs with ≥3 quotes','72%','target ≥70%','up')}
+    ${kpi('Median time-to-quote','19h','target ≤24h','up')}
+    ${kpi('Deals accepted','6','target ≥5','up')}
+  </div>
+  <div class="two-col">
+    <div class="card">
+      <div class="section-title" style="font-size:13px">Verification queue — top of stack</div>
+      <table class="tbl">
+        <thead><tr><th>Company</th><th>Type</th><th>SLA</th><th>Status</th></tr></thead>
+        <tbody>${VERIF_QUEUE.slice(0,4).map(v=>`<tr class="click" data-nav="admin/verification"><td><b>${v.co}</b></td><td class="sub">${v.type}</td><td class="sub">${v.sla}</td><td>${v.status==='pending'?badge('pending','● Pending'):v.status==='review'?badge('info','In review'):badge('verified','✓')}</td></tr>`).join('')}</tbody>
+      </table>
+      <button class="btn btn-primary btn-sm" style="margin-top:12px" data-nav="admin/verification">Work the queue →</button>
+    </div>
+    <div class="card">
+      <div class="section-title" style="font-size:13px">This week</div>
+      <div class="mini-list">
+        <div class="mini-item"><span class="dot" style="background:var(--gn)"></span><div><div class="mt">6 suppliers verified</div><div class="ms">All within 48h SLA</div></div></div>
+        <div class="mini-item"><span class="dot" style="background:var(--rd)"></span><div><div class="mt">1 seller rejected</div><div class="ms">GST mismatch — flagged</div></div></div>
+        <div class="mini-item"><span class="dot" style="background:var(--p)"></span><div><div class="mt">18 RFQs posted</div><div class="ms">2 nudged for stalled quotes</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+S['admin/verification'] = () => `
+<div class="page">
+  ${pageHead('Verification queue', 'Sellers, buyers and documents with approve/reject + reason codes and full audit trail. Only verified parties transact (F6.1).')}
+  <div class="tabs"><button class="tab active">All (${VERIF_QUEUE.length})</button><button class="tab">Sellers</button><button class="tab">Buyer KYB</button><button class="tab">Done</button></div>
+  <div class="card-pad0">
+    <table class="tbl">
+      <thead><tr><th>Company</th><th>Type</th><th>Document</th><th>Submitted</th><th>SLA</th><th>Status</th><th style="text-align:right">Action</th></tr></thead>
+      <tbody>${VERIF_QUEUE.map(v=>`<tr>
+        <td><b>${v.co}</b></td>
+        <td class="sub">${v.type}</td>
+        <td>${v.doc}</td>
+        <td class="sub">${v.sub}</td>
+        <td class="sub" style="${v.sla.includes('24h')?'color:var(--am);font-weight:600':''}">${v.sla}</td>
+        <td>${v.status==='pending'?badge('pending','● Pending'):v.status==='review'?badge('info','In review'):v.status==='verified'?badge('verified','✓ Verified'):badge('rejected','✕ Rejected')}</td>
+        <td style="text-align:right">${['pending','review'].includes(v.status)?`<button class="btn btn-ghost btn-sm" onclick="reviewModal('${v.co.replace(/'/g,'')}')">Review</button>`:'<span class="sub">—</span>'}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>
+  <div class="alert alert-info" style="margin-top:16px"><span class="ai">📋</span><div>Reviewers cross-check against <b>FDA drug database, EudraGMDP and the CDSCO portal</b>, run a company-existence + call-back check, then approve/reject with a reason code. Dual review is required for the first 100 suppliers (risk mitigation).</div></div>
+</div>`;
+
+S['admin/moderation'] = () => `
+<div class="page">
+  ${pageHead('Listing moderation & user management', 'Edit/unpublish listings, manage users & companies, change roles. Every action is written to the audit log (F6.2, F0.7).')}
+  <div class="tabs"><button class="tab active">Listings</button><button class="tab">Companies</button><button class="tab">Users</button></div>
+  <div class="card-pad0">
+    <table class="tbl">
+      <thead><tr><th>Listing</th><th>Supplier</th><th>Flag</th><th>Status</th><th style="text-align:right">Action</th></tr></thead>
+      <tbody>
+        <tr><td><b>Paracetamol (Acetaminophen)</b><div class="sub">CAS 103-90-2</div></td><td>Sun Pharma ${badge('verified','✓')}</td><td>—</td><td>${badge('verified','✓ Live')}</td><td style="text-align:right"><span class="link">Unpublish</span></td></tr>
+        <tr><td><b>Tramadol HCl</b><div class="sub">CAS 27203-92-5</div></td><td>Hetero Drugs</td><td>${badge('rejected','⚠ Controlled substance')}</td><td>${badge('pending','● Held for review')}</td><td style="text-align:right"><span class="link">Review policy</span></td></tr>
+        <tr><td><b>Atorvastatin Calcium</b><div class="sub">CAS 134523-03-8</div></td><td>Aurobindo ${badge('verified','✓')}</td><td>—</td><td>${badge('verified','✓ Live')}</td><td style="text-align:right"><span class="link">Edit</span></td></tr>
+        <tr><td><b>Unverified excipient</b><div class="sub">missing grade</div></td><td>Zydus</td><td>${badge('pending','Incomplete')}</td><td>${badge('neutral','Draft')}</td><td style="text-align:right"><span class="link">Message seller</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="alert alert-warn" style="margin-top:16px"><span class="ai">⚗️</span><div><b>Controlled-substance policy (G13):</b> scheduled substances are gated behind manual review in MVP. A jurisdiction-aware policy engine is Phase-3.</div></div>
+</div>`;
+
+S['admin/rfq-monitor'] = () => `
+<div class="page">
+  ${pageHead('RFQ monitor', 'Spot stuck RFQs and nudge sellers so buyers never wait past the 24h first-quote promise (F6.3).')}
+  <div class="kpi-row">
+    ${kpi('Open RFQs','12','','')}
+    ${kpi('Awaiting first quote','3','1 over 24h','down')}
+    ${kpi('Nudges sent today','5','','')}
+  </div>
+  <div class="card-pad0">
+    <table class="tbl">
+      <thead><tr><th>RFQ</th><th>Buyer</th><th>Product</th><th>Age</th><th>Quotes</th><th>Health</th><th style="text-align:right">Action</th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="font-size:12px">RFQ-2038</td><td>Cipla</td><td>Atorvastatin</td><td>5 hrs</td><td>2</td><td>${badge('verified','Healthy')}</td><td style="text-align:right"><span class="sub">—</span></td></tr>
+        <tr><td class="mono" style="font-size:12px">RFQ-2047</td><td>Torrent</td><td>Pantoprazole</td><td>28 hrs</td><td><b style="color:var(--rd)">0</b></td><td>${badge('rejected','⚠ Over SLA')}</td><td style="text-align:right"><button class="btn btn-primary btn-sm">Nudge 3 sellers</button></td></tr>
+        <tr><td class="mono" style="font-size:12px">RFQ-2044</td><td>Dr. Reddy's</td><td>Amoxicillin</td><td>14 hrs</td><td>1</td><td>${badge('pending','Watch')}</td><td style="text-align:right"><button class="btn btn-ghost btn-sm">Nudge</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>`;
+
+/* ---- ROADMAP (Phase-2 teasers) ---- */
+const phaseBanner = (phase, txt) => `<div class="alert" style="background:linear-gradient(135deg,var(--dh),#2D2B55);color:#fff;border:none;margin-bottom:20px"><span class="ai">🚧</span><div><b style="color:#67E8F9">${phase} PREVIEW — not built in the 6-week MVP.</b> ${txt} See <b>BACKLOG.md, Part B</b>.</div></div>`;
+
+S['roadmap/samples'] = () => `
+<div class="page">
+  ${pageHead('Sample request & management', 'The single most common pre-order step in pharma — no bulk order happens without a sample + CoA evaluation. Absent from the v3 design (gap G1).')}
+  ${phaseBanner('PHASE 2', 'A first-class workflow linking RFQ → sample → lab evaluation → outcome → reviews.')}
+  <div class="card" style="margin-bottom:16px">
+    <div class="section-title" style="font-size:13px">Sample lifecycle</div>
+    <div class="timeline">
+      <div class="tl-item done"><div class="tt">Sample requested</div><div class="td">Buyer requests sample alongside RFQ-2041 · Paracetamol USP · 200 g</div></div>
+      <div class="tl-item done"><div class="tt">Seller dispatched</div><div class="td">Sun Pharma · courier AWB 7712-4408 · CoA + batch record attached</div></div>
+      <div class="tl-item active"><div class="tt">Buyer lab evaluation</div><div class="td">In QC — assay, related substances, dissolution vs spec</div></div>
+      <div class="tl-item"><div class="tt">Outcome recorded</div><div class="td">Pass / fail → unlocks bulk RFQ & feeds transaction-gated review</div></div>
+    </div>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="section-title" style="font-size:13px">Active sample requests</div>
+      <table class="tbl"><thead><tr><th>Product</th><th>Supplier</th><th>Stage</th></tr></thead><tbody>
+        <tr><td>Paracetamol USP</td><td>Sun Pharma</td><td>${badge('info','● In evaluation')}</td></tr>
+        <tr><td>Atorvastatin EP</td><td>Aurobindo</td><td>${badge('pending','● Dispatched')}</td></tr>
+        <tr><td>Metformin IP</td><td>Divi's</td><td>${badge('verified','✓ Passed')}</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card"><div class="section-title" style="font-size:13px">Why it's Must-Have</div>
+      <p style="font-size:13px;line-height:1.6;color:var(--sl)">Sample + CoA evaluation is standard GMP supplier qualification. Making it a tracked workflow — rather than off-platform email — is what turns PharmaLink into part of the buyer's QMS and keeps the deal on-platform through to the order.</p>
+      <div style="margin-top:12px">${badge('info','Phase 2 · Must-Have')} ${badge('neutral','Links: RFQ → Order → Reviews')}</div>
+    </div>
+  </div>
+</div>`;
+
+S['roadmap/escrow'] = () => `
+<div class="page">
+  ${pageHead('Escrow & order management', 'The design\'s flagship trust layer — buyers pay only on verified delivery. Deferred because escrow needs banking partners, KYC/AML and dispute ops (assumption A1).')}
+  ${phaseBanner('PHASE 2–3', 'Escrow on acceptance → milestone release → dispute window → statements. Domestic India first, then cross-border.')}
+  <div class="card" style="margin-bottom:16px">
+    <div class="section-title" style="font-size:13px">Escrow flow — order ORD-1188 · Metformin HCl · $18,400</div>
+    <div class="stepper" style="margin:8px 0 0">
+      <div class="step done"><div class="num">✓</div><div class="stxt">Quote accepted</div><div class="line"></div></div>
+      <div class="step done"><div class="num">✓</div><div class="stxt">Advance in escrow</div><div class="line"></div></div>
+      <div class="step active"><div class="num">3</div><div class="stxt">In production</div><div class="line"></div></div>
+      <div class="step"><div class="num">4</div><div class="stxt">Dispatched + BL</div><div class="line"></div></div>
+      <div class="step"><div class="num">5</div><div class="stxt">Delivered + CoA</div><div class="line"></div></div>
+      <div class="step"><div class="num">6</div><div class="stxt">Funds released</div></div>
+    </div>
+  </div>
+  <div class="two-col">
+    <div class="card-pad0"><div style="padding:16px 18px"><div class="section-title" style="margin:0;font-size:13px">Orders</div></div>
+      <table class="tbl"><thead><tr><th>Order</th><th>Product</th><th>Value</th><th>Escrow</th></tr></thead><tbody>
+        <tr><td class="mono" style="font-size:12px">ORD-1188</td><td>Metformin HCl</td><td>$18,400</td><td>${badge('pending','● Held — advance')}</td></tr>
+        <tr><td class="mono" style="font-size:12px">ORD-1184</td><td>Paracetamol</td><td>$8,700</td><td>${badge('info','● In transit')}</td></tr>
+        <tr><td class="mono" style="font-size:12px">ORD-1180</td><td>Ibuprofen</td><td>$9,120</td><td>${badge('verified','✓ Released')}</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card"><div class="section-title" style="font-size:13px">Release conditions</div>
+      <div class="mini-list">
+        <div class="mini-item"><span class="dot" style="background:var(--gn)"></span><div><div class="mt">Delivery confirmed</div><div class="ms">Signed POD / BL uploaded</div></div></div>
+        <div class="mini-item"><span class="dot" style="background:var(--gn)"></span><div><div class="mt">CoA verified</div><div class="ms">Batch CoA matches spec</div></div></div>
+        <div class="mini-item"><span class="dot" style="background:var(--am)"></span><div><div class="mt">5-day dispute window</div><div class="ms">Auto-release if no dispute</div></div></div>
+      </div>
+      <div style="margin-top:12px">${badge('info','Phase 2–3 · Must-Have')}</div>
+    </div>
+  </div>
+</div>`;
+
+S['roadmap/ratings'] = () => `
+<div class="page">
+  ${pageHead('Ratings & reviews', 'Transaction-gated so only real, completed deals can leave a review — the guard that prevents the fake-review trust-killer.')}
+  ${phaseBanner('PHASE 2', 'Verified-transaction-only reviews across on-time, quality, documentation and communication.')}
+  <div class="two-col">
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="text-align:center"><div style="font-size:40px;font-weight:800;font-family:'Syne'">4.7</div><div class="sub">142 verified reviews</div></div>
+          <div style="flex:1">
+            ${[['On-time delivery',96],['Product quality',94],['Documentation',98],['Communication',90]].map(([k,v])=>`<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:12px"><span class="sub">${k}</span><b>${(v/20).toFixed(1)}</b></div><div class="progress"><div class="bar" style="width:${v}%"></div></div></div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="font-size:13px">Recent reviews</div>
+        <div style="border-bottom:1px solid #F1F5F9;padding:10px 0">
+          <div style="display:flex;justify-content:space-between"><b style="font-size:13px">Cipla Ltd ${badge('verified','✓ Verified purchase')}</b><span style="color:var(--am)">★★★★★</span></div>
+          <p style="font-size:13px;color:var(--sl);margin-top:4px">Paracetamol USP delivered on time, CoA matched spec exactly. Responsive on WhatsApp.</p>
+        </div>
+        <div style="padding:10px 0">
+          <div style="display:flex;justify-content:space-between"><b style="font-size:13px">Dr. Reddy's ${badge('verified','✓ Verified purchase')}</b><span style="color:var(--am)">★★★★☆</span></div>
+          <p style="font-size:13px;color:var(--sl);margin-top:4px">Good quality, lead time slipped by 3 days. Documentation flawless.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="section-title" style="font-size:13px">Why gated</div>
+      <p style="font-size:13px;line-height:1.6;color:var(--sl)">Only a buyer with a completed on-platform deal can review the counterparty. This keeps ratings trustworthy — the moment fake reviews creep in, a trust-first marketplace loses its whole value.</p>
+      <div style="margin-top:12px">${badge('info','Phase 2 · Must-Have')} ${badge('neutral','Requires: Orders')}</div>
+    </div>
+  </div>
+</div>`;
+
+function areaChart(data){
+  const w=560,h=150,pad=8,baseY=h-pad;
+  const max=Math.max(...data),min=Math.min(...data),rng=(max-min)||1;
+  const sx=(w-pad*2)/(data.length-1);
+  const pts=data.map((v,i)=>[pad+i*sx, pad+(h-pad*2)*(1-(v-min)/rng)]);
+  const line=pts.map((p,i)=>`${i?'L':'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+  const area=`${line} L ${pts[pts.length-1][0].toFixed(1)} ${baseY} L ${pts[0][0].toFixed(1)} ${baseY} Z`;
+  const last=pts[pts.length-1];
+  const grid=[0.33,0.66].map(f=>`<line x1="${pad}" x2="${w-pad}" y1="${(pad+(h-pad*2)*f).toFixed(1)}" y2="${(pad+(h-pad*2)*f).toFixed(1)}" stroke="#EEF2F7" stroke-width="1"/>`).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block" role="img" aria-label="Price trend, rising">
+    <defs><linearGradient id="agrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4F46E5" stop-opacity="0.22"/><stop offset="1" stop-color="#4F46E5" stop-opacity="0"/></linearGradient></defs>
+    ${grid}
+    <path d="${area}" fill="url(#agrad)"/>
+    <path d="${line}" fill="none" stroke="#4F46E5" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="4.5" fill="#4F46E5" stroke="#fff" stroke-width="2"/>
+  </svg>`;
+}
+
+S['roadmap/negotiation'] = () => `
+<div class="page">
+  ${pageHead('Negotiation & counter-offer engine', 'Structured counter-offers on price, volume and lead-time — replaces the MVP\'s plain message thread with a full offer history (R5).')}
+  ${phaseBanner('PHASE 2','Every counter is a structured offer with deltas and an audit trail — no terms buried in chat.')}
+  <div class="two-col">
+    <div class="card">
+      <div class="section-title" style="font-size:13px">RFQ-2041 · Paracetamol USP · with Sun Pharma</div>
+      <div class="timeline">
+        <div class="tl-item done"><div class="tt">Seller quote · $4.62/kg · 3 wks · MOQ 50 kg</div><div class="td">18 Jul, 09:12 · opening quote</div></div>
+        <div class="tl-item done"><div class="tt">Buyer counter · $4.30/kg ${badge('info','−7%')} · qty ↑ 2,500 kg</div><div class="td">18 Jul, 14:40 · "higher volume, hold price"</div></div>
+        <div class="tl-item done"><div class="tt">Seller counter · $4.42/kg · 2 wks ${badge('verified','lead −1 wk')}</div><div class="td">19 Jul, 08:05</div></div>
+        <div class="tl-item active"><div class="tt">Buyer counter · $4.38/kg · payment 30/70</div><div class="td">Awaiting seller · expires in 22h</div></div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-title" style="font-size:13px">Terms on the table</div>
+        <table class="tbl"><tbody>
+          <tr><td>Unit price</td><td style="text-align:right"><b class="mono" style="color:var(--p)">$4.38/kg</b></td></tr>
+          <tr><td>Quantity</td><td style="text-align:right">2,500 kg</td></tr>
+          <tr><td>Lead time</td><td style="text-align:right">2 wks</td></tr>
+          <tr><td>Payment</td><td style="text-align:right">30% adv / 70% BL</td></tr>
+        </tbody></table>
+        <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center">Counter</button><button class="btn btn-primary btn-sm" style="flex:1;justify-content:center">Accept</button></div>
+      </div>
+      <div class="card">${badge('info','Phase 2 · Must-Have')}<p style="font-size:12.5px;color:var(--sl);margin-top:8px;line-height:1.6">Supersedes the MVP message thread (F4.5). Offer history feeds the deal record and dispute evidence.</p></div>
+    </div>
+  </div>
+</div>`;
+
+S['roadmap/orders'] = () => `
+<div class="page">
+  ${pageHead('Order & shipment tracking', 'Accepted quote → order with milestone tracking and a per-shipment document pack (CoA, CoO, MSDS, BL). Ties escrow release to delivery events (R2, gap G7).')}
+  ${phaseBanner('PHASE 2','Convert accepted quotes into tracked orders; cold-chain flags & document digitisation follow in Phase 3.')}
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div><div class="section-title" style="font-size:13px;margin:0">ORD-1184 · Paracetamol USP · 2,000 kg</div><div class="sub">Sun Pharma → Cipla Ltd · $8,700 · FOB Mumbai</div></div>
+      ${badge('info','● In transit')}
+    </div>
+    <div class="divide"></div>
+    <div class="timeline">
+      <div class="tl-item done"><div class="tt">Order confirmed</div><div class="td">14 Jul · PO-88231</div></div>
+      <div class="tl-item done"><div class="tt">Manufacturing</div><div class="td">Batch B2214 · 16 Jul</div></div>
+      <div class="tl-item done"><div class="tt">QC released</div><div class="td">CoA issued · assay 99.8%</div></div>
+      <div class="tl-item done"><div class="tt">Dispatched</div><div class="td">Maersk · BL MAEU7712 · 19 Jul</div></div>
+      <div class="tl-item active"><div class="tt">In transit</div><div class="td">ETA Nhava Sheva · 03 Aug</div></div>
+      <div class="tl-item"><div class="tt">Delivered + CoA verified</div><div class="td">Releases escrow milestone</div></div>
+    </div>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="section-title" style="font-size:13px">Shipment document pack</div>
+      <div class="mini-list">
+        ${[['Certificate of Analysis (CoA)','Batch B2214'],['Certificate of Origin (CoO)','India'],['Safety Data Sheet (MSDS)','rev 4'],['Bill of Lading (BL)','MAEU7712']].map(d=>`<div class="mini-item"><span style="font-size:16px">📄</span><div><div class="mt">${d[0]}</div><div class="ms">${d[1]}</div></div><span class="badge b-verified" style="margin-left:auto">✓</span></div>`).join('')}
+      </div>
+    </div>
+    <div class="card"><div class="section-title" style="font-size:13px">Shipment</div>
+      <table class="tbl"><tbody>
+        <tr><td>Carrier</td><td style="text-align:right">Maersk (sea)</td></tr>
+        <tr><td>Container</td><td style="text-align:right" class="mono">MRKU221408</td></tr>
+        <tr><td>Incoterm</td><td style="text-align:right">FOB Mumbai</td></tr>
+        <tr><td>Cold chain</td><td style="text-align:right">${badge('neutral','Not required')}</td></tr>
+        <tr><td>ETA</td><td style="text-align:right">03 Aug 2026</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+</div>`;
+
+S['roadmap/disputes'] = () => `
+<div class="page">
+  ${pageHead('Dispute resolution & mediation', 'Structured intake on orders (quality, quantity, docs, delay) with evidence upload, ops mediation SLAs and refund / partial-release tied to escrow (R10, gap G12).')}
+  ${phaseBanner('PHASE 2–3','The MVP shows a 5-day window; Phase 2 builds the workflow behind it.')}
+  <div class="two-col">
+    <div class="card-pad0">
+      <div style="padding:16px 18px"><div class="section-title" style="margin:0;font-size:13px">Open disputes</div></div>
+      <table class="tbl"><thead><tr><th>Order</th><th>Type</th><th>Raised</th><th>Status</th></tr></thead><tbody>
+        <tr><td class="mono" style="font-size:12px">ORD-1177</td><td>Quality — OOS assay</td><td class="sub">2 days ago</td><td>${badge('pending','● In mediation')}</td></tr>
+        <tr><td class="mono" style="font-size:12px">ORD-1169</td><td>Short quantity</td><td class="sub">4 days ago</td><td>${badge('info','● Evidence review')}</td></tr>
+        <tr><td class="mono" style="font-size:12px">ORD-1152</td><td>Docs — missing CoO</td><td class="sub">8 days ago</td><td>${badge('verified','✓ Resolved')}</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card">
+      <div class="section-title" style="font-size:13px">ORD-1177 · Mediation</div>
+      <div class="timeline">
+        <div class="tl-item done"><div class="tt">Dispute raised — buyer</div><div class="td">Assay 98.1% vs 99.5% spec · CoA + lab report attached</div></div>
+        <div class="tl-item done"><div class="tt">Seller responded</div><div class="td">Requests re-test at partner lab</div></div>
+        <div class="tl-item active"><div class="tt">Ops mediating</div><div class="td">SLA: decision in 3 business days</div></div>
+        <div class="tl-item"><div class="tt">Resolution</div><div class="td">Refund / partial release / replace</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center">Partial release</button><button class="btn btn-primary btn-sm" style="flex:1;justify-content:center">Full refund</button></div>
+    </div>
+  </div>
+</div>`;
+
+S['roadmap/compliance'] = () => `
+<div class="page">
+  ${pageHead('Compliance hub', 'Automates what ops does by hand: cert-expiry alerts (60/30/7-day), renewal reminders, a supplier compliance page and a regulatory framework library (R4).')}
+  ${phaseBanner('PHASE 2','Warning-letter / recall / import-alert feeds arrive in Phase 3 (R17).')}
+  <div class="kpi-row">
+    ${kpi('Certificates tracked','24','across 40 suppliers','')}
+    ${kpi('Expiring ≤60 days','3','2 in your shortlist','down')}
+    ${kpi('Active alerts','5','','')}
+    ${kpi('Suppliers compliant','92%','+3%','up')}
+  </div>
+  <div class="two-col">
+    <div class="card-pad0">
+      <div style="padding:16px 18px"><div class="section-title" style="margin:0;font-size:13px">Certificate tracker</div></div>
+      <table class="tbl"><thead><tr><th>Supplier</th><th>Certificate</th><th>Expiry</th><th>Status</th></tr></thead><tbody>
+        <tr><td>Aurobindo</td><td>EU GMP</td><td class="mono">2026-10</td><td>${badge('rejected','⚠ 30 days')}</td></tr>
+        <tr><td>Sun Pharma</td><td>EU GMP</td><td class="mono">2026-11</td><td>${badge('pending','● 60 days')}</td></tr>
+        <tr><td>Divi's</td><td>PMDA</td><td class="mono">2026-12</td><td>${badge('pending','● 90 days')}</td></tr>
+        <tr><td>Sun Pharma</td><td>US FDA GMP</td><td class="mono">2027-04</td><td>${badge('verified','✓ Valid')}</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card">
+      <div class="section-title" style="font-size:13px">Alert feed</div>
+      <div class="mini-list">
+        <div class="mini-item"><span class="dot" style="background:var(--rd)"></span><div><div class="mt">Aurobindo EU GMP — 30-day expiry</div><div class="ms">Renewal reminder sent</div></div></div>
+        <div class="mini-item"><span class="dot" style="background:var(--am)"></span><div><div class="mt">Sun Pharma EU GMP — 60-day expiry</div><div class="ms">On your shortlist</div></div></div>
+        <div class="mini-item"><span class="dot" style="background:var(--gn)"></span><div><div class="mt">Hetero WHO PQ — renewed</div><div class="ms">Valid to 2027-05</div></div></div>
+      </div>
+      <div class="divide"></div>
+      <div class="section-title" style="font-size:12px">Regulatory framework library</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${['21 CFR 211','EudraLex Vol 4','WHO TRS 992','ICH Q7','Schedule M','NMPA'].map(f=>`<span class="chip" style="font-size:10.5px">${f}</span>`).join('')}</div>
+    </div>
+  </div>
+</div>`;
+
+S['roadmap/pricing'] = () => `
+<div class="page">
+  ${pageHead('Price intelligence', 'Starts as anonymised quote-derived ranges per API, graduating to trend charts, forecasts and price alerts as data accumulates (R7 → Phase 3).')}
+  ${phaseBanner('PHASE 2','Benchmarks from real quotes now; AI forecasts once there are months of history.')}
+  <div class="two-col">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div class="section-title" style="font-size:13px;margin:0">Paracetamol (USP) — price index</div><div class="sub">Quote-derived · last 7 months · $/kg</div></div>
+        <div style="text-align:right"><b class="mono" style="font-size:20px;color:var(--p)">$4.72</b><div class="delta up" style="justify-content:flex-end">▲ 6.8% vs Jan</div></div>
+      </div>
+      <div style="margin-top:14px">${areaChart([4.10,4.25,4.58,4.44,4.31,4.55,4.72])}</div>
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--mu);margin-top:4px">${['Jan','Feb','Mar','Apr','May','Jun','Jul'].map(m=>`<span>${m}</span>`).join('')}</div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-title" style="font-size:13px">Your quotes vs market</div>
+        <div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span class="sub">Your recent avg</span><b class="mono">$4.48/kg</b></div><div class="progress"><div class="bar" style="width:62%"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span class="sub">Market median</span><b class="mono">$4.62/kg</b></div><div class="progress"><div class="bar" style="width:72%;background:#94A3B8"></div></div></div>
+        <div class="alert alert-info" style="margin-top:12px;font-size:11.5px"><span class="ai">💡</span><div>You're buying ~3% below market median.</div></div>
+      </div>
+      <div class="card"><div class="section-title" style="font-size:13px">Recommendation</div><div style="display:flex;align-items:center;gap:10px"><span class="badge b-verified" style="font-size:12px">Lock now</span><span class="sub">Q3 forecast +4–7%</span></div><p style="font-size:12px;color:var(--sl);margin-top:8px">Consider a 6-month contract at today's price before the seasonal rise.</p></div>
+    </div>
+  </div>
+</div>`;
+
+S['roadmap/team'] = () => `
+<div class="page">
+  ${pageHead('Team accounts, roles & approvals', 'Procurement is a team sport: multi-user orgs with requester / approver / finance roles, RFQ approval flows and shared shortlists (R6, gap G10).')}
+  ${phaseBanner('PHASE 2','Single-user accounts cap deal size — enterprise buyers need approval chains.')}
+  <div class="two-col">
+    <div>
+      <div class="card-pad0" style="margin-bottom:16px">
+        <div style="padding:16px 18px;display:flex;justify-content:space-between;align-items:center"><div class="section-title" style="margin:0;font-size:13px">Cipla Ltd · team (5)</div><button class="btn btn-ghost btn-sm">＋ Invite</button></div>
+        <table class="tbl"><thead><tr><th>Member</th><th>Role</th><th>Access</th></tr></thead><tbody>
+          <tr><td>Riya Mehta<div class="sub">Head of Procurement</div></td><td>${badge('info','Admin')}</td><td class="sub">All RFQs, approve</td></tr>
+          <tr><td>Arjun Rao</td><td>${badge('neutral','Requester')}</td><td class="sub">Create RFQs</td></tr>
+          <tr><td>Neha Singh</td><td>${badge('neutral','Requester')}</td><td class="sub">Create RFQs</td></tr>
+          <tr><td>Vikram Patel</td><td>${badge('info','Approver')}</td><td class="sub">Approve ≤ $50k</td></tr>
+          <tr><td>Meera Iyer</td><td>${badge('info','Finance')}</td><td class="sub">Payment terms</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="font-size:13px">RFQ approval flow</div>
+      <div class="sub" style="margin-bottom:10px">RFQ-2051 · Atorvastatin · est. $62,000</div>
+      <div class="timeline">
+        <div class="tl-item done"><div class="tt">Requested — Arjun Rao</div><div class="td">14 Jul</div></div>
+        <div class="tl-item done"><div class="tt">Approved — Vikram (Approver)</div><div class="td">over $50k → escalates to finance</div></div>
+        <div class="tl-item active"><div class="tt">Awaiting — Meera (Finance)</div><div class="td">payment terms sign-off</div></div>
+        <div class="tl-item"><div class="tt">Broadcast to suppliers</div><div class="td">on final approval</div></div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+S['roadmap/billing'] = () => `
+<div class="page">
+  ${pageHead('Monetization & billing', 'Activates the business model once liquidity is proven: subscription plans + a GMV take-rate on escrow release, with invoicing and GST/VAT (R8, gap G14).')}
+  ${phaseBanner('PHASE 2–3','Fees are waived in the MVP (assumption A5). This is the engine that turns them on.')}
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-bottom:18px">
+    ${[['Free Starter','$0','/mo','2.5% GMV · 5 RFQs/mo',false],['Growth','$799','/mo','2.0% GMV · unlimited · price intel',true],['Enterprise','Custom','','1.5% GMV · ERP · dedicated CSM',false]].map(p=>`
+      <div class="card" style="${p[4]?'border:2px solid var(--p);position:relative':''}">${p[4]?'<span class="badge b-info" style="position:absolute;top:-10px;left:16px">Current plan</span>':''}
+        <div class="section-title" style="font-size:13px;margin:0">${p[0]}</div>
+        <div style="margin:6px 0"><b style="font-size:26px;font-family:'Syne'">${p[1]}</b><span class="sub">${p[2]}</span></div>
+        <div class="sub">${p[3]}</div>
+        <button class="btn ${p[4]?'btn-ghost':'btn-primary'} btn-sm" style="width:100%;justify-content:center;margin-top:12px">${p[4]?'Manage plan':'Choose'}</button>
+      </div>`).join('')}
+  </div>
+  <div class="two-col">
+    <div class="card-pad0">
+      <div style="padding:16px 18px"><div class="section-title" style="margin:0;font-size:13px">Invoices</div></div>
+      <table class="tbl"><thead><tr><th>Invoice</th><th>Period</th><th>Amount</th><th>Status</th></tr></thead><tbody>
+        <tr><td class="mono" style="font-size:12px">INV-2026-07</td><td class="sub">Jul 2026</td><td>$799 + GST</td><td>${badge('verified','✓ Paid')}</td></tr>
+        <tr><td class="mono" style="font-size:12px">INV-2026-06</td><td class="sub">Jun 2026</td><td>$799 + GST</td><td>${badge('verified','✓ Paid')}</td></tr>
+        <tr><td class="mono" style="font-size:12px">TAKE-1188</td><td class="sub">GMV fee · ORD-1188</td><td>2.0% · $368</td><td>${badge('pending','● On release')}</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card"><div class="section-title" style="font-size:13px">This month</div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0"><span class="sub">Subscription</span><b class="mono">$799</b></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0"><span class="sub">GMV take-rate (2.0%)</span><b class="mono">$1,240</b></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0"><span class="sub">GST (18%)</span><b class="mono">$367</b></div>
+      <div class="divide" style="margin:8px 0"></div>
+      <div style="display:flex;justify-content:space-between"><b>Total due</b><b class="mono" style="color:var(--p)">$2,406</b></div>
+    </div>
+  </div>
+</div>`;
+
+/* shared messages screen */
+function messagesScreen(role){
+  const threads = role==='buyer'
+    ? [['Sun Pharma API Division','Price held for 6 months on annual…','2m',true],['Aurobindo Pharma','We can meet the USP spec, sending CoA','1h',false],['Divi\'s Laboratories','LC at sight acceptable?','3h',false]]
+    : [['Cipla Ltd','Can you hold that price for a 6-month…','5m',true],['Torrent Pharma','Please share MOQ for BP grade','2h',false]];
+  return `
+<div class="page">
+  ${pageHead('Messages', 'In-app inbox with per-RFQ threads consolidated. Email + WhatsApp notifications fire on every event (F5).')}
+  <div class="two-col">
+    <div class="card-pad0">
+      ${threads.map((t,i)=>`<div class="mini-item" style="padding:14px 16px;border-bottom:1px solid #F1F5F9;${i===0?'background:var(--pale)':''}">
+        <div class="sup-logo" style="width:40px;height:40px;font-size:13px">${t[0].split(' ').map(w=>w[0]).slice(0,2).join('')}</div>
+        <div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between"><b style="font-size:13px">${t[0]}</b><span class="sub">${t[2]}</span></div><div class="ms" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t[1]}</div></div>
+        ${t[3]?'<span class="dot" style="background:var(--p)"></span>':''}
+      </div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="section-title" style="font-size:13px">Notification channels</div>
+      <div class="mini-list">
+        <div class="mini-item"><span style="font-size:16px">🔔</span><div><div class="mt">In-app</div><div class="ms">Real-time notification centre</div></div></div>
+        <div class="mini-item"><span style="font-size:16px">✉️</span><div><div class="mt">Email</div><div class="ms">All lifecycle events</div></div></div>
+        <div class="mini-item"><span style="font-size:16px">💬</span><div><div class="mt">WhatsApp Business</div><div class="ms">India buyers & sellers</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+/* ============ WORKFLOWS ============ */
+const WF_ACTORS = {
+  visitor:{name:'Visitor', role:'browses public catalog', c:'#475569', bg:'#F1F5F9'},
+  buyer:{name:'Buyer', role:'sources ingredients', c:'#4F46E5', bg:'#EEF2FF'},
+  seller:{name:'Supplier', role:'lists & quotes', c:'#0E7490', bg:'#CFFAFE'},
+  ops:{name:'Ops / Admin', role:'verifies & mediates', c:'#B45309', bg:'#FEF3C7'},
+  system:{name:'Platform', role:'automated', c:'#6D28D9', bg:'#EDE9FE'},
+  finance:{name:'Finance / Approver', role:'buyer-org sign-off', c:'#15803D', bg:'#DCFCE7'},
+};
+const WORKFLOWS = {
+  'seller-onboarding':{ title:'Supplier onboarding & verification', phase:'MVP',
+    desc:'How a new API supplier gets human-verified and live on the marketplace.',
+    actors:['seller','system','ops'], trigger:'A supplier signs up to sell',
+    outcome:'Verified supplier live in search and receiving matched RFQs',
+    steps:[
+      {actor:'seller', act:'Create account', out:'Work email + WhatsApp OTP verified; role set to Supplier'},
+      {actor:'seller', act:'Add company & manufacturing sites', out:'Legal entity, GST/CIN, per-site certifications claimed, export markets'},
+      {actor:'seller', act:'Upload regulatory documents', out:'GMP certificates + manufacturing licence uploaded; DMF/CEP declared'},
+      {actor:'seller', act:'Add products & commercial terms', out:'Manual entry or CSV bulk import; default Incoterms and payment terms'},
+      {actor:'system', act:'Queue for verification', out:'Documents and company enter the ops queue with a 48h SLA timer'},
+      {actor:'ops', act:'Verify against issuing authorities', out:'Cross-check FDA / EudraGMDP / CDSCO; company-existence + call-back; dual review for the first 100 suppliers'},
+      {actor:'ops', act:'Approve or reject', out:'Approve to verified, or reject with a reason code — every action audit-logged'},
+      {actor:'system', act:'Publish and go live', out:'Verified Supplier badge + cert chips with expiry appear; products indexed in the public catalog'},
+    ]},
+  'buyer-onboarding':{ title:'Buyer onboarding & KYB', phase:'MVP',
+    desc:'How a buyer gets cleared to post RFQs — trust is two-sided.',
+    actors:['buyer','system','ops'], trigger:'A buyer signs up to source',
+    outcome:'Verified buyer able to post RFQs',
+    steps:[
+      {actor:'buyer', act:'Create account', out:'Role (procurement / R&D / QA / trader) + work-email OTP'},
+      {actor:'buyer', act:'Company & licence', out:'Company type, GST/registration, drug or wholesale licence uploaded where applicable'},
+      {actor:'system', act:'Lock RFQ posting pending KYB', out:'Buyer can browse, but cannot post RFQs until ops clears KYB'},
+      {actor:'ops', act:'Light KYB check', out:'Verify entity and licence; approve or reject — protects sellers from fake demand'},
+      {actor:'buyer', act:'Set sourcing preferences', out:'Categories, regulatory markets, preferred origins — drives RFQ routing and a personalised catalog'},
+      {actor:'system', act:'Enable RFQ posting', out:'Buyer is verified and can now post RFQs'},
+    ]},
+  'listing':{ title:'List a product', phase:'MVP',
+    desc:'How a verified supplier publishes a product into the catalog.',
+    actors:['seller','system'], trigger:'A verified supplier adds a product',
+    outcome:'Product live and SEO-indexed in the public catalog',
+    steps:[
+      {actor:'seller', act:'Enter product details', out:'Name, CAS, category, pharmacopeia grade, purity, MOQ, indicative price, lead time'},
+      {actor:'seller', act:'Add compliance data', out:'Per-product certifications, DMF/COPP, shipment documents'},
+      {actor:'seller', act:'Publish (or bulk import)', out:'Single product or CSV/Excel bulk upload against the template'},
+      {actor:'system', act:'Index and rank', out:'Public product page generated (SEO); listed in search ranked by verification level then recency'},
+    ]},
+  'discovery':{ title:'Discover & shortlist suppliers', phase:'MVP',
+    desc:'How a buyer finds verified suppliers and starts a request.',
+    actors:['visitor','buyer','system'], trigger:'A buyer needs to source an API',
+    outcome:'Buyer shortlists verified suppliers and starts an RFQ',
+    steps:[
+      {actor:'visitor', act:'Search the catalog', out:'Keyword by product name or CAS number'},
+      {actor:'visitor', act:'Filter results', out:'Category, certification, supplier country, MOQ — live filtering, no AI ranking'},
+      {actor:'visitor', act:'Open product & supplier profile', out:'Reviews verified certifications with expiry, facilities, product range'},
+      {actor:'system', act:'Gate contact behind login', out:'Request-quote and messaging require a signed-in, verified account'},
+      {actor:'buyer', act:'Request quote / post RFQ', out:'Proceeds into the RFQ loop'},
+    ]},
+  'rfq':{ title:'RFQ → Quote → Deal (core loop)', phase:'MVP',
+    desc:'The heart of the marketplace: post a request, receive competitive quotes, compare, and close on-platform.',
+    actors:['buyer','system','seller','ops'], trigger:'A verified buyer posts a Request for Quote',
+    outcome:'Deal closed on-platform with a PDF trail; payment & logistics settle off-platform',
+    steps:[
+      {actor:'buyer', act:'Post RFQ (3-step wizard)', out:'Product + CAS + quantity + required-by; specs and mandatory certs; optional sample request'},
+      {actor:'system', act:'Rule-based matching', out:'RFQ matched to verified sellers that list the product and hold the mandated certifications'},
+      {actor:'buyer', act:'Confirm broadcast list', out:'Tick / untick matched suppliers, then broadcast'},
+      {actor:'system', act:'Notify matched sellers', out:'Alerts sent via in-app + email + WhatsApp'},
+      {actor:'seller', act:'Submit quote', out:'Price, MOQ, lead time, Incoterm, payment terms, validity, CoA attachment'},
+      {actor:'buyer', act:'Compare quotes', out:'Side-by-side table (price, total, lead, certs); export to PDF'},
+      {actor:'buyer', act:'Q&A / negotiate', out:'Per-RFQ message thread with attachments (structured counter-offers arrive in Phase 2)'},
+      {actor:'buyer', act:'Accept a quote', out:'Generates a Deal record + PDF (both verified parties, agreed terms)'},
+      {actor:'system', act:'Update lifecycle & notify', out:'Both sides notified; RFQ moves to Accepted; ops alerted'},
+      {actor:'ops', act:'White-glove hand-off', out:'Shepherds first transactions; parties settle payment and logistics off-platform in the MVP'},
+    ]},
+  'verification':{ title:'Ops verification queue', phase:'MVP',
+    desc:'The ops discipline that makes the marketplace trustworthy — every seller, buyer and document is human-checked.',
+    actors:['system','ops'], trigger:'A seller, buyer or document is submitted',
+    outcome:'Only genuinely verified parties can transact; SLA met',
+    steps:[
+      {actor:'system', act:'Item enters the queue', out:'Seller / buyer-KYB / document queued with a 48h SLA countdown'},
+      {actor:'ops', act:'Open and review', out:'Reviewer opens the item; view-as available for support'},
+      {actor:'ops', act:'Cross-check authorities', out:'FDA drug database, EudraGMDP, CDSCO portal; company existence + call-back'},
+      {actor:'ops', act:'Decide', out:'Approve to verified badge, or reject with a reason code (dual review for the first 100 suppliers)'},
+      {actor:'system', act:'Log & notify', out:'Action written to the audit log; submitter notified; cert expiry added to the register'},
+    ]},
+  'rfq-monitor':{ title:'RFQ monitoring & nudge', phase:'MVP',
+    desc:'How ops guarantees buyers see competitive quotes fast, so the marketplace never feels empty.',
+    actors:['system','ops','seller','buyer'], trigger:'An open RFQ is slow to attract quotes',
+    outcome:'Buyer receives 3+ quotes within the 48h promise',
+    steps:[
+      {actor:'system', act:'Flag at-risk RFQ', out:'RFQ monitor surfaces age and quote-count; flags any over the 24h first-quote SLA'},
+      {actor:'ops', act:'Review stuck RFQ', out:'Identifies why (too few matched sellers, unresponsive suppliers)'},
+      {actor:'ops', act:'Nudge or recruit', out:'Nudges matched sellers, or reaches out to recruit additional verified suppliers'},
+      {actor:'seller', act:'Respond with a quote', out:'Seller submits a competitive quote'},
+      {actor:'buyer', act:'Receive quotes', out:'Buyer has 3+ quotes to compare within SLA'},
+    ]},
+  'sample':{ title:'Sample request & evaluation', phase:'Phase 2',
+    desc:'No bulk API order happens without a sample and CoA — this makes it a tracked workflow.',
+    actors:['buyer','seller','system'], trigger:'Buyer requests a sample before a bulk order',
+    outcome:'Sample evaluated; bulk order unlocked; result feeds reviews',
+    steps:[
+      {actor:'buyer', act:'Request a sample', out:'Flag on the RFQ, or a standalone request with quantity'},
+      {actor:'seller', act:'Dispatch sample + CoA', out:'Courier tracking, CoA and batch record attached'},
+      {actor:'buyer', act:'Lab evaluation', out:'QC runs assay, related substances, dissolution against spec'},
+      {actor:'system', act:'Record outcome', out:'Pass / fail logged; on pass, unlocks the bulk order and feeds the transaction-gated review'},
+    ]},
+  'escrow':{ title:'Escrow & order fulfilment', phase:'Phase 2',
+    desc:'Buyers pay only on verified delivery — the flagship trust layer.',
+    actors:['buyer','system','seller','ops'], trigger:'Buyer accepts a quote with escrow enabled',
+    outcome:'Funds released to the seller on verified delivery',
+    steps:[
+      {actor:'buyer', act:'Accept and fund escrow', out:'Advance deposited into escrow on acceptance'},
+      {actor:'seller', act:'Manufacture & QC', out:'Order confirmed, batch produced, CoA issued'},
+      {actor:'seller', act:'Dispatch with documents', out:'Bill of Lading + document pack; status moves to In transit'},
+      {actor:'system', act:'Verify delivery & CoA', out:'Delivery confirmed and CoA verified against spec'},
+      {actor:'system', act:'Dispute window then release', out:'5-day window; auto-release of funds if no dispute; statements issued'},
+      {actor:'ops', act:'Handle exceptions', out:'Steps in only if a dispute is raised (see Dispute resolution)'},
+    ]},
+  'dispute':{ title:'Dispute resolution & mediation', phase:'Phase 2',
+    desc:'Structured intake and ops mediation when something goes wrong with an order.',
+    actors:['buyer','seller','ops','system'], trigger:'Buyer raises an issue on an order',
+    outcome:'Resolved via refund, partial release or replacement',
+    steps:[
+      {actor:'buyer', act:'Raise a dispute', out:'Type (quality / quantity / docs / delay) with evidence upload'},
+      {actor:'seller', act:'Respond', out:'Provides an explanation or proposes a remedy (e.g. re-test)'},
+      {actor:'ops', act:'Mediate', out:'Reviews evidence within a mediation SLA; requests more if needed'},
+      {actor:'ops', act:'Decide resolution', out:'Refund, partial release, or replacement'},
+      {actor:'system', act:'Act on escrow & log', out:'Escrow acts on the decision; resolution recorded to the audit trail'},
+    ]},
+  'reviews':{ title:'Ratings & reviews', phase:'Phase 2',
+    desc:'Transaction-gated reviews so only real deals can rate a supplier.',
+    actors:['system','buyer','seller'], trigger:'A deal completes on-platform',
+    outcome:'A verified, trustworthy rating added to the supplier profile',
+    steps:[
+      {actor:'system', act:'Invite review', out:'On order completion, the buyer is invited to review'},
+      {actor:'buyer', act:'Rate the counterparty', out:'On-time delivery, product quality, documentation, communication'},
+      {actor:'system', act:'Gate as verified purchase', out:'Only completed on-platform deals can review — blocks fake reviews'},
+      {actor:'seller', act:'Rating published', out:'Appears on the supplier profile and feeds future ranking'},
+    ]},
+  'team-approval':{ title:'Team accounts & RFQ approvals', phase:'Phase 2',
+    desc:'Enterprise procurement is a team sport — requesters, approvers and finance.',
+    actors:['buyer','finance','system','seller'], trigger:'A requester drafts a high-value RFQ',
+    outcome:'Approved RFQ is broadcast to suppliers',
+    steps:[
+      {actor:'buyer', act:'Requester drafts RFQ', out:'A requester in the buyer org creates the RFQ'},
+      {actor:'buyer', act:'Approver signs off', out:'Approver clears it if within their limit'},
+      {actor:'finance', act:'Finance approves (if over limit)', out:'High-value RFQs escalate for payment-terms sign-off'},
+      {actor:'system', act:'Broadcast', out:'On final approval, the RFQ is matched and broadcast to suppliers'},
+      {actor:'seller', act:'Quote', out:'Matched suppliers quote as in the core loop'},
+    ]},
+  'billing':{ title:'Monetization & billing', phase:'Phase 2',
+    desc:'How the platform earns once liquidity is proven (fees are waived in the MVP).',
+    actors:['system','buyer','seller'], trigger:'A deal settles or a billing cycle closes',
+    outcome:'Platform revenue collected; invoices issued with GST/VAT',
+    steps:[
+      {actor:'system', act:'Compute take-rate', out:'On escrow release, applies the GMV take-rate (1.5–2.5% by plan)'},
+      {actor:'system', act:'Assemble invoice', out:'Subscription + take-rate line items with GST/VAT'},
+      {actor:'buyer', act:'Buyer billed', out:'Buyer subscription and applicable fees charged'},
+      {actor:'seller', act:'Seller billed', out:'Seller subscription and GMV fee applied'},
+      {actor:'system', act:'Issue statements', out:'Invoices and statements available; revenue recognised'},
+    ]},
+};
+
+function actorChip(k){ const a=WF_ACTORS[k]; return `<span class="wf-actor" style="color:${a.c};background:${a.bg}"><span class="d" style="background:${a.c}"></span>${a.name}</span>`; }
+function renderFlow(wf){
+  return `
+  <div class="page">
+    ${pageHead(wf.title, wf.desc, `<span class="badge ${wf.phase==='MVP'?'b-verified':'b-info'}">${wf.phase}</span>`)}
+    <div class="card" style="margin-bottom:18px">
+      <div class="section-title" style="font-size:12px">Actors</div>
+      <div class="wf-legend" style="margin-bottom:14px">${wf.actors.map(actorChip).join('')}</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;border-top:1px solid var(--bd);padding-top:14px">
+        <div style="flex:1;min-width:200px"><div class="sub">Trigger</div><b style="font-size:13.5px">${wf.trigger}</b></div>
+        <div style="flex:1;min-width:200px"><div class="sub">Outcome</div><b style="font-size:13.5px;color:var(--gn)">${wf.outcome}</b></div>
+      </div>
+    </div>
+    <div class="wf-flow">
+      ${wf.steps.map((s,i)=>{ const a=WF_ACTORS[s.actor]; return `
+        <div class="wf-step">
+          <div class="wf-num" style="background:${a.bg};color:${a.c}">${i+1}</div>
+          <div class="wf-card" style="border-left-color:${a.c}">
+            <div class="wf-role" style="color:${a.c}">${a.name}</div>
+            <div class="wf-act">${s.act}</div>
+            <div class="wf-out">${s.out}</div>
+          </div>
+        </div>`; }).join('')}
+    </div>
+    <div class="wf-outcome"><span style="font-size:22px">✅</span><div><b style="font-size:13px">Outcome</b><div style="font-size:12.5px;color:var(--sl)">${wf.outcome}</div></div></div>
+  </div>`;
+}
+function wfCard(key){ const wf=WORKFLOWS[key]; return `
+  <div class="result-card" style="flex-direction:column;align-items:stretch;gap:9px" data-nav="wf/${key}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+      <b style="font-size:14px;line-height:1.3">${wf.title}</b>
+      <span class="badge ${wf.phase==='MVP'?'b-verified':'b-info'}" style="flex-shrink:0">${wf.phase}</span>
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">${wf.actors.map(a=>`<span class="wf-actor" style="color:${WF_ACTORS[a].c};background:${WF_ACTORS[a].bg};font-size:9.5px;padding:3px 8px"><span class="d" style="width:6px;height:6px;background:${WF_ACTORS[a].c}"></span>${WF_ACTORS[a].name}</span>`).join('')}</div>
+    <div style="font-size:12px;color:var(--sl);line-height:1.5"><span style="color:var(--mu)">Trigger:</span> ${wf.trigger}</div>
+    <div style="font-size:12px;color:var(--gn);line-height:1.5"><b>→ ${wf.outcome}</b></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px"><span class="sub">${wf.steps.length} steps</span><span class="link" style="font-size:12px">View flow →</span></div>
+  </div>`;
+}
+Object.keys(WORKFLOWS).forEach(k=> S['wf/'+k] = () => renderFlow(WORKFLOWS[k]));
+S['wf/overview'] = () => {
+  const keys = Object.keys(WORKFLOWS);
+  const mvp = keys.filter(k=>WORKFLOWS[k].phase==='MVP');
+  const p2 = keys.filter(k=>WORKFLOWS[k].phase!=='MVP');
+  return `
+  <div class="page">
+    ${pageHead('Product workflows', 'Every end-to-end flow in PharmaLink — the actors, the steps, and what each flow produces. Click any card for the step-by-step. Share this tab with your team to explain how the product is used.')}
+    <div class="card" style="margin-bottom:22px">
+      <div class="section-title" style="font-size:13px">Actors in these flows</div>
+      <div class="wf-legend">${Object.keys(WF_ACTORS).map(k=>`<span class="wf-actor" style="color:${WF_ACTORS[k].c};background:${WF_ACTORS[k].bg}"><span class="d" style="background:${WF_ACTORS[k].c}"></span>${WF_ACTORS[k].name} · ${WF_ACTORS[k].role}</span>`).join('')}</div>
+    </div>
+    <div class="section-title">🟢 MVP workflows — the 6-week spine</div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(310px,1fr));margin:12px 0 26px">${mvp.map(wfCard).join('')}</div>
+    <div class="section-title">🔵 Phase-2 workflows — roadmap</div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(310px,1fr));margin-top:12px">${p2.map(wfCard).join('')}</div>
+  </div>`;
+};
+
+/* ============ ARCHITECTURE ============ */
+S['arch/overview'] = () => `
+<div class="page">
+  ${pageHead('System architecture', 'Event-driven microservices with a message-queue backbone. Each service owns its database and talks through domain events (async-first); only user-blocking reads are synchronous. Full detail in ARCHITECTURE.md.')}
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:20px">
+    ${[['Event-driven','Domain events on RabbitMQ; async by default'],['Microservices','Service per context · own DB · deploy independently'],['Secure by default','HttpOnly cookies, RBAC, mTLS, audit, encryption'],['Trust-first','Verification, doc integrity, audit are core']].map(x=>`<div class="card"><div class="section-title" style="font-size:12.5px;margin:0">${x[0]}</div><div class="sub" style="margin-top:4px">${x[1]}</div></div>`).join('')}
+  </div>
+  <div class="arch-layer"><div class="arch-lbl">Clients</div><div class="arch-boxes">
+    <div class="arch-box"><b>Buyer / Supplier web</b><div class="s">Responsive SPA</div></div>
+    <div class="arch-box"><b>Ops / Admin console</b><div class="s">MFA-gated</div></div>
+    <div class="arch-box"><b>Public SEO pages</b><div class="s">SSR product & supplier</div></div>
+  </div></div>
+  <div class="arch-arrow">↓ HTTPS</div>
+  <div class="arch-layer"><div class="arch-lbl">Edge</div><div class="arch-boxes"><div class="arch-box"><b>CDN + WAF + TLS</b><div class="s">Caching · rate-limit · TLS termination</div></div></div></div>
+  <div class="arch-arrow">↓</div>
+  <div class="arch-layer"><div class="arch-lbl">Frontend</div><div class="arch-boxes"><div class="arch-box"><b>Next.js + BFF</b><div class="s">SSR for SEO; sets HttpOnly secure cookies — tokens never touch JS</div></div></div></div>
+  <div class="arch-arrow">↓</div>
+  <div class="arch-layer"><div class="arch-lbl">API gateway + service mesh</div><div class="arch-boxes"><div class="arch-box"><b>Gateway</b><div class="s">JWT verify (JWKS) · RBAC · rate-limit · CSRF · routing</div></div><div class="arch-box"><b>Service mesh</b><div class="s">mTLS · retries · circuit breaking · canary</div></div></div></div>
+  <div class="arch-arrow">↓ route (sync reads) · gRPC between services (rare)</div>
+  <div class="arch-layer"><div class="arch-lbl">Microservices — one per context, each owns its database</div><div class="arch-boxes">
+    ${[['Identity & Access','identity db'],['Onboarding & Verification','verification db'],['Catalog','catalog db'],['Search','OpenSearch'],['RFQ & Quoting','rfq db'],['Matching','read model'],['Notifications','notif db'],['Documents','documents db'],['Admin / Ops','ops read-models'],['Audit & Compliance','append-only db']].map(c=>`<div class="arch-box" style="min-width:150px"><b>${c[0]}</b><div class="s">🗄️ ${c[1]}</div></div>`).join('')}
+  </div></div>
+  <div class="arch-arrow">↕ publish / consume (async-first)</div>
+  <div class="arch-layer arch-bus"><div class="arch-lbl">Event bus</div><div class="arch-boxes">
+    <div class="arch-box"><b>RabbitMQ</b><div class="s">Topic exchange · DLQ · delayed messages (SLA timers)</div></div>
+    <div class="arch-box"><b>Per-service outbox</b><div class="s">atomic state + event; consumers idempotent</div></div>
+  </div></div>
+  <div class="arch-arrow">↓</div>
+  <div class="arch-layer"><div class="arch-lbl">Shared infra — India-region primary</div><div class="arch-boxes">
+    <div class="arch-box"><b>PostgreSQL — DB per service</b><div class="s">no cross-service DB access · RLS</div></div>
+    <div class="arch-box"><b>Redis</b><div class="s">OTP · sessions · rate-limit · idempotency</div></div>
+    <div class="arch-box"><b>Object storage</b><div class="s">encrypted blobs · signed URLs</div></div>
+    <div class="arch-box"><b>Email / WhatsApp / SMS</b><div class="s">via Notifications svc</div></div>
+  </div></div>
+</div>`;
+
+S['arch/events'] = () => `
+<div class="page">
+  ${pageHead('Event-driven architecture & message queue', 'RabbitMQ topic exchange is the backbone. Producers write state + an outbox row in one transaction; a relay publishes to the broker; consumers are idempotent. At-least-once delivery + idempotency = effectively-once processing.')}
+  <div class="two-col">
+    <div class="card-pad0">
+      <div style="padding:16px 18px"><div class="section-title" style="margin:0;font-size:13px">Event catalog (sample)</div></div>
+      <table class="tbl"><thead><tr><th>Event</th><th>Producer</th><th>Consumers</th></tr></thead><tbody>
+        ${[
+          ['seller.verified','Verification','Catalog, Notifications, Audit'],
+          ['product.published','Catalog','Search indexer, Audit'],
+          ['rfq.posted','RFQ','Matching, Scheduler, Audit'],
+          ['rfq.matched','Matching','Notifications, Audit'],
+          ['quote.submitted','RFQ','Notifications, Audit'],
+          ['quote.accepted','RFQ','Notifications, Ops, Audit'],
+          ['deal.created','RFQ','Notifications, Audit'],
+          ['document.accessed','Documents','Audit'],
+          ['cert.expiry.reminder','Scheduler','Notifications'],
+        ].map(e=>`<tr><td class="mono" style="font-size:12px;color:var(--p)">${e[0]}</td><td class="sub">${e[1]}</td><td class="sub">${e[2]}</td></tr>`).join('')}
+      </tbody></table>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:16px"><div class="section-title" style="font-size:13px">Broker topology</div>
+        <div class="mini-list">
+          <div class="mini-item"><span style="font-size:15px">🔀</span><div><div class="mt">Exchange: pharmalink.events</div><div class="ms">topic · durable · key = context.entity.event</div></div></div>
+          <div class="mini-item"><span style="font-size:15px">📥</span><div><div class="mt">Queue per consumer group</div><div class="ms">bound by pattern (audit.q ← #)</div></div></div>
+          <div class="mini-item"><span style="font-size:15px">☠️</span><div><div class="mt">Dead-letter exchange + DLQ</div><div class="ms">poison messages → inspect + replay</div></div></div>
+          <div class="mini-item"><span style="font-size:15px">⏱️</span><div><div class="mt">Delayed messages</div><div class="ms">SLA timers · cert-expiry · RFQ nudge</div></div></div>
+        </div>
+      </div>
+      <div class="card"><div class="section-title" style="font-size:13px">Reliability</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${['Transactional outbox','Idempotent consumers','Retry + backoff','Sagas / process managers','Correlation IDs'].map(t=>`<span class="chip" style="font-size:11px">${t}</span>`).join('')}</div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px"><div class="section-title" style="font-size:13px">Core loop as events — RFQ → Quote → Deal</div>
+    <div class="wf-flow">
+      ${[
+        ['buyer','Buyer posts RFQ','RFQ svc persists + writes outbox in one transaction'],
+        ['system','rfq.posted → Matching','Rule-matches verified sellers holding the mandated certs'],
+        ['system','rfq.matched → Notifications','Fan-out to matched sellers: in-app + email + WhatsApp'],
+        ['seller','Seller submits quote','quote.submitted → notify buyer'],
+        ['buyer','Buyer accepts','quote.accepted + deal.created → notify both, alert ops'],
+      ].map((s,i)=>{ const a=WF_ACTORS[s[0]]; return `<div class="wf-step"><div class="wf-num" style="background:${a.bg};color:${a.c}">${i+1}</div><div class="wf-card" style="border-left-color:${a.c}"><div class="wf-role" style="color:${a.c}">${a.name}</div><div class="wf-act">${s[1]}</div><div class="wf-out">${s[2]}</div></div></div>`; }).join('')}
+    </div>
+  </div>
+</div>`;
+
+S['arch/security'] = () => `
+<div class="page">
+  ${pageHead('Sessions, JWT & secure cookies', 'Passwordless OTP login (email + WhatsApp). Tokens live in HttpOnly, Secure cookies set by the BFF — never in localStorage, never readable by JS. Short-lived access JWT + rotating refresh with reuse detection.')}
+  <div class="two-col">
+    <div>
+      <div class="card" style="margin-bottom:16px"><div class="section-title" style="font-size:13px">Token model</div>
+        <div class="mini-list">
+          <div class="mini-item"><span class="dot" style="background:var(--p)"></span><div><div class="mt">Access token — JWT (RS256), 15 min</div><div class="ms">claims: sub, org, roles, kyb gate, sid, scope</div></div></div>
+          <div class="mini-item"><span class="dot" style="background:var(--acc)"></span><div><div class="mt">Refresh token — rotating, 7 d</div><div class="ms">hashed + family id; reuse ⇒ revoke family</div></div></div>
+          <div class="mini-item"><span class="dot" style="background:var(--am)"></span><div><div class="mt">Server-side session (sid)</div><div class="ms">revoke · "sign out everywhere"</div></div></div>
+        </div>
+      </div>
+      <div class="card-pad0"><div style="padding:14px 16px"><div class="section-title" style="margin:0;font-size:13px">Cookie strategy</div></div>
+        <table class="tbl"><thead><tr><th>Cookie</th><th>HttpOnly</th><th>Secure</th><th>SameSite</th><th>TTL</th></tr></thead><tbody>
+          <tr><td class="mono" style="font-size:12px">pl_at</td><td>✅</td><td>✅</td><td>Lax</td><td>15m</td></tr>
+          <tr><td class="mono" style="font-size:12px">pl_rt</td><td>✅</td><td>✅</td><td>Strict</td><td>7d</td></tr>
+          <tr><td class="mono" style="font-size:12px">pl_csrf</td><td>—</td><td>✅</td><td>Strict</td><td>15m</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:16px"><div class="section-title" style="font-size:13px">Login & refresh flow</div>
+        <div class="timeline">
+          <div class="tl-item done"><div class="tt">Request OTP</div><div class="td">email + phone → OTP via email + WhatsApp/SMS (5-min TTL, rate-limited)</div></div>
+          <div class="tl-item done"><div class="tt">Verify OTP</div><div class="td">Identity issues access JWT + rotating refresh</div></div>
+          <div class="tl-item done"><div class="tt">Set-Cookie (HttpOnly, Secure)</div><div class="td">BFF stores tokens; JS cannot read them</div></div>
+          <div class="tl-item active"><div class="tt">Silent refresh on 401</div><div class="td">/api/auth/refresh rotates tokens; reuse detection revokes stolen families</div></div>
+        </div>
+      </div>
+      <div class="card"><div class="section-title" style="font-size:13px">Defences</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${['CSRF double-submit','SameSite','RS256 + JWKS','Admin MFA','Rate limiting','kyb verification gate','Audited impersonation'].map(t=>`<span class="chip" style="font-size:11px">${t}</span>`).join('')}</div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px"><div class="section-title" style="font-size:13px">RBAC — capability × role</div>
+    <div style="overflow-x:auto"><table class="tbl" style="min-width:600px"><thead><tr><th>Capability</th><th>Buyer</th><th>Seller</th><th>Both</th><th>Admin</th><th>Gate</th></tr></thead><tbody>
+      ${[
+        ['Browse public catalog','✅','✅','✅','✅','—'],
+        ['Post RFQ','✅','—','✅','—','kyb=verified'],
+        ['Receive RFQ / submit quote','—','✅','✅','—','kyb=verified'],
+        ['Download counterparty docs','✅','✅','✅','✅','verified + party to RFQ'],
+        ['Verify / moderate','—','—','—','✅','+ MFA, audited'],
+      ].map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td class="sub">${r[5]}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+</div>`;
+
+S['arch/compliance'] = () => `
+<div class="page">
+  ${pageHead('Compliance controls & required changes', 'GDPR (EU buyers) + India DPDP (India-first) + pharma-trade obligations. Each control drives a concrete application change.')}
+  <div class="card-pad0" style="margin-bottom:16px"><div style="padding:16px 18px"><div class="section-title" style="margin:0;font-size:13px">Data-protection controls</div></div>
+    <table class="tbl"><thead><tr><th>Obligation</th><th>Control</th><th>Application change</th></tr></thead><tbody>
+      ${[
+        ['Consent','Granular, versioned consent','Cookie-consent banner + onboarding consent step'],
+        ['Right of access','Self-service export','"Download my data" → async DSAR job'],
+        ['Right to erasure','Delete + crypto-shred','"Delete my account"; retain statutory records redacted'],
+        ['Data residency (DPDP)','India-region primary','Primary DB + blobs in India; SCCs for cross-border'],
+        ['Security','Encryption, RBAC, MFA, audit','TLS, AES-256, HttpOnly cookies, hash-chained audit'],
+        ['Breach notification','Detect → notify','Incident workflow + regulator/data-principal templates'],
+      ].map(r=>`<tr><td><b>${r[0]}</b></td><td class="sub">${r[1]}</td><td>${r[2]}</td></tr>`).join('')}
+    </tbody></table>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="section-title" style="font-size:13px">Required application changes</div>
+      <div class="mini-list">
+        ${['HttpOnly + Secure cookie sessions (no localStorage tokens)','Cookie-consent banner + preference centre','Granular consent capture in onboarding','Privacy dashboard: export + delete account','Signed-URL document access + access audit','Hash-chained audit log, surfaced in ops','Field-level encryption for licence/GST/CIN','MFA for admin/ops; audited impersonation','Rate limiting + CSRF on writes','Retention & purge jobs','DSAR admin workflow','India-region deployment'].map((t,i)=>`<div class="mini-item"><span class="badge b-info" style="min-width:22px;justify-content:center">${i+1}</span><div class="mt">${t}</div></div>`).join('')}
+      </div>
+    </div>
+    <div class="card"><div class="section-title" style="font-size:13px">Pharma / trade compliance</div>
+      <table class="tbl"><tbody>
+        <tr><td>Document authenticity (SHA-256 → ledger)</td><td style="text-align:right">${badge('verified','MVP → P3')}</td></tr>
+        <tr><td>Supplier qualification & audit library</td><td style="text-align:right">${badge('info','P3')}</td></tr>
+        <tr><td>Denied-party / sanctions screening</td><td style="text-align:right">${badge('info','P3')}</td></tr>
+        <tr><td>Controlled-substance policy engine</td><td style="text-align:right">${badge('info','P2 → P3')}</td></tr>
+        <tr><td>Marketplace-of-record T&Cs + gating</td><td style="text-align:right">${badge('verified','MVP')}</td></tr>
+      </tbody></table>
+      <div class="alert alert-info" style="margin-top:12px;font-size:11.5px"><span class="ai">🍪</span><div>The cookie-consent banner in this mock is a live example of change #2.</div></div>
+    </div>
+  </div>
+</div>`;
+
+S['arch/stack'] = () => `
+<div class="page">
+  ${pageHead('Tech stack & deployment', 'Full-stack, microservices from day one. ~10 services split by business capability, each independently deployable with its own DB. Managed MQ equivalents (Azure Service Bus, AWS SNS/SQS, GCP Pub/Sub) map 1:1 to the RabbitMQ design.')}
+  <div class="card-pad0" style="margin-bottom:16px"><div style="padding:16px 18px"><div class="section-title" style="margin:0;font-size:13px">Stack</div></div>
+    <table class="tbl"><thead><tr><th>Layer</th><th>Choice</th><th>Why</th></tr></thead><tbody>
+      ${[
+        ['Frontend','Next.js (React, TS)','SSR/SEO for public pages; existing design system'],
+        ['BFF','Next.js route handlers','Sets secure cookies; composes reads across services'],
+        ['Services','NestJS · one per context','~10 independently deployable services; own DB each'],
+        ['API gateway','Kong / APISIX','JWT verify · RBAC · rate-limit · routing'],
+        ['Service mesh','Istio / Linkerd','mTLS · retries · circuit breaking · canary'],
+        ['Broker','RabbitMQ','Async backbone: topic exchange, DLQ, delayed msgs'],
+        ['Databases','PostgreSQL — DB per service','No cross-service DB access; RLS; read models via events'],
+        ['Cache','Redis','OTP, sessions, rate-limit, idempotency'],
+        ['Objects','S3 / Azure Blob (SSE)','Encrypted docs; signed URLs'],
+        ['Orchestration','Kubernetes','One Deployment per service; HPA; per-service CI/CD'],
+      ].map(r=>`<tr><td class="sub">${r[0]}</td><td><b>${r[1]}</b></td><td class="sub">${r[2]}</td></tr>`).join('')}
+    </tbody></table>
+  </div>
+  <div class="card" style="margin-bottom:16px"><div class="section-title" style="font-size:13px">Phased infrastructure</div>
+    <div class="mini-list">
+      <div class="mini-item"><span class="badge b-verified">MVP</span><div><div class="mt">~10 microservices on K8s · DB per service · RabbitMQ + Redis + blobs</div><div class="ms">Gateway + mesh (mTLS) · secure-cookie auth · audit svc · consent + DSAR · India-region</div></div></div>
+      <div class="mini-item"><span class="badge b-info">Phase 2</span><div><div class="mt">New services: Escrow/Payments, Orders, Disputes, Ratings, Billing</div><div class="ms">Dedicated Search (OpenSearch) · Temporal sagas · PCI enclave + KYC/AML</div></div></div>
+      <div class="mini-item"><span class="badge b-info">Phase 3</span><div><div class="mt">Kafka event log · blockchain doc-hash · compliance-feed service</div><div class="ms">Denied-party screening svc · native mobile · multi-region</div></div></div>
+    </div>
+  </div>
+  <div class="alert alert-info"><span class="ai">⚖️</span><div><b>Right-sized:</b> microservices add real ops overhead (mesh, per-service pipelines, eventual consistency) a 5–6 person team runs from week one — so the MVP ships ~10 services split by <b>business capability</b>, not 30 nano-services. New services are added per phase.</div></div>
+</div>`;
+
+/* ============ ROUTER ============ */
+function renderNav(role){
+  const cfg = NAV[role];
+  const nav = document.getElementById('sidenav');
+  const cur = location.hash.slice(1) || `${role}/${cfg.groups[0].items[0][0].split('/')[1]}`;
+  let html = `<div class="nav-role-tag">${cfg.tag}</div>`;
+  cfg.groups.forEach(g=>{
+    html += `<div class="nav-group-label">${g.label}</div>`;
+    g.items.forEach(it=>{
+      const [route,ic,label,n] = it;
+      html += `<button class="nav-btn ${route===cur?'active':''}" data-nav="${route}"><span class="ic">${ic}</span>${label}${n?`<span class="badge-n">${n}</span>`:''}</button>`;
+    });
+  });
+  html += `<button class="nav-cta" data-nav="${cfg.cta[0]}">＋ ${cfg.cta[1]}</button>`;
+  html += `<div class="nav-note">${cfg.note}</div>`;
+  nav.innerHTML = html;
+}
+
+function roleOf(route){ return route.split('/')[0]; }
+
+function render(){
+  let route = location.hash.slice(1);
+  if(!S[route]){ route = 'public/home'; }
+  const role = roleOf(route);
+  // role buttons
+  document.querySelectorAll('.role-btn').forEach(b=>b.classList.toggle('active', b.dataset.role===role));
+  // avatar + crumb
+  const cfg = NAV[role];
+  document.getElementById('avatar').textContent = cfg.user[0];
+  const nice = route.split('/')[1].replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  const roleName = {public:'Public site',buyer:'Buyer',seller:'Supplier',admin:'Ops / Admin',roadmap:'Roadmap',wf:'Workflows',arch:'Architecture'}[role];
+  document.getElementById('crumb').innerHTML = `${roleName}<b>${nice}</b>`;
+  renderNav(role);
+  const main = document.getElementById('main');
+  main.innerHTML = S[route]();
+  main.scrollTop = 0;
+  wireScreen();
+}
+
+function wireScreen(){
+  // tab switching (panes)
+  document.querySelectorAll('[data-tabgroup]').forEach(group=>{
+    group.querySelectorAll('.tab').forEach(tab=>{
+      tab.onclick = ()=>{
+        group.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.dataset.tab;
+        document.querySelectorAll('[data-tabpane]').forEach(p=>{ p.style.display = p.dataset.tabpane===target ? '' : 'none'; });
+      };
+    });
+  });
+  // plain filter tabs (no panes) — just toggle active state
+  document.querySelectorAll('.tabs:not([data-tabgroup])').forEach(group=>{
+    group.querySelectorAll('.tab').forEach(tab=>{
+      tab.onclick = ()=>{ group.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active'); };
+    });
+  });
+  // wizard step nav
+  const go = (n)=>{
+    document.querySelectorAll('[data-wpane]').forEach(p=>p.style.display = p.dataset.wpane===n?'':'none');
+    document.querySelectorAll('[data-wstep]').forEach(s=>{
+      const sn = s.dataset.wstep;
+      s.classList.remove('active','done');
+      if(sn<n) s.classList.add('done');
+      else if(sn===n) s.classList.add('active');
+    });
+    document.getElementById('main').scrollTop=0;
+  };
+  document.querySelectorAll('[data-wgo]').forEach(b=> b.onclick = ()=>go(b.dataset.wgo));
+
+  // live catalog filtering
+  if(document.getElementById('catResults')){
+    applyCatalogFilters();
+    document.querySelectorAll('[data-cat],[data-cert],[data-country],[data-moq]').forEach(inp=> inp.addEventListener('change', applyCatalogFilters));
+    const cs = document.getElementById('catSearch');
+    cs.addEventListener('input', applyCatalogFilters);
+    cs.addEventListener('keydown', e=>{ if(e.key==='Enter') applyCatalogFilters(); });
+  }
+}
+
+/* nav delegation */
+document.addEventListener('click', e=>{
+  const t = e.target.closest('[data-nav]');
+  if(t){ e.preventDefault(); location.hash = t.dataset.nav; }
+  const r = e.target.closest('.role-btn');
+  if(r){ const role=r.dataset.role; location.hash = `${role}/${NAV[role].groups[0].items[0][0].split('/')[1]}`; }
+});
+
+/* modals */
+function openModal(html){ document.getElementById('modalBody').innerHTML = html; document.getElementById('modal').classList.add('open'); }
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+
+function quoteModal(product, buyer){
+  openModal(`<button class="x" onclick="closeModal()">×</button><h3>Submit quote</h3><p class="page-sub" style="margin:4px 0 16px">${product} · to ${buyer}</p>
+  <div class="form-2">
+    <div class="field"><label>Unit price</label><input id="qPrice" class="input" placeholder="$/kg"><div id="qPriceErr" class="hint" style="color:var(--rd);display:none;margin-top:5px">Enter a unit price before sending.</div></div>
+    <div class="field"><label>Currency</label><select class="select"><option>USD</option><option>INR</option><option>EUR</option></select></div>
+    <div class="field"><label>MOQ</label><input class="input" value="25 kg"></div>
+    <div class="field"><label>Lead time</label><input class="input" value="2 weeks"></div>
+    <div class="field"><label>Incoterm</label><input class="input" value="FOB Mumbai"></div>
+    <div class="field"><label>Payment terms</label><input class="input" value="30% adv, 70% BL"></div>
+    <div class="field"><label>Valid until</label><input class="input" type="date"></div>
+    <div class="field"><label>Attach CoA / spec</label><div class="dropzone" style="padding:10px;font-size:12px">📎 Attach</div></div>
+  </div>
+  <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px" onclick="sendQuote('${buyer.replace(/'/g,'')}')">Send quote to ${buyer}</button>`);
+}
+function sendQuote(buyer){
+  const price = document.getElementById('qPrice');
+  if(!price.value.trim()){ document.getElementById('qPriceErr').style.display='block'; price.focus(); return; }
+  closeModal();
+  toast(`Quote sent to ${buyer}. They'll be notified by email + WhatsApp.`);
+}
+function submitRegister(){
+  const email = document.getElementById('regEmail');
+  const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
+  if(!ok){ document.getElementById('regEmailErr').style.display='block'; email.focus(); return; }
+  toast('OTP sent to your email & WhatsApp.');
+  setTimeout(()=>{ location.hash = 'buyer/onboarding'; }, 700);
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(window.__toastT); window.__toastT = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function acceptQuote(sup){
+  openModal(`<button class="x" onclick="closeModal()">×</button><div style="text-align:center;padding:6px 0"><div style="font-size:40px">🤝</div><h3 style="margin-top:8px">Accept quote from ${sup}?</h3>
+  <p class="page-sub" style="margin:10px auto 18px">This generates a <b>Deal record + PDF trail</b> (product, qty, price, terms, both parties' verified details), notifies both sides, and alerts ops for a white-glove hand-off. Payment & logistics settle off-platform in the MVP.</p>
+  <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeModal()">Confirm & generate deal record</button></div>`);
+}
+function reviewModal(co){
+  openModal(`<button class="x" onclick="closeModal()">×</button><h3>Verify — ${co}</h3><p class="page-sub" style="margin:4px 0 16px">Cross-check the submitted documents against issuing authorities.</p>
+  <div class="mini-list" style="margin-bottom:16px">
+    <div class="mini-item"><span class="dot" style="background:var(--gn)"></span><div><div class="mt">FDA drug database</div><div class="ms">Establishment found · GMP active</div></div></div>
+    <div class="mini-item"><span class="dot" style="background:var(--gn)"></span><div><div class="mt">Company existence check</div><div class="ms">GST + CIN validated</div></div></div>
+    <div class="mini-item"><span class="dot" style="background:var(--am)"></span><div><div class="mt">Call-back verification</div><div class="ms">Scheduled</div></div></div>
+  </div>
+  <div class="field"><label>Reason code <span class="hint">required on reject</span></label><select class="select"><option>— select —</option><option>Cert not found at authority</option><option>Expired certificate</option><option>Entity mismatch</option></select></div>
+  <div style="display:flex;gap:10px;margin-top:10px"><button class="btn btn-ghost" style="flex:1;justify-content:center;color:var(--rd)" onclick="closeModal()">Reject</button><button class="btn btn-primary" style="flex:1;justify-content:center" onclick="closeModal()">✓ Approve & verify</button></div>`);
+}
+
+/* cookie consent (compliance change #2) */
+function consent(kind){
+  document.getElementById('cookie').classList.remove('show');
+  window.__consent = kind;
+  toast(kind==='all' ? 'Thanks — analytics enabled.' : 'Saved — essential cookies only.');
+}
+
+/* init */
+window.addEventListener('hashchange', render);
+if(!location.hash) location.hash = 'public/home';
+render();
+if(!window.__consent) document.getElementById('cookie').classList.add('show');
+</script>
