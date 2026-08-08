@@ -239,7 +239,10 @@
     "statQuoteValue": "26h",
     "statQuote": "Median time to first comparable quote",
     "statTrailValue": "100%",
-    "statTrail": "Orders delivered with a complete document trail"
+    "statTrail": "Orders delivered with a complete document trail",
+    "lsRequest": "Request quote",
+    "lsMoq": "MOQ {n} kg",
+    "lsMoqNone": "MOQ on request"
   },
   "category": {
     "api": "APIs",

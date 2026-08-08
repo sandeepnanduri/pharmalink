@@ -239,7 +239,10 @@
     "statQuoteValue": "26 小时",
     "statQuote": "首次获得可比报价的中位时间",
     "statTrailValue": "100%",
-    "statTrail": "交付时附带完整文件留痕的订单"
+    "statTrail": "交付时附带完整文件留痕的订单",
+    "lsRequest": "索取报价",
+    "lsMoq": "起订量 {n} 公斤",
+    "lsMoqNone": "起订量面议"
   },
   "category": {
     "api": "原料药 (API)",

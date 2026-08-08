@@ -9,7 +9,7 @@ import { MarketplaceSection, VerifySection } from '@/components/marketing/sectio
 import { Reveal } from '@/components/marketing/reveal';
 import { Ticker, Stats, TrackSection, FeaturesSection, HowSection, ListingsSection, SuppliersSection, NewsSection, CtaSection, MarketingFooter } from '@/components/marketing/rest';
 import '../marketing.css';
-import { monogram } from '@/lib/logo';
+import { monogram, monogramHue } from '@/lib/logo';
 
 import { SITE_URL, SITE_NAME, absoluteUrl, jsonLd } from '@/lib/seo';
 
@@ -86,20 +86,32 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   // The mockup ships sample listings, suppliers and news. Those are the points
   // its own README calls out as needing a real API call, so they read the
   // database; the design supplies the frame, not the facts.
+  // The avatar hue is derived from the company name so the same supplier is the
+  // same colour everywhere — the monogram helper already does this for logos.
+  const avatarHue = (name: string) => `hsl(${monogramHue(name)} 62% 32%)`;
+
   const listingCards = listings.map((p) => ({
     id: p.id,
     name: p.name,
     cas: p.cas,
+    segmentKey: CATEGORY_KEYS.has(p.productType) ? p.productType : 'api',
     segment: tc(CATEGORY_KEYS.has(p.productType) ? p.productType : 'api'),
     supplier: p.org.name,
     place: [p.org.city, p.org.country].filter(Boolean).join(', '),
+    initial: monogram(p.org.name).slice(0, 1),
+    hue: avatarHue(p.org.name),
+    // The mockup prints a price here. We do not publish one: unit price is what
+    // a supplier quotes against a specific RFQ, and printing a public number
+    // would anchor every negotiation on the platform. MOQ is a listed fact.
+    moq: p.moqKg ? t('lsMoq', { n: format.number(p.moqKg) }) : t('lsMoqNone'),
   }));
 
   const supplierCards = suppliers.map((s) => ({
     id: s.id,
     name: s.name,
     place: [s.city, s.country].filter(Boolean).join(', '),
-    initials: monogram(s.name),
+    initial: monogram(s.name).slice(0, 1),
+    hue: `linear-gradient(135deg, hsl(${monogramHue(s.name)} 62% 44%), hsl(${monogramHue(s.name)} 62% 30%))`,
     certs: s.certifications.map((c) => c.name),
     products: s._count.products,
   }));
@@ -107,13 +119,12 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const newsCards = news.map((n) => ({
     id: n.id,
     title: n.title,
-    summary: n.summary,
     source: SITE_NAME,
+    tint: '#0A8F7C',
     // Formatted on the server: toLocaleString in a client component renders the
     // server's timezone first and the browser's second, which is a hydration error.
     date: n.publishedAt ? format.dateTime(n.publishedAt, { dateStyle: 'medium' }) : '',
     href: `/news/${n.id}`,
-    external: false,
   }));
 
   // The ticker mirrors the same live activity feed the old page listed, so it is
@@ -172,7 +183,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           its tokens; each section uses the design's own `.wrap` for width. */}
       <div className="mk">
         <Reveal />
-        <Ticker t={t} items={tickerItems} />
+        <Ticker items={tickerItems} />
         <Stats stats={statCards} />
         <MarketplaceSection t={t} />
         <VerifySection t={t} />

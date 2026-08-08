@@ -27,12 +27,14 @@ function Hex({ paths, stroke = '#0A8F7C', size = 20, lg = false }: { paths: stri
 }
 
 /** Live-looking marquee of recent marketplace events. */
-export function Ticker({ t, items }: { t: T; items: { dot: string; text: string; strong: string }[] }) {
+export function Ticker({ items }: { items: { dot: string; text: string; strong: string }[] }) {
   // Duplicated once so the CSS marquee has something to scroll into.
   const run = [...items, ...items];
   return (
-    <div className="ticker" data-testid="ticker" aria-label={t('tickerLabel')}>
-      <div className="tk-run">
+    // Decorative, and marked so. A marquee is hostile to a screen reader, and
+    // every event in it is also in the sections below.
+    <div className="ticker" data-testid="ticker" aria-hidden="true">
+      <div className="in">
         {run.map((it, i) => (
           <span className="tk" key={`${it.strong}-${i}`}>
             <span className="d" style={{ background: it.dot }} />
@@ -168,7 +170,7 @@ export function ListingsSection({
   listings,
 }: {
   t: T;
-  listings: { id: string; name: string; cas: string; segment: string; supplier: string; place: string }[];
+  listings: { id: string; name: string; cas: string; segment: string; segmentKey: string; supplier: string; place: string; initial: string; hue: string; moq: string }[];
 }) {
   return (
     <section className="listings">
@@ -180,16 +182,23 @@ export function ListingsSection({
           </div>
           <Link className="btn btn-dark btn-sm" href="/catalog">{t('lsCta')}</Link>
         </div>
-        <div className="cards">
+        <div className="lgrid">
           {listings.map((p) => (
-            <Link className="lcard reveal" key={p.id} href={`/products/${p.id}`} data-testid="listing-card">
-              <div className="lhead">
-                <span className="pill-sm">{p.segment}</span>
-                <span className="mono cas">CAS {p.cas}</span>
+            <div className="listing reveal" key={p.id} data-testid="listing-card">
+              <div className="top">
+                <span className={`cat cat-${p.segmentKey}`}>{p.segment}</span>
+                <span className="cas">CAS {p.cas}</span>
               </div>
               <h4>{p.name}</h4>
-              <div className="sup">{p.supplier} · {p.place}</div>
-            </Link>
+              <div className="sup">
+                <span className="av" style={{ background: p.hue }}>{p.initial}</span>
+                {p.supplier} · {p.place}
+              </div>
+              <div className="foot">
+                <span className="pr">{p.moq}</span>
+                <Link className="go" href={`/products/${p.id}`}>{t('lsRequest')} →</Link>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -203,7 +212,7 @@ export function SuppliersSection({
   suppliers,
 }: {
   t: T;
-  suppliers: { id: string; name: string; place: string; initials: string; certs: string[]; products: number }[];
+  suppliers: { id: string; name: string; place: string; initial: string; hue: string; certs: string[]; products: number }[];
 }) {
   return (
     <section>
@@ -216,21 +225,17 @@ export function SuppliersSection({
           <Link className="btn btn-dark btn-sm" href="/catalog">{t('spCta')}</Link>
         </div>
         <div className="sups">
-          {suppliers.map((s) => (
-            <Link className="sup-card reveal" key={s.id} href={`/suppliers/${s.id}`} data-testid="supplier-card">
-              <div className="sh">
-                <span className="avatar hex">{s.initials}</span>
-                <div>
-                  <h4>{s.name}</h4>
-                  <div className="loc">{s.place}</div>
-                </div>
-              </div>
+          {suppliers.map((sup) => (
+            <Link className="sup-card reveal" key={sup.id} href={`/suppliers/${sup.id}`} data-testid="supplier-card">
+              <span className="av" style={{ background: sup.hue }}>{sup.initial}</span>
+              <h4>{sup.name}</h4>
+              <div className="loc">{sup.place}</div>
               <div className="certs">
-                {s.certs.map((c) => (
-                  <span className="badge gmp" key={c}>{c}</span>
+                {sup.certs.map((c, i) => (
+                  <span className={i === 0 ? 'badge gmp' : 'badge'} key={c}>{c}</span>
                 ))}
               </div>
-              <div className="scount">{t('spProducts', { n: s.products })}</div>
+              <div className="loc">{t('spProducts', { n: sup.products })}</div>
             </Link>
           ))}
         </div>
@@ -245,7 +250,7 @@ export function NewsSection({
   news,
 }: {
   t: T;
-  news: { id: string; title: string; summary: string | null; source: string; date: string; href: string; external: boolean }[];
+  news: { id: string; title: string; source: string; tint: string; date: string; href: string }[];
 }) {
   return (
     <section className="listings" style={{ paddingTop: 0, background: '#fff' }}>
@@ -258,21 +263,13 @@ export function NewsSection({
           <Link className="btn btn-dark btn-sm" href="/news">{t('nwCta')}</Link>
         </div>
         <div className="newsgrid">
-          {news.map((n) =>
-            n.external ? (
-              <a className="ncard reveal" key={n.id} href={n.href} target="_blank" rel="noopener noreferrer" data-testid="news-card">
-                <div className="nmeta"><span className="src">{n.source}</span><span className="dt">{n.date}</span></div>
-                <h4>{n.title}</h4>
-                {n.summary && <p>{n.summary}</p>}
-              </a>
-            ) : (
-              <Link className="ncard reveal" key={n.id} href={n.href} data-testid="news-card">
-                <div className="nmeta"><span className="src">{n.source}</span><span className="dt">{n.date}</span></div>
-                <h4>{n.title}</h4>
-                {n.summary && <p>{n.summary}</p>}
-              </Link>
-            ),
-          )}
+          {news.map((n) => (
+            <Link className="news reveal" key={n.id} href={n.href} data-testid="news-card">
+              <span className="src" style={{ color: n.tint }}>● {n.source}</span>
+              <h4>{n.title}</h4>
+              <span className="dt">{n.date}</span>
+            </Link>
+          ))}
         </div>
       </div>
     </section>
