@@ -7,7 +7,7 @@ import { getMarketActivity, getLatestListings, getLatestNews } from '@/lib/activ
 import { getFeaturedContent } from '@/lib/content-queries';
 import { getSupplierRatings } from '@/lib/social-queries';
 import { Stars } from '@/components/stars';
-import { HeroShowcase } from '@/components/hero-showcase';
+import { MarketingHero } from '@/components/marketing-hero';
 import { contentHref, isExternal } from '@/lib/content';
 import { SITE_URL, SITE_NAME, absoluteUrl, jsonLd } from '@/lib/seo';
 
@@ -30,6 +30,20 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const tc = await getTranslations('category');
   const tContent = await getTranslations('content');
   const format = await getFormatter();
+
+  // The hero pill states a supplier and a country count. The mockup carries
+  // "2,300+ suppliers · 48 countries"; those are not our numbers, and a trust
+  // platform that opens with an invented figure has lost the argument on its
+  // own terms. These are counted from the verified rows we actually hold.
+  const [supplierTotal, countries] = await Promise.all([
+    prisma.organization.count({ where: { status: 'verified', kind: { in: ['seller', 'both'] } } }),
+    prisma.organization.findMany({
+      where: { status: 'verified', kind: { in: ['seller', 'both'] }, country: { not: '' } },
+      select: { country: true },
+      distinct: ['country'],
+    }),
+  ]);
+  const countryTotal = countries.length;
 
   const [suppliers, productCount, activity, listings, news] = await Promise.all([
     prisma.organization.findMany({
@@ -112,47 +126,14 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   });
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ld }} />
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-deep via-[#312E81] to-[#1E3A8A] px-6 py-12 sm:px-10 sm:py-14">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
-        {/* Two columns from lg: the pitch on the left, a live-looking quote
-            comparison on the right (that right half was previously empty). */}
-        <div className="relative grid items-center gap-10 lg:grid-cols-[1.05fr_.95fr]">
-          <div>
-            <h1 className="max-w-3xl text-3xl font-extrabold leading-tight text-white sm:text-4xl">{t('heroTitle')}</h1>
-            <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-white/80">{t('heroBody')}</p>
+      {/* The dark hero is full-bleed: it sits OUTSIDE the page's max-width
+          wrapper. Inside it, the ink ground stops at 1280px and the marketing
+          band reads as a panel rather than as the top of the page. */}
+      <MarketingHero t={t} locale={locale} supplierCount={format.number(supplierTotal)} countryCount={String(countryTotal)} />
 
-            <form action={`/${locale}/catalog`} className="mt-7 flex max-w-2xl gap-2 rounded-xl bg-white p-1.5">
-              <input
-                name="q"
-                placeholder={t('searchPlaceholder')}
-                aria-label={t('searchPlaceholder')}
-                className="flex-1 rounded-lg px-3 py-2.5 text-sm outline-none"
-              />
-              <button type="submit" className="btn-primary">
-                {t('search')}
-              </button>
-            </form>
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/signup" className="btn-accent">
-                {t('getStarted')}
-              </Link>
-              <Link
-                href="/catalog"
-                className="btn border border-white/25 bg-white/10 text-white hover:bg-white/20"
-              >
-                {t('browseSuppliers')}
-              </Link>
-            </div>
-          </div>
-
-          <HeroShowcase />
-        </div>
-      </section>
-
+      <div className="mx-auto max-w-7xl px-4 pb-8 sm:px-6">
       {/* Platform capabilities — what PharmaLink actually does */}
       <section className="mt-12" data-testid="platform-capabilities">
         <p className="text-xs font-bold uppercase tracking-wider text-brand">{t('capsEyebrow')}</p>
@@ -413,6 +394,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </Link>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

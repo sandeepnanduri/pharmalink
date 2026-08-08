@@ -181,6 +181,70 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Brand motif and dark-ground marketing surfaces.
+
+   The hexagon is the benzene ring — it is the brand mark, not decoration, so it
+   is the shape for every icon container, avatar and bullet. Circles and rounded
+   squares are deliberately NOT used in those roles; see the redesign kit's
+   CLAUDE.md rule 2.
+
+   These live outside @layer so the marketing page can compose them with Tailwind
+   utilities without specificity fights.
+--------------------------------------------------------------------------- */
+.hex {
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+/* Gradient headline. Two stops only — a third reads as a rainbow, not a brand. */
+.grad-text {
+  background: linear-gradient(100deg, #2be4c3, #41b7f0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Soft colour fields behind the dark hero. Blurred past recognition on purpose:
+   they give the ink ground depth without competing with the headline. */
+.aurora {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+}
+
+/* Tiled benzene lattice, masked to fade out before it reaches the copy — a
+   full-bleed pattern behind text costs legibility for no gain. */
+.hexgrid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg width='56' height='97' viewBox='0 0 56 97' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23134' stroke-opacity='.55' stroke-width='1'%3E%3Cpath d='M28 2 54 17v30L28 62 2 47V17z'/%3E%3Cpath d='M28 64 54 79v30L28 124 2 109V79z'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 60% 20%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 90% 80% at 60% 20%, #000 30%, transparent 75%);
+}
+
+/* Frosted panel on the ink ground. */
+.glass {
+  background: rgba(13, 32, 52, 0.66);
+  border: 1px solid rgba(159, 196, 232, 0.2);
+  border-radius: 20px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.55);
+}
+
+/* The hero's floating cards drift gently. Motion here is pure decoration and the
+   cards carry real content, so reduced-motion stops it dead rather than easing
+   it — a user who asked for stillness gets stillness. */
+@media (prefers-reduced-motion: reduce) {
+  .aurora,
+  .animate-float,
+  .animate-drift,
+  .animate-pulse-ring {
+    animation: none !important;
+  }
+}
+
 @layer utilities {
   /* Toast entrance. Respects reduced motion via the global guard below. */
   @keyframes toastIn {

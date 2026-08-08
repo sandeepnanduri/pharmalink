@@ -75,23 +75,60 @@ test('admin publishes a news post and it appears in the hub', async ({ page }) =
   await expect(page.getByText(HEADLINE)).toHaveCount(0);
 });
 
-test('the hero showcase renders all three scenes with nothing blank', async ({ page }) => {
+test('the hero states real supplier numbers, not the mockup figures', async ({ page }) => {
+  // The approved mockup opens with "2,300+ GMP-verified suppliers · 48
+  // countries". Those are not our numbers. A platform whose entire pitch is
+  // "we check things" cannot lead with an invented figure, so the pill is
+  // counted from verified rows — and this test is what stops a later tidy-up
+  // from pasting the prettier mockup copy back in.
   await page.goto('/en');
-  const scenes = page.locator('.pl-hs-scene');
-  await expect(scenes).toHaveCount(3);
+  const pill = page.getByTestId('hero-pill');
+  await expect(pill).toBeVisible();
+  await expect(pill).not.toContainText('2,300');
+  await expect(pill).not.toContainText('48 countries');
 
-  // Nine rows across three scenes. A row stuck at opacity 0 means some rule
-  // claimed the animation shorthand and cancelled its fade-in — which is
-  // exactly how the best-value row once vanished, leaving a hole in the card.
-  await page.waitForTimeout(1200);
-  const stuck = await page
-    .locator('.pl-hs-row')
-    .evaluateAll((rows) => rows.filter((r) => Number(getComputedStyle(r).opacity) === 0 && Number(getComputedStyle(r.closest('.pl-hs-scene')!).opacity) > 0.5).length);
-  expect(stuck, 'rows visible in a shown scene but stuck transparent').toBe(0);
+  // Whatever the seed holds, it is a real count: a number, and a small one.
+  const suppliers = Number((await pill.innerText()).match(/\d+/)![0]);
+  expect(suppliers).toBeGreaterThan(0);
+  expect(suppliers).toBeLessThan(100);
+});
 
-  // Each scene must carry a headline, so none renders as an empty panel.
-  // Scoped to the showcase: the page's feature section reuses this wording.
-  for (const [i, label] of ['Compare quotes', 'Verify the supplier', 'Track the order'].entries()) {
-    await expect(scenes.nth(i).getByText(label, { exact: true })).toBeAttached();
+test('the hero shows one RFQ compared across three suppliers, with the documents behind it', async ({ page }) => {
+  await page.goto('/en');
+
+  // The visual IS the pitch — one request, quotes side by side, certificates
+  // attached. If it renders empty the page argues for nothing.
+  const quotes = page.getByTestId('hero-quote');
+  await expect(quotes).toHaveCount(3);
+  // Exactly one is marked best value; two would make the comparison meaningless.
+  await expect(page.getByTestId('hero-best')).toHaveCount(1);
+
+  // Prices are mono — identifying numbers always are, so columns line up.
+  for (const [i, price] of ['$4.20', '$3.95', '$5.10'].entries()) {
+    const cell = quotes.nth(i).getByText(price, { exact: true });
+    await expect(cell).toBeVisible();
+    await expect(cell).toHaveCSS('font-variant-numeric', 'tabular-nums');
   }
+
+  await expect(page.getByTestId('hero-doc')).toHaveCount(3);
+});
+
+test('hero search reaches the catalogue without JavaScript', async ({ browser }) => {
+  // A plain GET form, so a crawler can follow it and a failed hydration does
+  // not cost the site its primary call to action.
+  const ctx = await browser.newContext({ javaScriptEnabled: false });
+  const page = await ctx.newPage();
+  await page.goto('/en');
+  await page.getByRole('textbox', { name: /search/i }).fill('Paracetamol');
+  await page.getByRole('button', { name: 'Search' }).click();
+  await expect(page).toHaveURL(/\/catalog\?q=Paracetamol/);
+
+  // The assertion stops at the URL on purpose, and the reason is worth knowing:
+  // /catalog has a `loading.tsx`, so its whole body streams inside a Suspense
+  // boundary. With scripts off, React never swaps that payload out of its
+  // `display:none` staging div — the page renders as the skeleton and nothing
+  // else, not even the <h1>. That is a property of the segment, not of this
+  // form, and it is tracked as its own item; asserting on it here would make
+  // this test fail for a reason that has nothing to do with the hero.
+  await ctx.close();
 });
