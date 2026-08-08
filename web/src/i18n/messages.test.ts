@@ -59,7 +59,11 @@ describe('i18n catalogue parity (en ⇄ zh)', () => {
   });
 
   it('no message is left untranslated (identical to English) except brand names', () => {
-    const allowIdentical = new Set(['brand.name']);
+    // Strings with nothing in them to translate: a product name, or a company
+    // name followed by a licence number. Translating "Rheinwerk Chemie ·
+    // EU-WDA/DE-4471" would mean inventing a Chinese name for a German company
+    // and mangling the identifier a reader would check it against.
+    const allowIdentical = new Set(['brand.name', 'home.d2Meta']);
     const untranslated = enKeys.filter(
       (k) => !allowIdentical.has(k) && enFlat[k] === zhFlat[k] && /[a-zA-Z]{4,}/.test(enFlat[k])
     );

@@ -8,6 +8,9 @@ import { getFeaturedContent } from '@/lib/content-queries';
 import { getSupplierRatings } from '@/lib/social-queries';
 import { Stars } from '@/components/stars';
 import { MarketingHero } from '@/components/marketing-hero';
+import { MarketplaceSection, VerifySection } from '@/components/marketing/sections';
+import { Reveal } from '@/components/marketing/reveal';
+import '../marketing.css';
 import { contentHref, isExternal } from '@/lib/content';
 import { SITE_URL, SITE_NAME, absoluteUrl, jsonLd } from '@/lib/seo';
 
@@ -133,36 +136,20 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           band reads as a panel rather than as the top of the page. */}
       <MarketingHero t={t} locale={locale} supplierCount={format.number(supplierTotal)} countryCount={String(countryTotal)} />
 
+      {/* .mk carries the design's tokens; its own sections use the design's
+          `.wrap` for width. The not-yet-ported sections below keep the app
+          container they were written against, so this is a seam, not a
+          regression — it moves down the page as more sections are ported. */}
+      <div className="mk">
+        <Reveal />
+        <MarketplaceSection t={t} />
+        <VerifySection t={t} />
+      </div>
+
       <div className="mx-auto max-w-7xl px-4 pb-8 sm:px-6">
-      {/* Platform capabilities — what PharmaLink actually does */}
-      <section className="mt-12" data-testid="platform-capabilities">
-        <p className="text-xs font-bold uppercase tracking-wider text-brand">{t('capsEyebrow')}</p>
-        <h2 className="mt-1 max-w-3xl text-2xl font-extrabold leading-tight sm:text-3xl">{t('capsTitle')}</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">{t('capsSubtitle')}</p>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            { icon: '🛡️', title: t('cap1Title'), desc: t('cap1Desc') },
-            { icon: '📊', title: t('cap2Title'), desc: t('cap2Desc') },
-            { icon: '🎯', title: t('cap3Title'), desc: t('cap3Desc') },
-            { icon: '🕶️', title: t('cap4Title'), desc: t('cap4Desc') },
-            { icon: '🔌', title: t('cap5Title'), desc: t('cap5Desc') },
-            { icon: '📰', title: t('cap6Title'), desc: t('cap6Desc') },
-          ].map((c) => (
-            <div key={c.title} className="card transition hover:-translate-y-0.5 hover:border-brand hover:shadow-lift">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-pale text-xl">{c.icon}</div>
-              <h3 className="mt-3 text-[15px] font-bold">{c.title}</h3>
-              <p className="mt-1 text-xs leading-relaxed text-muted">{c.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/catalog" className="btn-primary">{t('capsCtaPrimary')}</Link>
-          <Link href="/developers" className="btn-ghost">{t('capsCtaSecondary')}</Link>
-        </div>
-      </section>
-
+      {/* The design's two statement bands, in its own markup and classes
+          (src/app/marketing.css, scoped under .mk). They replace the old
+          capabilities grid, which said the same things in a weaker form. */}
       {/* Spotlight — ops-curated CMS content (articles + crawled links) */}
       {spotlight.length > 0 && (
         <section className="mt-12" data-testid="spotlight">
