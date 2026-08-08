@@ -6,21 +6,20 @@ import { login, logout, USERS } from './helpers';
  * activity feed, and a pharma-news hub (BACKLOG R12: real data only). The buyer
  * side stays anonymous (R13): a named pharma's sourcing must never be exposed.
  */
-test('homepage shows live activity, listings and news — with buyers anonymised', async ({ page }) => {
+test('the homepage renders real records, and never names a buyer', async ({ page }) => {
   await page.goto('/en');
 
-  // Activity feed is present and populated from real records.
-  const activity = page.getByTestId('market-activity');
-  await expect(activity).toBeVisible();
-  await expect(page.getByTestId('activity-row').first()).toBeVisible();
-
-  // Latest listings and news are populated from the seed.
+  // The design's frame, this platform's content: the ticker carries real
+  // marketplace events and the two card grids are database rows, not the
+  // mockup's samples.
+  await expect(page.getByTestId('ticker')).toBeVisible();
   await expect(page.getByTestId('listing-card').first()).toBeVisible();
+  await expect(page.getByTestId('supplier-card').first()).toBeVisible();
   await expect(page.getByTestId('news-card').first()).toBeVisible();
 
-  // ANONYMITY: Cipla is a seeded buyer. Its name must appear nowhere on the
-  // public homepage — not in the activity feed, not anywhere.
-  await expect(activity).not.toContainText('Cipla');
+  // ANONYMITY — the invariant that survives any redesign. Cipla is a seeded
+  // BUYER; naming it here would let a competitor read what a named pharma is
+  // sourcing straight off the marketing page.
   await expect(page.locator('body')).not.toContainText('Cipla');
 });
 
