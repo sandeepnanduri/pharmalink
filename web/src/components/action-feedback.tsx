@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast, type ToastTone } from '@/components/toaster';
 
 /**
@@ -14,6 +15,17 @@ import { useToast, type ToastTone } from '@/components/toaster';
  * Fires once per state transition, not per render: `useActionState` re-renders
  * on every keystroke in an uncontrolled form, and a per-render toast would
  * stack a dozen identical messages.
+ *
+ * It also asks for a route refresh on success — see HARDENING-PLAN.md 1.8.
+ * These pages are `dynamic = 'force-dynamic'`, so `revalidatePath` has no
+ * cached entry to drop and Next answers the action with an empty
+ * revalidated-path list, leaving the client free to keep the tree it has. It
+ * often does, and the result is a committed change the screen does not show:
+ * a saved profile that still reads unsaved, a teammate who does not appear.
+ *
+ * The same explicit-refresh idea as `<ActionSubmit>`, applied to the other half
+ * of the codebase — the forms that report through `useActionState` rather than
+ * posting a plain action. One place, so a form cannot opt out by forgetting.
  */
 export function ActionFeedback({
   state,
@@ -27,6 +39,7 @@ export function ActionFeedback({
   action?: { label: string; href: string };
 }) {
   const { push } = useToast();
+  const router = useRouter();
   const last = useRef<string | null>(null);
 
   useEffect(() => {
@@ -38,6 +51,8 @@ export function ActionFeedback({
 
     if (state.ok) {
       push({ tone: 'success', title: success, description: successDescription, action });
+      // Fires on the transition into `ok`, so exactly once per submission.
+      router.refresh();
       return;
     }
 
@@ -58,7 +73,7 @@ export function ActionFeedback({
         description: state.issues[0],
       });
     }
-  }, [state, push, success, successDescription, action]);
+  }, [state, push, router, success, successDescription, action]);
 
   return null;
 }

@@ -28,7 +28,7 @@ test.describe('profile', () => {
   test('the account link is available to every role', async ({ page }) => {
     for (const who of [USERS.seller, USERS.buyer, 'ops@pharmalink.global', 'verifier@pharmalink.global']) {
       await login(page, who);
-      await expect(page.locator('header nav').getByRole('link', { name: 'Account' }), `${who} needs an Account link`).toBeVisible();
+      await expect(page.locator('[data-testid="app-shell"] nav').getByRole('link', { name: 'Account' }), `${who} needs an Account link`).toBeVisible();
       await page.goto('/en/account');
       await expect(page.getByTestId('profile-form')).toBeVisible();
       await logout(page);

@@ -24,6 +24,8 @@ const eslintConfig = [
       'src/generated/**',
       'playwright-report/**',
       'test-results/**',
+      // Scratch: throwaway probe scripts and screenshots, gitignored.
+      '.tmp/**',
     ],
   },
 ];

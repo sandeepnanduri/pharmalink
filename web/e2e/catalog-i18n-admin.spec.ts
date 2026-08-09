@@ -44,7 +44,7 @@ test.describe('catalog', () => {
 test.describe('i18n', () => {
   test('Chinese locale renders translated UI', async ({ page }) => {
     await page.goto('/zh');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('全球 GMP 认证原料药');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('原料药采购');
     await page.goto('/zh/catalog');
     await expect(page.getByRole('heading', { name: '交易市场' })).toBeVisible();
   });

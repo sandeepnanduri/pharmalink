@@ -9,7 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     display: 'standalone',
     background_color: '#F8FAFC',
-    theme_color: '#4F46E5',
+    // Ink, matching the shell rail and the marketing hero — not the pre-redesign indigo.
+    theme_color: '#06121F',
     icons: [
       { src: '/icon.svg', type: 'image/svg+xml', sizes: 'any' },
       { src: '/icon-192.png', type: 'image/png', sizes: '192x192' },

@@ -27,13 +27,14 @@ test.describe('supplier is scoped to supplier work', () => {
     // strings that never render.
     const visible = await page.locator('body').innerText();
     expect(visible).not.toContain('Get started free');
-    expect(visible).not.toContain('The global B2B marketplace');
+    expect(visible).not.toContain('verified to the document');
     expect(visible).toContain('Supplier dashboard');
   });
 
   test('nav offers only supplier work — no buyer browsing', async ({ page }) => {
     await login(page, USERS.seller);
-    const nav = page.locator('header nav');
+    // Navigation lives in the shell rail now, not a top navbar.
+    const nav = page.locator('[data-testid="app-shell"] nav');
     await expect(nav.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'My products' })).toBeVisible();
     // Buyer activities must not be offered.
@@ -69,7 +70,7 @@ test.describe('other roles land on their own work', () => {
     await login(page, USERS.buyer);
     await expect(page).toHaveURL(/\/en\/buyer$/, { timeout: 15_000 });
     // Sourcing IS the buyer's job, so the catalog stays.
-    await expect(page.locator('header nav').getByRole('link', { name: 'Marketplace' })).toBeVisible();
+    await expect(page.locator('[data-testid="app-shell"] nav').getByRole('link', { name: 'Marketplace' })).toBeVisible();
   });
 
   test('admin lands on the ops console', async ({ page }) => {
@@ -84,7 +85,11 @@ test.describe('other roles land on their own work', () => {
 
   test('a visitor still gets the marketing page', async ({ page }) => {
     await page.goto('/en');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('global B2B marketplace');
-    await expect(page.getByRole('link', { name: 'Get started free' })).toBeVisible();
+    // The shipped hero, from the redesigned marketing page. The old copy this
+    // asserted lives on only as an orphaned `home.heroTitle` message key.
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('verified to the document');
+    // The redesigned marketing page offers the CTA twice, in the hero and again
+    // lower down; either one proves a visitor sees the sales pitch.
+    await expect(page.getByRole('link', { name: 'Get started free' }).first()).toBeVisible();
   });
 });

@@ -5,14 +5,9 @@ import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server
 import { SITE_URL, SITE_NAME, absoluteUrl, localeAlternates, ogLocale } from '@/lib/seo';
 import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
 import { routing, type Locale } from '@/i18n/routing';
-import { SiteHeader } from '@/components/site-header';
-import { CompareBar } from '@/components/compare-tray';
-import { ChromeGate } from '@/components/chrome-gate';
+import { SignedInShell } from '@/components/signed-in-shell';
 import { ToastProvider } from '@/components/toaster';
 import '../globals.css';
-
-/** Route prefixes that render the ops console shell instead of the marketing chrome. */
-const OPS_ROUTES = ['/admin'];
 
 /**
  * Three type roles, matching the approved redesign.
@@ -129,17 +124,11 @@ export default async function LocaleLayout({
       <body className="min-h-screen font-sans antialiased">
         <NextIntlClientProvider messages={messages}>
           <ToastProvider>
-          {/* The ops console brings its own shell — see ChromeGate and
-              admin/layout.tsx. The compare tray is a buyer affordance and has
-              no place there either. */}
-          <ChromeGate hideOn={OPS_ROUTES}>
-            <SiteHeader />
-          </ChromeGate>
-          <main>{children}</main>
-          <ChromeGate hideOn={OPS_ROUTES}>
-            <CompareBar />
-          </ChromeGate>
-        </ToastProvider>
+            {/* Marketing chrome for visitors, the console shell for anyone
+                signed in. One server-side decision, so there is no flash of the
+                wrong chrome. */}
+            <SignedInShell>{children}</SignedInShell>
+          </ToastProvider>
         </NextIntlClientProvider>
       </body>
     </html>
