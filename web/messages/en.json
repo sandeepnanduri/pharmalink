@@ -34,7 +34,8 @@
     "orders": "Orders",
     "verify": "Verify",
     "team": "Team",
-    "marketData": "Market data"
+    "marketData": "Market data",
+    "opsConsole": "Ops console"
   },
   "home": {
     "heroTitle": "The global B2B marketplace for GMP-verified pharma ingredients.",
@@ -621,7 +622,8 @@
     "approved": "Organization verified",
     "rejected": "Organization rejected",
     "auditTrail": "Audit trail",
-    "summaryCounts": "{contacts} contact(s) · {sites} site(s) · {certs} certification(s) · {docs} document(s)"
+    "summaryCounts": "{contacts} contact(s) · {sites} site(s) · {certs} certification(s) · {docs} document(s)",
+    "confirmReject": "Reject {name}? They are told the reason and must re-apply."
   },
   "common": {
     "loading": "Loading…",
@@ -775,7 +777,8 @@
     "hold": "Hold",
     "publish": "Publish",
     "locked": "Locked",
-    "controlledLocked": "Controlled substances cannot be published until the jurisdiction policy engine ships (Phase 3)."
+    "controlledLocked": "Controlled substances cannot be published until the jurisdiction policy engine ships (Phase 3).",
+    "confirmHold": "Hold \"{name}\"? It leaves the public catalogue immediately."
   },
   "account": {
     "title": "Account settings",
@@ -1565,5 +1568,26 @@
     "disqualifiedNote": "A missing mandatory certificate is a hard gate — it cannot be offset by price or lead time.",
     "coverageFull": "All five components had data.",
     "coveragePartial": "Scored on {pct}% of the model — {count} component(s) had no data yet."
+  },
+  "ops": {
+    "console": "Ops console",
+    "groupOverview": "Overview",
+    "groupMarketplace": "Marketplace",
+    "groupAdministration": "Administration",
+    "verification": "Verification",
+    "catalogue": "Catalogue",
+    "publishing": "Publishing",
+    "marketData": "Market data",
+    "users": "Users & roles",
+    "searchPlaceholder": "Search listings by name or CAS…",
+    "role": {
+      "admin": "Application admin",
+      "verifier": "Verification officer",
+      "product_admin": "Catalogue moderator",
+      "buyer": "Buyer",
+      "seller": "Supplier",
+      "both": "Buyer & supplier"
+    },
+    "signOut": "Sign out"
   }
 }

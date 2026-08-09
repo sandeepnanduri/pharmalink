@@ -6,7 +6,7 @@ import { LocaleSwitcher } from './locale-switcher';
 import { NotificationBell } from './notification-bell';
 import { Logo } from './logo';
 import { MobileNav } from './mobile-nav';
-import { canBuy, canSell, isPlatformRole, type Role } from '@/lib/rbac';
+import { canBuy, canSell, isPlatformRole, opsLanding, type Role } from '@/lib/rbac';
 
 /**
  * Role-aware primary navigation.
@@ -25,14 +25,13 @@ function navFor(role: Role | null, t: (k: string) => string) {
     return items;
   }
   if (isPlatformRole(role)) {
-    // Only surface what this staff role is actually permitted to open.
-    if (role === 'admin' || role === 'verifier') items.push({ href: '/admin', label: t('verification') });
-    if (role === 'admin' || role === 'product_admin') items.push({ href: '/admin/products', label: t('moderation') });
-    if (role === 'admin' || role === 'product_admin') items.push({ href: '/admin/news', label: t('news') });
-    if (role === 'admin' || role === 'product_admin') items.push({ href: '/admin/content', label: t('content') });
-    if (role === 'admin' || role === 'product_admin') items.push({ href: '/admin/market-data', label: t('marketData') });
-    if (role === 'admin') items.push({ href: '/admin/users', label: t('users') });
-    // Staff manage their own profile and password too.
+    // Staff work inside the ops console, which carries its own role-filtered
+    // sidebar (src/components/ops-shell.tsx) and hides this header entirely.
+    // Duplicating six ops links here only created a second, stickier navbar to
+    // keep in sync — and it was the source of the overlap-on-scroll the
+    // redesign kit reported. What remains is the way back into the console from
+    // the two pages that sit outside it.
+    items.push({ href: opsLanding(role), label: t('opsConsole') });
     items.push({ href: '/account', label: t('account') });
     return items;
   }

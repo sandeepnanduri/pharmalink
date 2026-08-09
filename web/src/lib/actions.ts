@@ -1009,14 +1009,19 @@ export async function reviewOrgAction(formData: FormData): Promise<void> {
     await notifyOrg(orgId, 'org.rejected', 'Verification was not successful', { body: reason, link: '/' });
   }
   revalidatePath('/[locale]/admin', 'page');
-  // The pattern call above is not enough on its own. These pages are
+  // The pattern call above cannot refresh the screen on its own. This page is
   // `dynamic = 'force-dynamic'`, so there is no cached entry for the pattern to
   // drop, and Next answers the action with `x-action-revalidated: [[],1,0]` — an
-  // EMPTY path list — which leaves the browser free to keep the tree it already
-  // has. It does, often: an approved applicant goes on sitting in the queue as
-  // though the decision had not been taken, and a verifier who thinks the click
-  // was lost clicks it again. Naming a real path drops the client's router
-  // cache, which helps but does not settle it — see HARDENING-PLAN.md 1.8.
+  // EMPTY path list — leaving the browser free to keep the tree it already has.
+  // It does, often: an approved applicant goes on sitting in the queue as though
+  // the decision had not been taken, and a verifier who thinks the click was
+  // lost clicks it again. HARDENING-PLAN.md 1.8.
+  //
+  // Naming a real path drops the client's router cache. Measured: removing this
+  // takes the queue-drains case from intermittent to failing every run, even
+  // with the explicit client-side refresh in <ActionSubmit>. The two are
+  // complementary, not competing — this drops the cache, that asks for a new
+  // tree — so both stay.
   revalidatePath('/', 'layout');
 }
 

@@ -127,6 +127,8 @@ test.describe('user administration', () => {
 
 test.describe('catalog moderation', () => {
   test('product admin can hold a live listing, and it leaves the public catalog', async ({ page }) => {
+    // Holding is destructive to a supplier's visibility, so it is confirm-guarded.
+    page.on('dialog', (d) => d.accept());
     await page.goto('/en/catalog?q=Ibuprofen');
     await expect(page.getByTestId('product-card')).toHaveCount(1);
 

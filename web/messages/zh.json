@@ -34,7 +34,8 @@
     "orders": "订单",
     "verify": "验证",
     "team": "团队",
-    "marketData": "市场数据"
+    "marketData": "市场数据",
+    "opsConsole": "运营控制台"
   },
   "home": {
     "heroTitle": "全球 GMP 认证原料药 B2B 交易平台",
@@ -621,7 +622,8 @@
     "approved": "企业已通过认证",
     "rejected": "企业认证已拒绝",
     "auditTrail": "审计轨迹",
-    "summaryCounts": "{contacts} 位联系人 · {sites} 个厂址 · {certs} 项认证 · {docs} 份文件"
+    "summaryCounts": "{contacts} 位联系人 · {sites} 个厂址 · {certs} 项认证 · {docs} 份文件",
+    "confirmReject": "确定驳回「{name}」？系统将告知其原因，且需重新提交申请。"
   },
   "common": {
     "loading": "加载中…",
@@ -775,7 +777,8 @@
     "hold": "下架",
     "publish": "上架",
     "locked": "已锁定",
-    "controlledLocked": "管制类物质在司法辖区策略引擎（第三阶段）上线前不可上架。"
+    "controlledLocked": "管制类物质在司法辖区策略引擎（第三阶段）上线前不可上架。",
+    "confirmHold": "确定下架「{name}」？该挂牌将立即从公开目录移除。"
   },
   "account": {
     "title": "账户设置",
@@ -1565,5 +1568,26 @@
     "disqualifiedNote": "缺少强制认证属于硬性门槛，无法用价格或交期弥补。",
     "coverageFull": "五个组成部分均有数据。",
     "coveragePartial": "基于模型的 {pct}% 评分——{count} 个部分尚无数据。"
+  },
+  "ops": {
+    "console": "运营控制台",
+    "groupOverview": "总览",
+    "groupMarketplace": "交易市场",
+    "groupAdministration": "系统管理",
+    "verification": "资质审核",
+    "catalogue": "产品目录",
+    "publishing": "内容发布",
+    "marketData": "市场数据",
+    "users": "用户与角色",
+    "searchPlaceholder": "按名称或 CAS 号搜索挂牌…",
+    "role": {
+      "admin": "系统管理员",
+      "verifier": "审核专员",
+      "product_admin": "目录审核员",
+      "buyer": "买家",
+      "seller": "供应商",
+      "both": "买家兼供应商"
+    },
+    "signOut": "退出登录"
   }
 }

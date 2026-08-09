@@ -7,6 +7,7 @@ import { reviewOrgAction } from '@/lib/actions';
 import { StatCard } from '@/components/stat-card';
 import { StatusBadge } from '@/components/status-badge';
 import { OrgDossier } from '@/components/org-dossier';
+import { ActionSubmit } from '@/components/action-submit';
 
 // Renders per-user data (session, org plan, quotas) — must never be served
 // from the static/full route cache.
@@ -117,9 +118,12 @@ export default async function AdminPage({ params }: { params: Promise<{ locale: 
                   <form action={reviewOrgAction} className="flex items-center gap-2">
                     <input type="hidden" name="orgId" value={org.id} />
                     <input type="hidden" name="decision" value="approve" />
-                    <button type="submit" className="btn-primary !py-2 text-xs" data-testid={`approve-${org.id}`}>
-                      ✓ {t('approve')}
-                    </button>
+                    {/* Client submits, so the queue actually drains when the
+                        decision is taken — see ActionSubmit and
+                        HARDENING-PLAN.md 1.8. An approved applicant sitting in
+                        the queue as though nothing happened is what teaches a
+                        verifier to click twice. */}
+                    <ActionSubmit label={`✓ ${t('approve')}`} className="btn-primary !py-2 text-xs" testId={`approve-${org.id}`} />
                   </form>
                   <form action={reviewOrgAction} className="flex items-center gap-2">
                     <input type="hidden" name="orgId" value={org.id} />
@@ -131,9 +135,15 @@ export default async function AdminPage({ params }: { params: Promise<{ locale: 
                       className="input !py-1.5 text-xs"
                       data-testid={`reason-${org.id}`}
                     />
-                    <button type="submit" className="btn-ghost !py-2 text-xs !text-red-700" data-testid={`reject-${org.id}`}>
-                      {t('reject')}
-                    </button>
+                    {/* Rejection is destructive and the kit is explicit that a
+                        destructive action is a bordered danger button with a
+                        reason, never a bare red text link. */}
+                    <ActionSubmit
+                      label={t('reject')}
+                      className="whitespace-nowrap rounded-control border border-danger/40 px-3 py-2 text-xs font-semibold text-danger transition hover:bg-danger-pale disabled:opacity-50"
+                      testId={`reject-${org.id}`}
+                      confirm={t('confirmReject', { name: org.name })}
+                    />
                   </form>
                 </div>
               </div>
