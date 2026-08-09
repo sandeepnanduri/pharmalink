@@ -642,6 +642,19 @@ model Product {
   hsCode  String?
   hsnCode String?
 
+  /// The template's `Product_ID`, e.g. `API-1115704-0001`.
+  ///
+  /// Scoped unique, NOT global. The documented format
+  /// `[CAT]-[CAS_stripped]-[COMPANY_SEQ]` ends in a per-company sequence, so
+  /// the next supplier of metformin produces the same string. A global unique
+  /// would throw on the second one.
+  externalId String?
+
+  // --- Provenance -------------------------------------------------------------
+  sourceUrl      String?
+  dataSourceName String?
+  lastVerifiedAt DateTime?
+
   /// The long tail of the curation template's ~250 product columns, as JSON
   /// held in text — the `Deal.termsJson` precedent, since this schema has no
   /// `Json` columns and Postgres portability is a stated goal.
@@ -660,6 +673,7 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([orgId, externalId])
   @@index([orgId])
   @@index([cas])
   @@index([status])
@@ -1153,7 +1167,31 @@ model PriceObservation {
 
   /// 0..1 evidence weight. A signed deal is stronger evidence than a customs
   /// aggregate covering a whole HS line; the model must not pretend otherwise.
-  weight     Float    @default(1)
+  weight Float @default(1)
+
+  // --- Curated provenance (template sheet 6) ----------------------------------
+  /// The rate applied to reach `unitPriceUsdKg`. An FX-converted price you
+  /// cannot re-derive is unauditable.
+  fxRate         Float?
+  /// HIGH | MEDIUM | LOW -- the LABEL. `weight` above stays the number the model
+  /// reads, derived from this through one exported table in `vocab.ts`, so a
+  /// spreadsheet can never outvote a platform transaction by setting it directly.
+  dataConfidence String?
+  /// Where the goods ship FROM. `region` already means the destination market --
+  /// a FOB India price and a FOB China price are different series.
+  originCountry  String?
+  /// 99.5% USP and 98% technical grade are not the same product, and conflating
+  /// them is a major source of apparent volatility.
+  purityGrade    String?
+  validUntil     DateTime?
+  /// Excluded from the forecast when set. A curator flagging an outlier is
+  /// evidence; silently dropping it would not be.
+  outlierFlag    Boolean   @default(false)
+  outlierReason  String?
+  /// Nullable on purpose: a market price for paracetamol exists whether or not
+  /// anyone here lists it, so the CAS-keyed doctrine above still holds.
+  supplierOrgId  String?
+
   ingestedAt DateTime @default(now())
 
   @@index([cas, observedAt])
@@ -1397,4 +1435,47 @@ model Contact {
 
   @@unique([orgId, businessEmail])
   @@index([orgId])
+}
+
+/// One uploaded curation workbook, and what happened to it.
+///
+/// The association importer re-fetches its source on apply; a file cannot be
+/// re-fetched, so the preview has to be able to find the bytes again. Holding
+/// them in memory breaks the moment `output: 'standalone'` runs more than one
+/// instance and apply lands on a different one.
+///
+/// It also gives the import history that "Data Import" as a nav item implies,
+/// and `sha256` gives "you already uploaded this exact file" for free.
+model ImportBatch {
+  id         String  @id @default(cuid())
+  kind       String  @default("supplier-catalogue")
+  filename   String
+  /// Content hash — the same dedupe key the document upload path uses.
+  sha256     String
+  /// Opaque storage key, never a public URL. Downloads are brokered.
+  storageKey String?
+  sizeBytes  Int
+
+  uploadedById String?
+  /// uploaded | previewed | applied | failed
+  status       String  @default("uploaded")
+
+  /// Per-sheet counts as JSON text, following the Deal.termsJson precedent.
+  sheetCountsJson String?
+  errorCount      Int     @default(0)
+  /// The row-level report, CAPPED. A 46-company import easily produces 50 KB,
+  /// and AuditLog.meta has no size discipline — this is where the detail goes
+  /// so the audit row stays a summary.
+  reportJson      String?
+
+  /// The IngestRun this batch was applied under, so a failed apply is visible
+  /// in the same operator console as every other connector.
+  ingestRunId String?
+
+  createdAt   DateTime  @default(now())
+  previewedAt DateTime?
+  appliedAt   DateTime?
+
+  @@index([kind, createdAt])
+  @@index([sha256])
 }

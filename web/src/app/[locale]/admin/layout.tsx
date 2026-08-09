@@ -58,6 +58,7 @@ export default async function AdminLayout({
               { href: '/admin/products', label: t('catalogue'), icon: 'cube' as const },
               { href: '/admin/news', label: t('publishing'), icon: 'book' as const },
               { href: '/admin/market-data', label: t('marketData'), icon: 'chart' as const },
+              { href: '/admin/imports', label: t('dataImport'), icon: 'upload' as const },
             ]
           : []),
       ],
