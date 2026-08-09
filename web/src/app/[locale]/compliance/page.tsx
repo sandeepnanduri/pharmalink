@@ -65,9 +65,21 @@ export default async function CompliancePage({ params }: { params: Promise<{ loc
               </ul>
             </div>
           )}
+          {/* Certificates and regulatory filings in one register: they are
+              different kinds of credential but they lapse the same way, and a
+              supplier chasing renewals wants one list. The `kind` column says
+              which is which, so a DMF that never expires is not mistaken for a
+              certificate someone forgot to date. */}
           <CertTable
-            head={[t('certification'), t('site'), t('expiry'), t('statusCol'), t('source')]}
-            rows={seller.rows.map((c) => [c.name, c.site?.name ?? '—', fmtExpiry(c.expiresAt), <LevelBadge key="l" level={c.level} />, c.verifiedVia ?? '—'])}
+            head={[t('certification'), t('kind'), t('reference'), t('expiry'), t('statusCol'), t('source')]}
+            rows={seller.rows.map((c) => [
+              c.name,
+              t(`kind_${c.kind}`),
+              c.reference ?? '—',
+              fmtExpiry(c.expiresAt),
+              <LevelBadge key="l" level={c.level} />,
+              c.authority ?? c.siteName ?? '—',
+            ])}
             empty={t('noCerts')}
           />
         </section>

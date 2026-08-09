@@ -45,6 +45,8 @@ function navFor(role: Role | null, t: (k: string) => string) {
   if (canSell(role)) {
     items.push({ href: '/seller', label: canBuy(role) ? t('inquiries') : t('dashboard') });
     items.push({ href: '/seller/products', label: t('products') });
+    items.push({ href: '/seller/facilities', label: t('facilities') });
+    items.push({ href: '/seller/filings', label: t('filings') });
   }
   items.push({ href: '/orders', label: t('orders') });
   items.push({ href: '/compliance', label: t('compliance') });

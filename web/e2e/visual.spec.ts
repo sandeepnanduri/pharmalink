@@ -67,6 +67,25 @@ for (const { name, width, height } of WIDTHS) {
       await expect(page.getByTestId('spec-group-formulation')).toHaveCount(0);
     });
 
+    test('supplier profile and seller detail pages render clean', async ({ page }) => {
+      // Public profile: facilities, filings and the gated contact directory.
+      await page.goto('/en/catalog?q=Dicyandiamide');
+      await page.getByTestId('product-card').first().click();
+      await page.getByRole('link', { name: 'View supplier profile' }).click();
+      // Wait for the navigation before reading the URL back — `click()` does not.
+      await page.waitForURL(/\/suppliers\//);
+      await checkPage(page, page.url(), `supplier-profile-${name}`);
+      await expect(page.getByTestId('supplier-facilities')).toBeVisible();
+      await expect(page.getByTestId('supplier-filings')).toBeVisible();
+      await expect(page.getByTestId('supplier-contacts')).toBeVisible();
+
+      await login(page, USERS.seller);
+      await checkPage(page, '/en/seller/facilities', `seller-facilities-${name}`);
+      await expect(page.getByTestId('facility-manage-row').first()).toBeVisible();
+      await checkPage(page, '/en/seller/filings', `seller-filings-${name}`);
+      await expect(page.getByTestId('filing-manage-row').first()).toBeVisible();
+    });
+
     test('the seller editor renders clean', async ({ page }) => {
       await login(page, USERS.seller);
       await page.goto('/en/seller/products');

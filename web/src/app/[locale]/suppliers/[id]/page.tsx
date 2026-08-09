@@ -11,6 +11,9 @@ import { Stars } from '@/components/stars';
 import { CompanyLogo } from '@/components/company-logo';
 import { getSupplierExtras } from '@/lib/supplier-queries';
 import { CommercialPanel, PerformancePanel, RegulatoryPanel } from '@/components/supplier-panels';
+import { getSupplierContacts } from '@/lib/contact-queries';
+import { SupplierContacts } from '@/components/supplier-contacts';
+import { SupplierFacilities, SupplierFilings } from '@/components/supplier-facilities';
 import { ReviewForm } from '@/components/review-form';
 import { AddToCompareButton } from '@/components/compare-tray';
 import { absoluteUrl, localeAlternates, jsonLd, SITE_NAME } from '@/lib/seo';
@@ -22,6 +25,9 @@ function loadSupplier(id: string) {
       certifications: { where: { status: 'verified' } },
       sites: true,
       products: { where: { status: 'live' } },
+      // Withdrawn filings are history, not a credential — a buyer checking
+      // whether they can cite this supplier should not see one they cannot.
+      filings: { where: { status: { not: 'withdrawn' } }, orderBy: [{ filingType: 'asc' }, { filingNumber: 'asc' }] },
     },
   });
 }
@@ -66,11 +72,14 @@ export default async function SupplierPage({ params }: { params: Promise<{ local
   const viewerOrg = user?.orgId
     ? await prisma.organization.findUnique({ where: { id: user.orgId }, select: { kind: true, status: true } })
     : null;
-  const [rating, reviews, ownReview, saved] = await Promise.all([
+  const [rating, reviews, ownReview, saved, contacts] = await Promise.all([
     getSupplierRating(id),
     getSupplierReviews(id),
     getOwnReview(user?.orgId, id),
     isSaved(user?.orgId, id),
+    // Redacted in the query, not here — see contact-queries.ts. The page never
+    // holds a field this viewer may not see.
+    getSupplierContacts(id, { orgId: user?.orgId, role: user?.role, orgStatus: viewerOrg?.status }),
   ]);
   const eligibleToReview =
     viewerOrg?.status === 'verified' &&
@@ -190,6 +199,10 @@ export default async function SupplierPage({ params }: { params: Promise<{ local
           </table>
         )}
       </div>
+
+      <SupplierFacilities facilities={org.sites} />
+      <SupplierFilings filings={org.filings} />
+      <SupplierContacts tier={contacts.tier} contacts={contacts.contacts} />
 
       <h2 className="mb-3 mt-8 text-base font-bold">{t('products')}</h2>
       <ul className="space-y-3">

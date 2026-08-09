@@ -64,6 +64,8 @@ async function main() {
   await prisma.rfq.deleteMany();
   await prisma.productCertification.deleteMany();
   await prisma.product.deleteMany();
+  await prisma.regulatoryFiling.deleteMany();
+  await prisma.contact.deleteMany();
   await prisma.certification.deleteMany(); // FK to site
   await prisma.site.deleteMany();
   await prisma.account.deleteMany();
@@ -1015,6 +1017,183 @@ async function main() {
   await prisma.document.create({
     data: { orgId: sun!.id, kind: 'gmp_cert', filename: 'FDA_GMP_Sun_Halol_2027.pdf', mimeType: 'application/pdf', sizeBytes: 284102, sha256: DEMO_DOC_HASH, status: 'verified' },
   });
+
+  // ------------------------------------------------- Curated supplier detail
+  // Facilities, regulatory filings and contacts -- the data the v3 curation
+  // template adds. Kept small deliberately: e2e runs `workers: 1` against one
+  // SQLite file, so every seeded row is paid for by all thirty-odd specs.
+  {
+    const sunSites = await prisma.site.findMany({ where: { orgId: sun!.id }, select: { id: true } });
+    if (sunSites[0]) {
+      await prisma.site.update({
+        where: { id: sunSites[0].id },
+        data: {
+          externalId: 'FAC-IND-3002807546',
+          fdaGmpStatus: 'Current (Active)',
+          euGmpStatus: 'Current (Active)',
+          whoGmpStatus: 'Listed (Active)',
+          lastFdaInspectionAt: daysFromNow(-330),
+          fdaInspectionOutcome: 'NAI (No Action Indicated)',
+          lastEuInspectionAt: daysFromNow(-420),
+          euInspectionOutcome: 'Satisfactory',
+          form483Count: 0,
+          capacityValue: 2400,
+          capacityUnit: 'MT/year',
+          utilizationPct: 65,
+          manufacturingType: 'API Manufacturing',
+          containmentLevel: 'Standard Containment (open API)',
+          sterile: false,
+          coldChainCapability: 'Ambient (15-25C) only',
+          productionLines: 8,
+          qcLabs: 3,
+          yearEstablished: 1998,
+          employees: 2200,
+          sourceUrl: 'https://www.accessdata.fda.gov/scripts/cder/daf/',
+          dataSourceName: 'FDA FEI Search',
+          lastVerifiedAt: daysFromNow(-20),
+        },
+      });
+    }
+    // A second site carrying VAI, so both badge variants render. An inspection
+    // outcome that is never anything but clean teaches an operator nothing.
+    await prisma.site.create({
+      data: {
+        orgId: sun!.id,
+        name: 'Ankleshwar API Facility (Unit II)',
+        location: 'Ankleshwar, Gujarat, India',
+        city: 'Ankleshwar',
+        state: 'Gujarat',
+        country: 'India',
+        siteType: 'manufacturing',
+        regulatoryId: '3002808041',
+        externalId: 'FAC-IND-3002808041',
+        fdaGmpStatus: 'Current (Active)',
+        lastFdaInspectionAt: daysFromNow(-160),
+        fdaInspectionOutcome: 'VAI (Voluntary Action Indicated)',
+        form483Count: 3,
+        capacityValue: 900,
+        capacityUnit: 'MT/year',
+        utilizationPct: 48,
+        manufacturingType: 'API Manufacturing',
+        dataSourceName: 'FDA FEI Search',
+        lastVerifiedAt: daysFromNow(-20),
+      },
+    });
+
+    // Three filings covering the three expiry shapes the compliance register
+    // has to tell apart: none at all, imminent, and already gone.
+    await prisma.regulatoryFiling.createMany({
+      data: [
+        {
+          orgId: sun!.id,
+          externalId: 'RF-2026-0001',
+          filingType: 'US FDA Type II DMF',
+          filingNumber: 'Type II DMF #23412',
+          authority: 'US FDA CDER',
+          country: 'United States',
+          status: 'active',
+          cas: '103-90-2',
+          productName: 'Paracetamol (Acetaminophen)',
+          filedAt: daysFromNow(-4200),
+          approvedAt: daysFromNow(-4100),
+          // A DMF genuinely has no expiry. This row is what proves the register
+          // reports "unknown" rather than quietly reporting "ok".
+          expiresAt: null,
+          holderName: 'Sun Pharma API Division',
+          openToReference: true,
+          referencingCount: 48,
+          annualFeeUsd: 4867,
+          sitesCovered: '3002807546,3002808041',
+          sourceUrl: 'https://www.accessdata.fda.gov/scripts/cder/daf/',
+          dataSourceName: 'FDA CDER DMF list',
+          lastVerifiedAt: daysFromNow(-20),
+        },
+        {
+          orgId: sun!.id,
+          externalId: 'RF-2026-0002',
+          filingType: 'CEP (EDQM)',
+          filingNumber: 'CEP 2019-021-3-0',
+          authority: 'EDQM',
+          country: 'European Union',
+          status: 'active',
+          cas: '103-90-2',
+          productName: 'Paracetamol (Acetaminophen)',
+          approvedAt: daysFromNow(-1800),
+          // Twenty days out: lands in the `warning` bucket in compliance.ts.
+          expiresAt: daysFromNow(20),
+          holderName: 'Sun Pharma API Division',
+          openToReference: true,
+          sitesCovered: '3002807546',
+          dataSourceName: 'EDQM CEP database',
+          lastVerifiedAt: daysFromNow(-20),
+        },
+        {
+          orgId: sun!.id,
+          externalId: 'RF-2026-0003',
+          filingType: 'US FDA ANDA',
+          filingNumber: 'ANDA 200123',
+          authority: 'US FDA CDER',
+          country: 'United States',
+          status: 'expired',
+          cas: '15687-27-1',
+          productName: 'Ibuprofen',
+          approvedAt: daysFromNow(-2600),
+          expiresAt: daysFromNow(-90),
+          holderName: 'Sun Pharma API Division',
+          openToReference: false,
+          dataSourceName: 'FDA Orange Book',
+          lastVerifiedAt: daysFromNow(-40),
+        },
+      ],
+    });
+
+    // Contacts on BOTH Sun and Huahai, which is what makes the gate testable:
+    // Cipla's seeded deal (DEAL-2001) was awarded to Huahai and Sun's quote
+    // stays 'submitted', so the same buyer sees the `full` tier on Huahai and
+    // the `email` tier on Sun.
+    await prisma.contact.createMany({
+      data: [
+        {
+          orgId: sun!.id, externalId: 'CON-IND-0001', salutation: 'Mr.', firstName: 'Suresh', lastName: 'Kumar',
+          jobTitle: 'Vice President - International API Exports', department: 'Global API Business',
+          seniority: 'vp', primaryRole: 'export_sales',
+          businessEmail: 'suresh.exports@sunpharma.test', mobile: '+91-98765-43210', officePhone: '+91-22-6645-5645',
+          linkedinUrl: 'https://linkedin.com/in/example-suresh', city: 'Mumbai', country: 'India',
+          territories: 'USA,EU27,UK,Canada,Japan', languages: 'English,Hindi,Gujarati',
+          responseHours: 4, bestContactTime: '08:00-18:00 IST',
+          dataSourceName: 'Supplier confirmation', lastVerifiedAt: daysFromNow(-25),
+        },
+        {
+          orgId: sun!.id, externalId: 'CON-IND-0002', salutation: 'Dr.', firstName: 'Meera', lastName: 'Iyer',
+          jobTitle: 'Head of Regulatory Affairs', department: 'Regulatory',
+          seniority: 'director', primaryRole: 'regulatory',
+          businessEmail: 'meera.ra@sunpharma.test', officePhone: '+91-22-6645-5700',
+          linkedinUrl: 'https://linkedin.com/in/example-meera', city: 'Mumbai', country: 'India',
+          territories: 'USA,EU27', languages: 'English,Hindi', responseHours: 24,
+          dataSourceName: 'Supplier confirmation', lastVerifiedAt: daysFromNow(-25),
+        },
+        {
+          orgId: huahai!.id, externalId: 'CON-CHN-0001', salutation: 'Ms.', firstName: 'Li', lastName: 'Wei',
+          jobTitle: 'Director - International Sales', department: 'Export',
+          seniority: 'director', primaryRole: 'export_sales',
+          businessEmail: 'liwei.export@huahai.test', mobile: '+86-138-0000-0000', officePhone: '+86-576-8888-0000',
+          linkedinUrl: 'https://linkedin.com/in/example-liwei', city: 'Taizhou', country: 'China',
+          territories: 'EU27,WHO,LATAM', languages: 'Mandarin,English',
+          responseHours: 8, bestContactTime: '09:00-18:00 CST',
+          dataSourceName: 'Supplier confirmation', lastVerifiedAt: daysFromNow(-15),
+        },
+        {
+          orgId: huahai!.id, externalId: 'CON-CHN-0002', firstName: 'Zhang', lastName: 'Hua',
+          jobTitle: 'QA Manager', department: 'Quality Assurance',
+          seniority: 'manager', primaryRole: 'quality',
+          businessEmail: 'zhang.qa@huahai.test', officePhone: '+86-576-8888-0100',
+          linkedinUrl: 'https://linkedin.com/in/example-zhang', city: 'Taizhou', country: 'China',
+          languages: 'Mandarin', responseHours: 48,
+          dataSourceName: 'Supplier confirmation', lastVerifiedAt: daysFromNow(-15),
+        },
+      ],
+    });
+  }
 
   // ---------------------------------------------------------------- News hub
   // Real-sounding regulatory/market posts so the homepage feed and /news are
