@@ -12,6 +12,7 @@ import {
   parsePurityPct,
   parseStockStatus,
   productTypeFromCategory,
+  readSpecFromForm,
   resolveFacetFor,
   validFacetFor,
 } from './product-fields';
@@ -166,6 +167,63 @@ describe('parseStockStatus', () => {
 
   it('is null for anything else', () => {
     expect(parseStockStatus('ask us')).toBeNull();
+  });
+});
+
+describe('readSpecFromForm', () => {
+  /** A stand-in for FormData: only `get` is used, and absence must be distinct from empty. */
+  const form = (values: Record<string, string>) => ({
+    get: (k: string) => (k in values ? values[k] : null),
+  });
+
+  it('routes registry fields into columns and the blob by what the registry says', () => {
+    const out = readSpecFromForm(form({ iupacName: '1,1-Dimethylbiguanide HCl', phRange: '6.68' }), 'api');
+    expect(out.iupacName).toBe('1,1-Dimethylbiguanide HCl'); // a real column
+    expect(out.specJson).toBe('{"phRange":"6.68"}'); // a blob key
+    expect(out).not.toHaveProperty('phRange');
+  });
+
+  it('coerces each value to the kind the registry declares', () => {
+    const out = readSpecFromForm(
+      form({ molecularWeight: '165.62', halal: 'yes', bseTseFree: 'no', qcMethods: 'HPLC; GC; NMR' }),
+      'excipient',
+    );
+    expect(out.molecularWeight).toBe(165.62);
+    expect(out.halal).toBe(true);
+    expect(out.bseTseFree).toBe(false);
+    expect(out.specJson).toContain('"qcMethods":"HPLC,GC,NMR"'); // semicolons normalised
+  });
+
+  it('keeps "not stated" distinct from "no" on a tri-state', () => {
+    const out = readSpecFromForm(form({ halal: '' }), 'excipient');
+    expect(out.halal).toBeNull();
+    expect(out.halal).not.toBe(false);
+  });
+
+  it('leaves fields absent from the submission alone', () => {
+    // The quick-add form posts a handful of fields. It must not null the rest.
+    const out = readSpecFromForm(form({ iupacName: 'X' }), 'api');
+    expect(Object.keys(out)).toEqual(['iupacName']);
+    expect(out).not.toHaveProperty('formula');
+  });
+
+  it('does NOT touch specJson when the submission carried no spec fields', () => {
+    // Otherwise a quick-add edit serialises an empty object over a spec sheet
+    // the seller spent an afternoon on.
+    const out = readSpecFromForm(form({ iupacName: 'X' }), 'api');
+    expect(out).not.toHaveProperty('specJson');
+  });
+
+  it('treats a rendered-but-blank spec field as a deliberate clear', () => {
+    const out = readSpecFromForm(form({ phRange: '' }), 'api');
+    expect(out.specJson).toBeNull();
+  });
+
+  it('ignores fields that do not apply to the segment', () => {
+    // `strength` is fdf-only; posting it on a KSM must not write it.
+    const out = readSpecFromForm(form({ strength: '500 mg', parentApiCas: '1115-70-4' }), 'ksm');
+    expect(out).not.toHaveProperty('strength');
+    expect(out.parentApiCas).toBe('1115-70-4');
   });
 });
 

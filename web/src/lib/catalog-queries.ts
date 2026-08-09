@@ -53,6 +53,8 @@ function runQuery(where: Prisma.ProductWhereInput, orderBy: Prisma.ProductOrderB
 const SORT_MAP: Record<string, Prisma.ProductOrderByWithRelationInput[]> = {
   relevance: [{ createdAt: 'desc' }],
   newest: [{ createdAt: 'desc' }],
+  // Price ordering is only meaningful across one denomination — see the
+  // `priceUnit` guard in `searchCatalog`.
   price_low: [{ priceMin: 'asc' }],
   price_high: [{ priceMin: 'desc' }],
   moq_low: [{ moqKg: 'asc' }],
@@ -122,6 +124,14 @@ export async function searchCatalog(f: ParsedFilters, take = 60): Promise<Catalo
     ...(facetFilter.length ? { facet: { in: facetFilter } } : {}),
     ...(f.pharmacopoeia.length ? { OR: f.pharmacopoeia.map((g) => ({ grade: { contains: g } })) } : {}),
     ...(f.purityMin != null ? { purityPct: { gte: f.purityMin } } : {}),
+    // Price is a USD/kg range, and the filter rail says so. A finished dose
+    // form priced per unit ($0.042 a tablet) is not cheap, it is denominated
+    // differently — including it would put it at the top of every "price, low
+    // to high" result and inside every price band a buyer sets. Both the range
+    // filter and the price sorts are therefore restricted to per-kg listings.
+    ...(f.priceMin != null || f.priceMax != null || f.sort === 'price_low' || f.sort === 'price_high'
+      ? { priceUnit: 'kg' }
+      : {}),
     ...(f.priceMin != null ? { priceMin: { gte: f.priceMin } } : {}),
     ...(f.priceMax != null ? { priceMin: { lte: f.priceMax } } : {}),
     ...(f.moqMax != null ? { moqKg: { lte: f.moqMax } } : {}),

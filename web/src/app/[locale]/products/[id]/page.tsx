@@ -7,7 +7,47 @@ import { currentUser } from '@/lib/session';
 import { canBuy } from '@/lib/rbac';
 import { getOwnSampleRequest } from '@/lib/sample-queries';
 import { RequestSample } from '@/components/request-sample';
+import { SpecTable } from '@/components/spec-table';
+import { fieldsFor, parseSpec, specCompleteness } from '@/lib/product-spec';
+import type { ProductType } from '@/lib/taxonomy';
 import { absoluteUrl, localeAlternates, jsonLd, SITE_NAME } from '@/lib/seo';
+
+/**
+ * Other live listings of the API a KSM or intermediate feeds into.
+ *
+ * `parentApiCas` is a plain string rather than a self-relation precisely so
+ * this question can be answered in the plural, and answered for a parent nobody
+ * on the platform happens to list (in which case this is simply empty).
+ */
+async function getParentApiSuppliers(parentApiCas: string | null, selfId: string) {
+  if (!parentApiCas) return [];
+  return prisma.product.findMany({
+    where: {
+      cas: parentApiCas,
+      id: { not: selfId },
+      status: 'live',
+      // Same invariant as the catalogue: never surface an unverified supplier.
+      org: { status: 'verified' },
+    },
+    select: { id: true, name: true, org: { select: { name: true } } },
+    take: 6,
+  });
+}
+
+/**
+ * Registry-backed spec values as schema.org PropertyValues.
+ *
+ * Capped: a rich result is a summary, and a hundred properties is spam rather
+ * than structure. The cap is on the number emitted, not on which fields are
+ * eligible, so the order follows the registry's own priority.
+ */
+function specProperties(type: ProductType, columns: Record<string, unknown>, spec: Record<string, unknown>) {
+  return fieldsFor(type)
+    .map((f) => ({ f, v: f.column ? columns[f.key] : spec[f.key] }))
+    .filter(({ v }) => v !== null && v !== undefined && v !== '')
+    .slice(0, 20)
+    .map(({ f, v }) => ({ '@type': 'PropertyValue', name: f.label, value: String(v) }));
+}
 
 async function loadProduct(id: string) {
   return prisma.product.findUnique({
@@ -62,6 +102,13 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
 
   const user = await currentUser();
   const ownSample = product.sampleAvailable ? await getOwnSampleRequest(user?.orgId, product.id) : null;
+  const parentSuppliers = await getParentApiSuppliers(product.parentApiCas, product.id);
+  // The divider only earns its place when there is a spec sheet under it.
+  const hasSpec = specCompleteness(
+    product.productType as ProductType,
+    product as unknown as Record<string, unknown>,
+    parseSpec(product.specJson),
+  ).filled > 0;
   const facts = [
     [t('pharmacopeia'), product.grade ?? '—'],
     [tc('purity'), product.purity ?? '—'],
@@ -69,10 +116,11 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
     [tc('leadTime'), product.leadTime ?? '—'],
     [t('shelfLife'), product.shelfLife ?? '—'],
     [t('storage'), product.storage ?? '—'],
-    ...(product.formula ? [[t('formula'), product.formula]] : []),
-    ...(product.dmfNumber ? [[t('dmf'), product.dmfNumber]] : []),
     [t('sample'), product.sampleAvailable ? t('sampleYes') : t('sampleNo')],
   ];
+  // `formula` and `dmfNumber` used to be listed here too. They are registry
+  // fields now, rendered by <SpecTable> under Identity and Regulatory — showing
+  // them in both places made the page look like it held two different facts.
 
   // Product structured data — lets Google show a rich result (name, brand,
   // supplier) for this CAS instead of a plain blue link.
@@ -91,10 +139,14 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
         seller: { '@type': 'Organization', name: product.org.name },
       },
     }),
+    // Structured spec properties, generated from the registry rather than
+    // hand-listed — a search engine gets whatever the supplier filled in, and
+    // adding a registry field extends the rich result for free.
     additionalProperty: [
       { '@type': 'PropertyValue', name: 'CAS Number', value: product.cas },
       ...(product.grade ? [{ '@type': 'PropertyValue', name: 'Pharmacopeia grade', value: product.grade }] : []),
       ...(product.purity ? [{ '@type': 'PropertyValue', name: 'Purity', value: product.purity }] : []),
+      ...specProperties(product.productType as ProductType, product as unknown as Record<string, unknown>, parseSpec(product.specJson)),
     ],
     brand: { '@type': 'Organization', name: product.org.name },
   });
@@ -136,6 +188,41 @@ export default async function ProductPage({ params }: { params: Promise<{ locale
               </div>
             ))}
           </dl>
+
+          {/* The full specification, driven by the registry and filtered to the
+              fields this segment actually has. Before this the page showed
+              seven fields and the schema already held twenty more. */}
+          {hasSpec && (
+            <>
+              <div className="my-5 h-px bg-line" />
+              <SpecTable
+                productType={product.productType}
+                columns={product as unknown as Record<string, unknown>}
+                specJson={product.specJson}
+              />
+            </>
+          )}
+
+          {/* A KSM's parent API is stored as a plain CAS, so the useful question
+              is answerable at query time and in the plural: who else supplies
+              the API this material feeds. */}
+          {parentSuppliers.length > 0 && (
+            <>
+              <div className="my-5 h-px bg-line" />
+              <h2 className="mb-2 text-sm font-bold">
+                {t('feedsInto', { name: product.parentApiName ?? product.parentApiCas ?? '' })}
+              </h2>
+              <ul className="flex flex-wrap gap-2" data-testid="parent-api-suppliers">
+                {parentSuppliers.map((s) => (
+                  <li key={s.id}>
+                    <Link href={`/products/${s.id}`} className="chip hover:bg-mist">
+                      {s.name} · {s.org.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
           {product.priceTiers.length > 0 && (
             <>

@@ -304,7 +304,8 @@
     "sampleNo": "Not offered",
     "volumePricing": "Volume pricing",
     "fromQty": "From quantity",
-    "pricePerKg": "Price / kg"
+    "pricePerKg": "Price / kg",
+    "feedsInto": "Also supplying {name}"
   },
   "supplier": {
     "verified": "Verified Supplier",
@@ -589,7 +590,15 @@
     "pricePerKg": "$/kg",
     "addTier": "Add tier",
     "saveTiers": "Save tiers",
-    "unauthorized": "You don't have permission to do that."
+    "unauthorized": "You don't have permission to do that.",
+    "fieldsComplete": "fields complete",
+    "coreDetails": "Core listing details",
+    "incoterms": "Incoterms offered",
+    "stockStatus": "Stock status",
+    "packaging": "Packaging",
+    "save": "Save listing",
+    "savedDescription": "Buyers with a matching saved search are notified of price changes.",
+    "editFull": "Edit full spec"
   },
   "admin": {
     "title": "Operations console",

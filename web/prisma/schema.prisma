@@ -454,6 +454,15 @@ model Product {
   /// function for excipients. One column because a product has exactly one.
   facet       String?
 
+  // --- Identity & chemistry --------------------------------------------------
+  /// Full systematic name. Distinct from `name`, which is the trade name a
+  /// buyer searches by ("Metformin HCl" vs "1,1-Dimethylbiguanide HCl").
+  iupacName       String?
+  molecularWeight Float?
+  /// WHO ATC code — the standard therapeutic classification.
+  atcCode         String?
+  physicalForm    String?
+
   // --- Technical specification -----------------------------------------------
   /// Numeric purity so it can be range-filtered. `purity` above stays as the
   /// human string ("≥ 99.0%, HPLC") because the spec sheet wording matters.
@@ -462,6 +471,40 @@ model Product {
   chirality      String?
   polymorphForm  String?
   synthesisRoute String?
+
+  // --- Synthesis lineage (KSMs and intermediates) ----------------------------
+  /// The API this material feeds, as a plain CAS rather than a self-relation.
+  /// A KSM's parent API is a fact about chemistry, true whether or not anyone
+  /// on this platform lists it — the same reasoning that keeps PriceObservation
+  /// keyed on CAS with no FK. A relation would be null for every parent nobody
+  /// lists, and would break on import ordering. Resolving at query time also
+  /// gives the more useful answer: who ELSE supplies that API, plural.
+  parentApiCas  String?
+  parentApiName String?
+  synthesisStep String?
+  /// ICH Q11: starting material vs intermediate. Decides what must be filed.
+  ichQ11Class   String?
+
+  // --- Finished dose forms ---------------------------------------------------
+  strength     String?
+  routeOfAdmin String?
+
+  // --- Raw materials & excipients --------------------------------------------
+  /// Plant / animal / synthetic — required for the dietary-compliance filters.
+  origin           String?
+  /// Nullable Booleans on purpose: unknown is NOT the same as no. A buyer
+  /// filtering for Halal-certified excipients must not be shown an uncurated
+  /// product, and must not have it silently excluded either — which is exactly
+  /// what a non-nullable Boolean defaulting to false would do.
+  nonGmo           Boolean?
+  bseTseFree       Boolean?
+  halal            Boolean?
+  kosher           Boolean?
+  vendorQualStatus String?
+
+  // --- Intellectual property -------------------------------------------------
+  ipStatus     String?
+  patentExpiry String?
 
   // --- Commercial ------------------------------------------------------------
   /// Numeric lead time so the catalogue can sort and range-filter on it.
@@ -472,20 +515,51 @@ model Product {
   ///
   /// A range resolves to its UPPER bound: the filter means "no longer than", so
   /// a supplier quoting 3–5 weeks must not match a buyer asking for 21 days.
-  leadTimeDays      Int?
+  leadTimeDays     Int?
   /// Expedited lead time where the supplier offers one, same units.
-  expediteLeadDays  Int?
+  expediteLeadDays Int?
   /// Comma-separated incoterms this listing is offered on, e.g. "FOB,CIF,DDP".
-  incoterms    String?
+  incoterms        String?
   /// ambient | refrigerated | frozen | ultracold
-  coldChain    String?
-  packaging    String?
+  coldChain        String?
+  packaging        String?
   /// in_stock | made_to_order | low
-  stockStatus  String  @default("made_to_order")
+  stockStatus      String  @default("made_to_order")
   /// Annual capacity in metric tonnes, for scale-up questions.
-  capacityMtYr Float?
+  capacityMtYr     Float?
+  /// Current utilisation of that capacity, %. Headroom is a supply-risk input.
+  utilizationPct   Float?
   /// European Active Substance Master File reference.
-  asmfNumber   String?
+  asmfNumber       String?
+
+  /// What `priceMin`/`priceMax` and `moqKg` are actually denominated in.
+  ///
+  /// Load-bearing. Sheet 3 of the curation template prices finished dose forms
+  /// PER UNIT — $0.042 a tablet — while `priceMin`, the price range filter,
+  /// `SORT_MAP.price_low`, `match-score.ts` and `PriceObservation.unitPriceUsdKg`
+  /// are all per-kilogram. Without a unit, one tablet price wins every
+  /// "price, low to high" sort forever and drags the market median for any CAS
+  /// it shares with an API listing. The price sort and range filter are
+  /// restricted to `priceUnit = "kg"` for exactly this reason.
+  priceUnit String @default("kg")
+  moqUnit   String @default("kg")
+
+  /// Customs classification. Real per-product HS codes let the customs price
+  /// connector stop depending on the hand-maintained HS_BY_CAS map in
+  /// `market-data.ts`.
+  hsCode  String?
+  hsnCode String?
+
+  /// The long tail of the curation template's ~250 product columns, as JSON
+  /// held in text — the `Deal.termsJson` precedent, since this schema has no
+  /// `Json` columns and Postgres portability is a stated goal.
+  ///
+  /// Opaque to the database, NOT to the application: its keys are governed by
+  /// the registry in `src/lib/product-spec.ts`, which is also what renders,
+  /// edits and exports them. Nothing here is ever queried — a field that needs
+  /// a filter gets promoted to a real column, and that promotion is the
+  /// deliberate act, with a backfill.
+  specJson String?
 
   certifications ProductCertification[]
   priceTiers     ProductPriceTier[]
@@ -498,6 +572,8 @@ model Product {
   @@index([cas])
   @@index([status])
   @@index([controlledSchedule])
+  /// Answers "who supplies the API this KSM feeds" without a self-relation.
+  @@index([parentApiCas])
 }
 
 /// A buyer's request for a product sample; the seller approves/ships/declines.

@@ -29,6 +29,7 @@ import {
   parsePurityPct,
   parseStockStatus,
   productTypeFromCategory,
+  readSpecFromForm,
   validFacetFor,
 } from '@/lib/product-fields';
 import { joinMulti, parseIncoterms } from '@/lib/vocab';
@@ -425,12 +426,11 @@ export async function saveProductAction(_prev: ActionState, formData: FormData):
   const purity = str('purity');
   const storage = str('storage');
 
-  // The segment drives the catalogue's whole filter rail. A seller who does not
-  // pick one gets it derived from the legacy category rather than defaulting
-  // silently to `api`, which is how every listing on the platform ended up
+  // The segment drives the catalogue's whole filter rail, and it decides which
+  // spec fields even apply. A form that predates the segment field still posts
+  // only `category`, so fall back to deriving from it rather than defaulting
+  // silently to `api` — which is how every listing on the platform ended up
   // filed as an API.
-  // A form that predates the segment field still posts only `category`, so fall
-  // back to deriving from it rather than defaulting silently to `api`.
   const productType = parseProductType(str('productType')) ?? productTypeFromCategory(str('category'));
   // `stockStatus` is non-nullable with a default, so an unparseable value must
   // leave the column alone rather than write null over an existing answer.
@@ -449,8 +449,8 @@ export async function saveProductAction(_prev: ActionState, formData: FormData):
     priceMax: formData.get('priceMax') ? Number(formData.get('priceMax')) : null,
     shelfLife: str('shelfLife'),
     storage,
-    formula: str('formula'),
-    dmfNumber: str('dmfNumber'),
+    // `formula` and `dmfNumber` are registry columns and are written by the
+    // spread below — listing them here too would be two sources for one fact.
     sampleAvailable: formData.get('sampleAvailable') === 'on',
     status: String(formData.get('status') ?? 'live'),
 
@@ -464,6 +464,11 @@ export async function saveProductAction(_prev: ActionState, formData: FormData):
     incoterms: joinMulti(parseIncoterms(str('incoterms'))),
     coldChain: parseColdChain(str('coldChain') ?? storage),
     ...(stockStatus ? { stockStatus } : {}),
+
+    // Everything the spec registry declares, split into real columns and the
+    // specJson blob by the registry itself. This is what stops the form and
+    // the action drifting apart: neither holds its own list of fields.
+    ...readSpecFromForm(formData, productType),
   };
   if (!data.name || !data.cas) return { error: 'error' };
 

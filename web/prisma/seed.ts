@@ -16,6 +16,7 @@ import {
   parsePurityPct,
   parseStockStatus,
   productTypeFromCategory,
+  readSpecFromForm,
   validFacetFor,
 } from '../src/lib/product-fields';
 import { joinMulti, parseIncoterms } from '../src/lib/vocab';
@@ -137,6 +138,8 @@ async function main() {
     cepNumber?: string;
     asmfNumber?: string;
     status?: string;
+    /** Registry-backed columns and specJson keys, keyed exactly as the registry names them. */
+    spec?: Record<string, string>;
   }
 
   /**
@@ -151,7 +154,12 @@ async function main() {
   function seedProduct(p: SeedProduct) {
     const productType = productTypeFromCategory(p.category ?? 'API');
     const storage = p.coldChain ?? '15–25°C, dry';
+    // Spec values go through the same registry split the seller editor and the
+    // importer use, so the seed cannot produce a shape the application would
+    // not — including landing a blob key in a column or vice versa.
+    const spec = p.spec ? readSpecFromForm({ get: (k) => p.spec?.[k] ?? null }, productType) : {};
     return {
+      ...spec,
       name: p.name,
       cas: p.cas,
       category: p.category ?? 'API',
@@ -220,7 +228,31 @@ async function main() {
         { name: 'Ibuprofen', cas: '15687-27-1', grade: 'BP / USP', purity: '99.7%', moqKg: 25, leadTime: '2 weeks', priceMin: 6.1, priceMax: 7.4, facet: 'anti-inflammatory', incoterms: 'FOB; CIF', stockStatus: 'In Stock', packaging: '25 kg fibre drum' },
         // A KSM, so the segment filter has something outside `api` to return.
         // Dicyandiamide is the metformin precursor from the curation template.
-        { name: 'Dicyandiamide (DCDA)', cas: '461-58-5', category: 'KSM', grade: 'Technical', purity: '≥98.0%', moqKg: 1000, leadTime: '4 weeks', priceMin: 2.8, priceMax: 3.2, incoterms: 'FOB; CIF', stockStatus: 'In Stock', packaging: '500 kg bulk bag' },
+        {
+          name: 'Dicyandiamide (DCDA)', cas: '461-58-5', category: 'KSM', grade: 'Technical', purity: '≥98.0%',
+          moqKg: 1000, leadTime: '4 weeks', priceMin: 2.8, priceMax: 3.2, incoterms: 'FOB; CIF',
+          stockStatus: 'In Stock', packaging: '500 kg bulk bag',
+          // Links to the metformin listing above by CAS, so the product page can
+          // answer "who else supplies the API this feeds".
+          spec: {
+            iupacName: 'Cyanoguanidine',
+            formula: 'C2H4N4',
+            molecularWeight: '84.08',
+            inchiKey: 'RXGJHLEKF-UHFFFAOYSA-N',
+            smiles: 'NC(=N)NC#N',
+            parentApiName: 'Metformin Hydrochloride',
+            parentApiCas: '1115-70-4',
+            synthesisStep: 'Step 1 (Early)',
+            totalSteps: '2',
+            roleInSynthesis: 'Biguanide core precursor — provides the guanidyl group',
+            ichQ11Class: 'ICH Q11 Starting Material',
+            analyticalMethod: 'GC-FID; HPLC-UV; 1H-NMR',
+            genotoxConcern: 'No genotoxic concern',
+            nitrosamineRisk: 'Not applicable at starting-material stage',
+            capacityMtYr: '1200',
+            utilizationPct: '55',
+          },
+        },
       ],
     },
     {
@@ -241,7 +273,46 @@ async function main() {
         { name: 'WHO PQ', expires: 1.2, via: 'WHO PQ list' },
       ],
       products: [
-        { name: 'Metformin HCl', cas: '1115-70-4', grade: 'IP / USP', purity: '99.5%', moqKg: 100, leadTime: '3–4 weeks', priceMin: 3.8, priceMax: 4.6, facet: 'antidiabetic', incoterms: 'EXW; FOB; CIF; DDP', stockStatus: 'In Stock', packaging: '25 kg HDPE drum', asmfNumber: 'EU/ASMF/00198' },
+        {
+          name: 'Metformin HCl', cas: '1115-70-4', grade: 'IP / USP', purity: '99.5%', moqKg: 100, leadTime: '3–4 weeks',
+          priceMin: 3.8, priceMax: 4.6, facet: 'antidiabetic', incoterms: 'EXW; FOB; CIF; DDP', stockStatus: 'In Stock',
+          packaging: '25 kg HDPE drum', asmfNumber: 'EU/ASMF/00198',
+          // The worked example from the curation template — enough spec depth to
+          // exercise <SpecTable>'s grouping, units and long-text wrapping.
+          spec: {
+            iupacName: '1,1-Dimethylbiguanide Hydrochloride',
+            molecularWeight: '165.62',
+            atcCode: 'A10BA02',
+            physicalForm: 'Crystalline Powder',
+            appearance: 'White to off-white crystalline powder',
+            solubility: 'Freely soluble in water',
+            chirality: 'Achiral',
+            polymorphForm: 'Monocrystalline Form I',
+            particleSize: 'D50: 45–75 µm',
+            phRange: '6.68 (1% aqueous solution)',
+            lossOnDrying: '≤0.5',
+            heavyMetals: '≤10',
+            residualSolvents: 'ICH Q3C Class II — ethanol and acetonitrile residuals tested',
+            impurityProfile: 'Dimethylguanidine ≤0.05%; no genotoxic impurities',
+            synthesisRoute: 'Condensation of dicyandiamide with dimethylamine sulphate; ICH Q11 step-1 listed',
+            startingMaterial: 'Dicyandiamide (DCDA); Dimethylamine Sulfate',
+            ipStatus: 'Generic (Post-Patent)',
+            patentExpiry: 'Expired 1978',
+            dmfType: 'Type II',
+            capacityMtYr: '2400',
+            utilizationPct: '65',
+            hsCode: '292690',
+            hsnCode: '29279090',
+            gstRate: '12',
+            priceUnit: 'kg',
+            moqUnit: 'kg',
+            expediteLeadDays: '28',
+            coaType: 'Batch CoA per consignment',
+            sdsAvailable: 'yes',
+            tdsAvailable: 'yes',
+            stabilityData: 'ICH Zones I–IV; 24 months primary, 36 months ongoing',
+          },
+        },
         { name: 'Pantoprazole Sodium', cas: '138786-67-1', grade: 'EP', purity: '99.4%', moqKg: 10, leadTime: '4 weeks', priceMin: 180, priceMax: 240, facet: 'gastrointestinal', incoterms: 'FOB; CIP', coldChain: 'Refrigerated 2-8 C', stockStatus: 'Made to Order', packaging: '5 kg alu-alu pack' },
         // An intermediate — the fifth of the seven segments.
         { name: 'Pantoprazole Sulphide', cas: '102625-64-9', category: 'Intermediate', grade: 'In-house', purity: '≥98.5%', moqKg: 50, leadTime: '5 weeks', priceMin: 95, priceMax: 120, incoterms: 'FOB', stockStatus: 'Made to Order' },
@@ -265,7 +336,39 @@ async function main() {
       ],
       products: [
         { name: 'Atorvastatin Calcium', cas: '134523-03-8', grade: 'USP / EP', purity: '99.2%', moqKg: 5, leadTime: '4–5 weeks', priceMin: 310, priceMax: 420, facet: 'cardiovascular', incoterms: 'FOB; CIF; CPT', stockStatus: 'Made to Order', packaging: '5 kg alu drum' },
-        { name: 'Microcrystalline Cellulose', cas: '9004-34-6', category: 'Excipient', grade: 'NF / EP', purity: '≥97.0% (dried basis)', moqKg: 500, leadTime: '2 weeks', priceMin: 2.1, priceMax: 2.8, facet: 'filler', incoterms: 'EXW; FOB; CIF; DAP', stockStatus: 'In Stock', packaging: '25 kg PE bag; 500 kg octabin' },
+        {
+          name: 'Microcrystalline Cellulose', cas: '9004-34-6', category: 'Excipient', grade: 'NF / EP',
+          purity: '≥97.0% (dried basis)', moqKg: 500, leadTime: '2 weeks', priceMin: 2.1, priceMax: 2.8,
+          facet: 'filler', incoterms: 'EXW; FOB; CIF; DAP', stockStatus: 'In Stock',
+          packaging: '25 kg PE bag; 500 kg octabin',
+          // Exercises the dietary-compliance tri-states, including one that is
+          // deliberately "no" and one deliberately left unstated.
+          spec: {
+            functionInFormulation: 'Diluent / Filler',
+            compendialGrade: 'USP-NF',
+            pharmacopoeiaRef: 'USP 43-NF 38',
+            monographName: 'Microcrystalline Cellulose',
+            functionalGrade: 'Direct Compression Grade',
+            origin: 'Plant-derived',
+            nonGmo: 'yes',
+            bseTseFree: 'yes',
+            halal: 'yes',
+            kosher: 'yes',
+            organicCertified: 'no',
+            veganStatus: 'Vegan-compatible',
+            allergenDeclaration: 'None (non-allergenic)',
+            vendorQualStatus: 'Qualified (Fully)',
+            bulkDensity: '0.28–0.33',
+            moistureContent: '≤5.0',
+            microbialLimits: 'TAMC ≤1000 CFU/g; TYMC ≤100 CFU/g',
+            colourAppearance: 'White to off-white powder; odourless',
+            grasStatus: 'GRAS Notice GRN 000xxx',
+            cfr21Listed: '21 CFR 182.70',
+            inciName: 'Cellulose',
+            hsCode: '391200',
+            hsnCode: '39129000',
+          },
+        },
         // A pharma raw material — solvent grade, consumed in manufacture.
         { name: 'Acetone (Pharma Grade)', cas: '67-64-1', category: 'Raw Material', grade: 'USP / Ph.Eur', purity: '≥99.5%', moqKg: 2000, leadTime: '1 week', priceMin: 1.1, priceMax: 1.4, incoterms: 'EXW; FCA; FOB', stockStatus: 'In Stock', packaging: '200 L MS drum' },
       ],
@@ -299,7 +402,27 @@ async function main() {
         // sold per unit, and `priceMin`/`priceMax` are USD-per-kg columns. A
         // $0.04 tablet written into a per-kg column wins every "price, low to
         // high" sort forever. The per-unit price gets a home in a later phase.
-        { name: 'Paracetamol Tablets IP 500 mg', cas: '103-90-2', category: 'FDF', grade: 'IP', moqKg: 500, leadTime: '6 weeks', facet: 'tablet', incoterms: 'FOB; CIF; DDP', stockStatus: 'Made to Order', packaging: '10 × 10 blister, 500 packs per carton' },
+        {
+          name: 'Paracetamol Tablets IP 500 mg', cas: '103-90-2', category: 'FDF', grade: 'IP', moqKg: 500,
+          leadTime: '6 weeks', facet: 'tablet', incoterms: 'FOB; CIF; DDP', stockStatus: 'Made to Order',
+          packaging: '10 × 10 blister, 500 packs per carton',
+          spec: {
+            innName: 'Paracetamol',
+            fdcCombination: 'Paracetamol 500 mg (single API)',
+            strength: '500 mg',
+            routeOfAdmin: 'Oral',
+            referenceProduct: 'Panadol (Haleon)',
+            packSize: '10 tablets per blister; 10 blisters per box',
+            containerClosure: 'PVC/PVDC blister; HDPE bottle with child-resistant cap',
+            keyExcipients: 'Microcrystalline Cellulose; Povidone K30; Magnesium Stearate; Croscarmellose Na',
+            bioequivalence: 'Conducted (crossover, 24 subjects)',
+            sterileManufacture: 'no',
+            // Per unit, not per kg. `priceMin`/`priceMax` stay null above for
+            // exactly this reason — see the note on Product.priceUnit.
+            priceUnit: 'unit',
+            moqUnit: 'unit',
+          },
+        },
       ],
     },
   ];

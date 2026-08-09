@@ -1,4 +1,5 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { Link } from '@/i18n/routing';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/session';
 import { can } from '@/lib/rbac';
@@ -77,7 +78,13 @@ export default async function SellerProductsPage({ params }: { params: Promise<{
             <tbody>
               {products.map((p) => (
                 <tr key={p.id} data-testid="product-row">
-                  <td className="td font-bold">{p.name}</td>
+                  <td className="td font-bold">
+                    {/* The name is the way into the full editor — the quick-add
+                        modal creates a listing, this is where it gets its spec. */}
+                    <Link href={`/seller/products/${p.id}/edit`} className="hover:underline" data-testid={`edit-${p.id}`}>
+                      {p.name}
+                    </Link>
+                  </td>
                   <td className="td font-mono text-xs text-muted">{p.cas}</td>
                   <td className="td">{p.grade ?? '—'}</td>
                   <td className="td">{p.moqKg} kg</td>

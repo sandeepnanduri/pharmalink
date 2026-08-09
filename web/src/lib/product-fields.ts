@@ -16,7 +16,9 @@
  */
 
 import { parseNumber } from './numbers';
+import { fieldsFor, serialiseSpec, type SpecField, type SpecValues } from './product-spec';
 import { PRODUCT_TYPES, isProductType, resolveFacet, segment, type ProductType } from './taxonomy';
+import { joinMulti, parseTriBool, splitMulti } from './vocab';
 
 // ---------------------------------------------------------------------------
 // Segment and facet
@@ -246,3 +248,72 @@ export function parseStockStatus(raw: string | null | undefined): StockStatus | 
 
 /** Every segment id, for building a `<select>` without importing the whole taxonomy. */
 export const PRODUCT_TYPE_VALUES: readonly ProductType[] = PRODUCT_TYPES;
+
+// ---------------------------------------------------------------------------
+// The spec registry, applied
+// ---------------------------------------------------------------------------
+
+/** Coerces one submitted string into the shape its registry field declares. */
+export function coerceSpecValue(field: SpecField, raw: string): string | number | boolean | null {
+  const text = raw.trim();
+  if (!text) return null;
+
+  switch (field.kind) {
+    case 'bool': {
+      // Tri-state throughout: an empty select is "not stated", which is a
+      // different answer from "no" and must stay distinguishable.
+      return parseTriBool(text);
+    }
+    case 'number': {
+      const n = parseNumber(text);
+      return n.value;
+    }
+    case 'list': {
+      // Semicolons in, commas out — the separator the schema stores.
+      return joinMulti(splitMulti(text));
+    }
+    default:
+      return text;
+  }
+}
+
+/**
+ * Reads every registry field that applies to this segment out of a form,
+ * splitting the values into real `Product` columns and a serialised
+ * `specJson` blob.
+ *
+ * Both the seller editor and the workbook importer go through this, so a field
+ * added to the registry is written by both without either holding its own list.
+ * That symmetry is the fix for the drift that left fifteen columns written by
+ * nothing at all.
+ */
+export function readSpecFromForm(
+  formData: { get(key: string): FormDataEntryValue | null },
+  type: ProductType,
+): Record<string, unknown> {
+  const columns: Record<string, unknown> = {};
+  const spec: SpecValues = {};
+  let sawBlobField = false;
+
+  for (const field of fieldsFor(type)) {
+    const raw = formData.get(field.key);
+    // A field absent from the submission is left alone rather than nulled: the
+    // quick-add form posts a handful of fields, and it must not wipe the rest.
+    if (raw === null) continue;
+    const value = coerceSpecValue(field, String(raw));
+
+    if (field.column) {
+      columns[field.key] = value;
+    } else {
+      // Presence, not value: a field that was rendered and left blank is a
+      // deliberate clear, so it has to count.
+      sawBlobField = true;
+      if (value !== null) spec[field.key] = value;
+    }
+  }
+
+  // Only rewrite the blob when the submission actually carried spec fields.
+  // Otherwise a quick-add edit — which renders none of them — would serialise
+  // an empty object over a spec sheet the seller spent an afternoon on.
+  return sawBlobField ? { ...columns, specJson: serialiseSpec(spec) } : columns;
+}

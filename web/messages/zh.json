@@ -304,7 +304,8 @@
     "sampleNo": "不提供",
     "volumePricing": "阶梯价格",
     "fromQty": "起订量",
-    "pricePerKg": "单价 / kg"
+    "pricePerKg": "单价 / kg",
+    "feedsInto": "同样供应 {name} 的企业"
   },
   "supplier": {
     "verified": "已认证供应商",
@@ -589,7 +590,15 @@
     "pricePerKg": "$/kg",
     "addTier": "添加阶梯",
     "saveTiers": "保存阶梯",
-    "unauthorized": "您没有执行此操作的权限。"
+    "unauthorized": "您没有执行此操作的权限。",
+    "fieldsComplete": "项已填写",
+    "coreDetails": "核心挂牌信息",
+    "incoterms": "可提供的贸易术语",
+    "stockStatus": "库存状态",
+    "packaging": "包装",
+    "save": "保存挂牌",
+    "savedDescription": "已保存相应搜索条件的买家将收到价格变动通知。",
+    "editFull": "编辑完整规格"
   },
   "admin": {
     "title": "运营控制台",
