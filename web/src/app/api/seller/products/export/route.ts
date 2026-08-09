@@ -1,7 +1,13 @@
 import { prisma } from '@/lib/db';
 import { currentUser } from '@/lib/session';
 import { can } from '@/lib/rbac';
-import { productsToCsv } from '@/lib/csv';
+import { EXPORT_COLUMNS, productsToCsv } from '@/lib/csv';
+
+/**
+ * Select exactly the columns the CSV emits, derived from the one canonical
+ * column list, so export and import cannot drift apart again.
+ */
+const SELECT = Object.fromEntries(EXPORT_COLUMNS.map((c) => [c, true])) as Record<(typeof EXPORT_COLUMNS)[number], true>;
 
 /** Downloads the signed-in seller's catalogue as CSV. Auth-gated, org-scoped. */
 export async function GET() {
@@ -12,7 +18,7 @@ export async function GET() {
   const products = await prisma.product.findMany({
     where: { orgId: user.orgId },
     orderBy: { name: 'asc' },
-    select: { name: true, cas: true, category: true, grade: true, purity: true, moqKg: true, leadTime: true, priceMin: true, priceMax: true, status: true },
+    select: SELECT,
   });
   return new Response(productsToCsv(products), {
     headers: {

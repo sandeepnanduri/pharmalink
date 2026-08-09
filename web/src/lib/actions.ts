@@ -21,6 +21,17 @@ import { routing } from '@/i18n/routing';
 import { isAtLimit, parsePlan, ENTITLEMENTS } from '@/lib/plans';
 import { matchSuppliers, type MatchableSeller } from '@/lib/matching';
 import { parseSites, parseCredentials, validateOnboarding } from '@/lib/onboarding';
+import {
+  categoryFromProductType,
+  parseColdChain,
+  parseLeadTimeDays,
+  parseProductType,
+  parsePurityPct,
+  parseStockStatus,
+  productTypeFromCategory,
+  validFacetFor,
+} from '@/lib/product-fields';
+import { joinMulti, parseIncoterms } from '@/lib/vocab';
 
 /** Start of the current calendar month — the window RFQ quotas reset on. */
 function monthStart(): Date {
@@ -408,22 +419,51 @@ export async function saveProductAction(_prev: ActionState, formData: FormData):
   if (!user?.orgId || !can(user.principal, 'product:manage')) return { error: 'unauthorized' };
 
   const id = String(formData.get('id') ?? '');
+  const str = (k: string) => String(formData.get(k) ?? '').trim() || null;
+
+  const leadTime = str('leadTime');
+  const purity = str('purity');
+  const storage = str('storage');
+
+  // The segment drives the catalogue's whole filter rail. A seller who does not
+  // pick one gets it derived from the legacy category rather than defaulting
+  // silently to `api`, which is how every listing on the platform ended up
+  // filed as an API.
+  // A form that predates the segment field still posts only `category`, so fall
+  // back to deriving from it rather than defaulting silently to `api`.
+  const productType = parseProductType(str('productType')) ?? productTypeFromCategory(str('category'));
+  // `stockStatus` is non-nullable with a default, so an unparseable value must
+  // leave the column alone rather than write null over an existing answer.
+  const stockStatus = parseStockStatus(str('stockStatus'));
+
   const data = {
     name: String(formData.get('name') ?? '').trim(),
     cas: String(formData.get('cas') ?? '').trim(),
-    category: String(formData.get('category') ?? 'API'),
-    grade: String(formData.get('grade') ?? '') || null,
-    purity: String(formData.get('purity') ?? '') || null,
+    // Derived, never independently set — see `categoryFromProductType`.
+    category: categoryFromProductType(productType),
+    grade: str('grade'),
+    purity,
     moqKg: Number(formData.get('moqKg') ?? 1) || 1,
-    leadTime: String(formData.get('leadTime') ?? '') || null,
+    leadTime,
     priceMin: formData.get('priceMin') ? Number(formData.get('priceMin')) : null,
     priceMax: formData.get('priceMax') ? Number(formData.get('priceMax')) : null,
-    shelfLife: String(formData.get('shelfLife') ?? '') || null,
-    storage: String(formData.get('storage') ?? '') || null,
-    formula: String(formData.get('formula') ?? '') || null,
-    dmfNumber: String(formData.get('dmfNumber') ?? '') || null,
+    shelfLife: str('shelfLife'),
+    storage,
+    formula: str('formula'),
+    dmfNumber: str('dmfNumber'),
     sampleAvailable: formData.get('sampleAvailable') === 'on',
     status: String(formData.get('status') ?? 'live'),
+
+    // Filter-backing columns. These are derived rather than asked for again
+    // wherever the seller has already said the same thing in prose — a second
+    // field holding the same fact is a data-integrity bug (schema.prisma:184).
+    productType,
+    facet: validFacetFor(productType, str('facet')),
+    purityPct: parsePurityPct(purity),
+    leadTimeDays: parseLeadTimeDays(leadTime),
+    incoterms: joinMulti(parseIncoterms(str('incoterms'))),
+    coldChain: parseColdChain(str('coldChain') ?? storage),
+    ...(stockStatus ? { stockStatus } : {}),
   };
   if (!data.name || !data.cas) return { error: 'error' };
 

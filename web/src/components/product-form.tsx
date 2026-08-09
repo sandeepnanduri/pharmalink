@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { saveProductAction, type ActionState } from '@/lib/actions';
+import { SEGMENTS, segment } from '@/lib/taxonomy';
 import { ButtonContent } from './spinner';
 import { ActionFeedback } from '@/components/action-feedback';
 
@@ -12,6 +13,9 @@ export function ProductForm({ label }: { label: string }) {
   const tc = useTranslations('catalog');
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [type, setType] = useState<string>('api');
+  const [facet, setFacet] = useState('');
+  const facetOptions = segment(type)?.facet;
   const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, fd) => {
     const res = await saveProductAction(prev, fd);
     if (res.ok) {
@@ -47,15 +51,54 @@ export function ProductForm({ label }: { label: string }) {
                   <label className="label" htmlFor="pcas">CAS</label>
                   <input id="pcas" name="cas" required className="input font-mono" data-testid="product-cas" />
                 </div>
+                {/* The segment drives the catalogue's filter rail. It used to be
+                    absent from this form entirely, so every listing a seller
+                    created was filed as an API regardless of what it was. */}
                 <div>
-                  <label className="label" htmlFor="pcat">{tc('categoryLabel')}</label>
-                  <select id="pcat" name="category" className="input">
-                    <option value="API">API</option>
-                    <option value="Intermediate">Intermediate</option>
-                    <option value="KSM">KSM</option>
-                    <option value="Excipient">Excipient</option>
+                  <label className="label" htmlFor="ptype">{tc('segment')}</label>
+                  <select
+                    id="ptype"
+                    name="productType"
+                    className="input"
+                    value={type}
+                    onChange={(e) => {
+                      setType(e.target.value);
+                      setFacet(''); // a facet from the old segment would be invalid
+                    }}
+                    data-testid="product-type"
+                  >
+                    {SEGMENTS.map((s) => (
+                      <option key={s.type} value={s.type}>
+                        {s.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
+                {/* Only three of the seven segments have a facet, so this field
+                    appears and disappears rather than offering a meaningless
+                    dropdown for a KSM. */}
+                {facetOptions ? (
+                  <div>
+                    <label className="label" htmlFor="pfacet">{facetOptions.label}</label>
+                    <select
+                      id="pfacet"
+                      name="facet"
+                      className="input"
+                      value={facet}
+                      onChange={(e) => setFacet(e.target.value)}
+                      data-testid="product-facet"
+                    >
+                      <option value="">—</option>
+                      {facetOptions.options.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div aria-hidden />
+                )}
                 <div>
                   <label className="label" htmlFor="pgrade">{tc('grade')}</label>
                   <input id="pgrade" name="grade" className="input" placeholder="IP / BP / USP" />

@@ -464,6 +464,17 @@ model Product {
   synthesisRoute String?
 
   // --- Commercial ------------------------------------------------------------
+  /// Numeric lead time so the catalogue can sort and range-filter on it.
+  /// `leadTime` above stays the human string ("2–3 weeks"), which is what a
+  /// seller writes and a buyer reads. Without this column `SORT_MAP.lead_time`
+  /// silently fell back to newest-first and the "maximum lead time" filter was
+  /// parsed but never applied.
+  ///
+  /// A range resolves to its UPPER bound: the filter means "no longer than", so
+  /// a supplier quoting 3–5 weeks must not match a buyer asking for 21 days.
+  leadTimeDays      Int?
+  /// Expedited lead time where the supplier offers one, same units.
+  expediteLeadDays  Int?
   /// Comma-separated incoterms this listing is offered on, e.g. "FOB,CIF,DDP".
   incoterms    String?
   /// ambient | refrigerated | frozen | ultracold

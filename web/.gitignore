@@ -14,3 +14,6 @@ dev.db
 dev.db-journal
 test.db
 test.db-journal
+
+# scratch: dev screenshots and one-off probe scripts
+.tmp/

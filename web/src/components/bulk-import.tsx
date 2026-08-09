@@ -41,8 +41,23 @@ export function BulkImport() {
               <ButtonContent pending={pending} label={t('import')} />
             </button>
             {state.ok && <span className="text-xs font-semibold text-ok" data-testid="import-result">✓ {t('imported', { n: state.imported ?? 0 })}</span>}
-            {state.error && <span className="text-xs font-semibold text-red-700">{t(state.error)}</span>}
+            {state.error && <span className="text-xs font-semibold text-red-700" data-testid="import-error">{t(state.error)}</span>}
           </div>
+          {/* Which rows failed and why. `csv.ts` has always collected these — it
+              refuses to drop a row silently — but nothing rendered them, so a
+              rejected paste gave the seller no way to find the bad cell.
+              TODO(i18n): these strings come from `csv.ts` in English. They move
+              to machine codes rendered through the message catalogue when the
+              workbook importer lands, so both import paths speak one vocabulary. */}
+          {!!state.rowErrors?.length && (
+            <ul className="mt-2 space-y-0.5 text-xs text-red-700" data-testid="import-row-errors">
+              {state.rowErrors.map((e) => (
+                <li key={e} className="font-mono">
+                  {e}
+                </li>
+              ))}
+            </ul>
+          )}
         </form>
       )}
     </div>

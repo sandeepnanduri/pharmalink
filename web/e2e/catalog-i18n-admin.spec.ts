@@ -7,9 +7,11 @@ test.describe('catalog', () => {
     const all = await page.getByTestId('product-card').count();
     expect(all).toBeGreaterThan(3);
 
-    // Two suppliers list Paracetamol (Sun Pharma, Huahai).
+    // Three listings match "Paracetamol": the API from Sun Pharma and from
+    // Huahai, plus Huahai's finished tablet. A buyer searching the molecule
+    // should see the dose form too, so all three are correct.
     await page.goto('/en/catalog?q=Paracetamol');
-    await expect(page.getByTestId('product-card')).toHaveCount(2);
+    await expect(page.getByTestId('product-card')).toHaveCount(3);
 
     // Only Sun Pharma holds US FDA GMP — Huahai must drop out (AND semantics).
     await page.goto('/en/catalog?q=Paracetamol&cert=US+FDA+GMP');

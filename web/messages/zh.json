@@ -255,6 +255,7 @@
     "excipientDesc": "黏合剂、填充剂、包衣材料"
   },
   "catalog": {
+    "segment": "产品类别",
     "title": "交易市场",
     "subtitle": "按产品名称或 CAS 号搜索，然后筛选。结果按认证级别排序，其次按最新发布排序。",
     "filters": "筛选条件",

@@ -255,6 +255,7 @@
     "excipientDesc": "Binders, fillers, coatings"
   },
   "catalog": {
+    "segment": "Product segment",
     "title": "Marketplace",
     "subtitle": "Search by product name or CAS number, then filter. Results are ranked by verification level, then recency.",
     "filters": "Filters",

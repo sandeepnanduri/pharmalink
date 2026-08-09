@@ -3,12 +3,18 @@ import { Link } from '@/i18n/routing';
 import { searchCatalog } from '@/lib/catalog-queries';
 import { getSupplierRatings } from '@/lib/social-queries';
 import { FILTER_SECTIONS, QUICK_CHIPS, SORTS, activeCount, parseFilters } from '@/lib/filters';
-import { segment } from '@/lib/taxonomy';
+import { facetLabel, segment } from '@/lib/taxonomy';
 import { Stars } from '@/components/stars';
 import { FilterRail } from '@/components/filter-rail';
 import { CompanyLogo } from '@/components/company-logo';
 
 type SP = Record<string, string | string[] | undefined>;
+
+/** `$4.2–5.1`, `$2.8`, or an em dash. Prices are USD/kg; see `Product.priceMin`. */
+function priceRange(min: number | null, max: number | null): string {
+  if (min == null) return '—';
+  return max == null ? `$${min}` : `$${min}–${max}`;
+}
 
 /**
  * The catalogue.
@@ -119,6 +125,7 @@ export default async function CatalogPage({
             <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="catalog-results">
               {products.map((p) => {
                 const seg = segment(p.productType);
+                const facet = facetLabel(p.productType, p.facet);
                 const blocking = p.org.regulatoryActions.some((a) => a.kind === 'import_alert' || a.kind === 'eu_noncompliance');
                 return (
                   <li key={p.id}>
@@ -148,14 +155,26 @@ export default async function CatalogPage({
                         </div>
                         <div className="flex justify-between gap-2">
                           <dt className="text-muted">{t('price')}</dt>
-                          <dd className="font-mono font-semibold text-ink">
-                            {p.priceMin ? `$${p.priceMin}${p.priceMax ? `–${p.priceMax}` : ''}` : '—'}
-                          </dd>
+                          <dd className="font-mono font-semibold text-ink">{priceRange(p.priceMin, p.priceMax)}</dd>
+                        </div>
+                        {/* Full width: "Lead time" plus a range like "4–5 weeks"
+                            does not fit a half-column without truncating the
+                            value, and a truncated lead time is worse than none. */}
+                        <div className="col-span-2 flex justify-between gap-2">
+                          <dt className="whitespace-nowrap text-muted">{t('leadTime')}</dt>
+                          <dd className="truncate font-mono text-slate2">{p.leadTime ?? '—'}</dd>
                         </div>
                       </dl>
 
                       <div className="mt-3 flex flex-wrap items-center gap-1.5">
                         {seg && <span className="rounded-pill bg-mist px-2 py-0.5 text-[10.5px] font-semibold text-slate2">{seg.label}</span>}
+                        {/* The facet is what the buyer actually filtered on, so
+                            showing it confirms why this card is in the result. */}
+                        {facet && (
+                          <span className="rounded-pill bg-teal-pale px-2 py-0.5 text-[10.5px] font-semibold text-teal-deep" data-testid="card-facet">
+                            {facet}
+                          </span>
+                        )}
                         {p.org.certifications.slice(0, 2).map((c) => (
                           <span key={c.name} className="rounded-pill bg-ok-pale px-2 py-0.5 text-[10.5px] font-semibold text-ok">
                             {c.name}

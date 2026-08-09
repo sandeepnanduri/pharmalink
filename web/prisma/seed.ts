@@ -10,6 +10,15 @@ import bcrypt from 'bcryptjs';
 import { createHash } from 'node:crypto';
 import { seedMarketData, seedForecastScoreboard } from './seed-market-data';
 import { mirrorInternalPrices } from '../src/lib/market-data-internal';
+import {
+  parseColdChain,
+  parseLeadTimeDays,
+  parsePurityPct,
+  parseStockStatus,
+  productTypeFromCategory,
+  validFacetFor,
+} from '../src/lib/product-fields';
+import { joinMulti, parseIncoterms } from '../src/lib/vocab';
 
 /**
  * Deterministic user ids, derived from the email.
@@ -106,8 +115,86 @@ async function main() {
   const certNumber = (org: string, cert: string) =>
     `${cert.split(' ')[0].toUpperCase()}-${org.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase()}-${cert.length}${org.length}`;
 
+  /**
+   * A seeded listing, before derivation. Everything the seller would actually
+   * type; the numeric and enum twins the catalogue filters on are computed.
+   */
+  interface SeedProduct {
+    name: string;
+    cas: string;
+    category?: string;
+    grade?: string | null;
+    purity?: string | null;
+    moqKg: number;
+    leadTime: string;
+    priceMin?: number;
+    priceMax?: number;
+    facet?: string;
+    incoterms?: string;
+    coldChain?: string;
+    stockStatus?: string;
+    packaging?: string;
+    cepNumber?: string;
+    asmfNumber?: string;
+    status?: string;
+  }
+
+  /**
+   * Builds a listing the same way `saveProductAction` and the CSV importer do —
+   * through the shared derivations in `src/lib/product-fields.ts`.
+   *
+   * Going through the same code rather than hand-writing `productType` and
+   * `purityPct` here is the point: it means the seed cannot drift from what the
+   * application actually writes, which is precisely how the catalogue ended up
+   * with a filter rail no seeded row could ever satisfy.
+   */
+  function seedProduct(p: SeedProduct) {
+    const productType = productTypeFromCategory(p.category ?? 'API');
+    const storage = p.coldChain ?? '15–25°C, dry';
+    return {
+      name: p.name,
+      cas: p.cas,
+      category: p.category ?? 'API',
+      grade: p.grade ?? null,
+      purity: p.purity ?? null,
+      moqKg: p.moqKg,
+      leadTime: p.leadTime,
+      priceMin: p.priceMin ?? null,
+      priceMax: p.priceMax ?? null,
+      shelfLife: '36 months',
+      storage,
+      status: p.status ?? 'live',
+      packaging: p.packaging ?? null,
+      cepNumber: p.cepNumber ?? null,
+      asmfNumber: p.asmfNumber ?? null,
+      productType,
+      facet: validFacetFor(productType, p.facet),
+      purityPct: parsePurityPct(p.purity),
+      leadTimeDays: parseLeadTimeDays(p.leadTime),
+      incoterms: joinMulti(parseIncoterms(p.incoterms)),
+      coldChain: parseColdChain(storage),
+      stockStatus: parseStockStatus(p.stockStatus) ?? 'made_to_order',
+    };
+  }
+
+  interface SeedSupplier {
+    name: string;
+    city: string;
+    country: string;
+    user: { email: string; name: string };
+    markets: string;
+    dmf: string;
+    website: string;
+    associations: string | null;
+    foundedYear: number;
+    employees: number;
+    listedOn: string;
+    certs: { name: string; expires: number; via: string }[];
+    products: SeedProduct[];
+  }
+
   // ---------------------------------------------------------------- Suppliers
-  const suppliers = [
+  const suppliers: SeedSupplier[] = [
     {
       name: 'Sun Pharma API Division',
       city: 'Mumbai',
@@ -129,8 +216,11 @@ async function main() {
         { name: 'WHO PQ', expires: 2.5, via: 'WHO PQ list' },
       ],
       products: [
-        { name: 'Paracetamol (Acetaminophen)', cas: '103-90-2', grade: 'IP / BP / USP', purity: '99.8%', moqKg: 25, leadTime: '2–3 weeks', priceMin: 4.2, priceMax: 5.1 },
-        { name: 'Ibuprofen', cas: '15687-27-1', grade: 'BP / USP', purity: '99.7%', moqKg: 25, leadTime: '2 weeks', priceMin: 6.1, priceMax: 7.4 },
+        { name: 'Paracetamol (Acetaminophen)', cas: '103-90-2', grade: 'IP / BP / USP', purity: '99.8%', moqKg: 25, leadTime: '2–3 weeks', priceMin: 4.2, priceMax: 5.1, facet: 'anti-inflammatory', incoterms: 'FOB; CIF; DAP; DDP', stockStatus: 'In Stock', packaging: '25 kg HDPE drum', cepNumber: 'CEP 2019-021-3-0' },
+        { name: 'Ibuprofen', cas: '15687-27-1', grade: 'BP / USP', purity: '99.7%', moqKg: 25, leadTime: '2 weeks', priceMin: 6.1, priceMax: 7.4, facet: 'anti-inflammatory', incoterms: 'FOB; CIF', stockStatus: 'In Stock', packaging: '25 kg fibre drum' },
+        // A KSM, so the segment filter has something outside `api` to return.
+        // Dicyandiamide is the metformin precursor from the curation template.
+        { name: 'Dicyandiamide (DCDA)', cas: '461-58-5', category: 'KSM', grade: 'Technical', purity: '≥98.0%', moqKg: 1000, leadTime: '4 weeks', priceMin: 2.8, priceMax: 3.2, incoterms: 'FOB; CIF', stockStatus: 'In Stock', packaging: '500 kg bulk bag' },
       ],
     },
     {
@@ -151,8 +241,10 @@ async function main() {
         { name: 'WHO PQ', expires: 1.2, via: 'WHO PQ list' },
       ],
       products: [
-        { name: 'Metformin HCl', cas: '1115-70-4', grade: 'IP / USP', purity: '99.5%', moqKg: 100, leadTime: '3–4 weeks', priceMin: 3.8, priceMax: 4.6 },
-        { name: 'Pantoprazole Sodium', cas: '138786-67-1', grade: 'EP', purity: '99.4%', moqKg: 10, leadTime: '4 weeks', priceMin: 180, priceMax: 240 },
+        { name: 'Metformin HCl', cas: '1115-70-4', grade: 'IP / USP', purity: '99.5%', moqKg: 100, leadTime: '3–4 weeks', priceMin: 3.8, priceMax: 4.6, facet: 'antidiabetic', incoterms: 'EXW; FOB; CIF; DDP', stockStatus: 'In Stock', packaging: '25 kg HDPE drum', asmfNumber: 'EU/ASMF/00198' },
+        { name: 'Pantoprazole Sodium', cas: '138786-67-1', grade: 'EP', purity: '99.4%', moqKg: 10, leadTime: '4 weeks', priceMin: 180, priceMax: 240, facet: 'gastrointestinal', incoterms: 'FOB; CIP', coldChain: 'Refrigerated 2-8 C', stockStatus: 'Made to Order', packaging: '5 kg alu-alu pack' },
+        // An intermediate — the fifth of the seven segments.
+        { name: 'Pantoprazole Sulphide', cas: '102625-64-9', category: 'Intermediate', grade: 'In-house', purity: '≥98.5%', moqKg: 50, leadTime: '5 weeks', priceMin: 95, priceMax: 120, incoterms: 'FOB', stockStatus: 'Made to Order' },
       ],
     },
     {
@@ -172,8 +264,10 @@ async function main() {
         { name: 'CDSCO', expires: 1.6, via: 'CDSCO portal' },
       ],
       products: [
-        { name: 'Atorvastatin Calcium', cas: '134523-03-8', grade: 'USP / EP', purity: '99.2%', moqKg: 5, leadTime: '4–5 weeks', priceMin: 310, priceMax: 420 },
-        { name: 'Microcrystalline Cellulose', cas: '9004-34-6', category: 'Excipient', grade: 'NF / EP', moqKg: 500, leadTime: '2 weeks', priceMin: 2.1, priceMax: 2.8 },
+        { name: 'Atorvastatin Calcium', cas: '134523-03-8', grade: 'USP / EP', purity: '99.2%', moqKg: 5, leadTime: '4–5 weeks', priceMin: 310, priceMax: 420, facet: 'cardiovascular', incoterms: 'FOB; CIF; CPT', stockStatus: 'Made to Order', packaging: '5 kg alu drum' },
+        { name: 'Microcrystalline Cellulose', cas: '9004-34-6', category: 'Excipient', grade: 'NF / EP', purity: '≥97.0% (dried basis)', moqKg: 500, leadTime: '2 weeks', priceMin: 2.1, priceMax: 2.8, facet: 'filler', incoterms: 'EXW; FOB; CIF; DAP', stockStatus: 'In Stock', packaging: '25 kg PE bag; 500 kg octabin' },
+        // A pharma raw material — solvent grade, consumed in manufacture.
+        { name: 'Acetone (Pharma Grade)', cas: '67-64-1', category: 'Raw Material', grade: 'USP / Ph.Eur', purity: '≥99.5%', moqKg: 2000, leadTime: '1 week', priceMin: 1.1, priceMax: 1.4, incoterms: 'EXW; FCA; FOB', stockStatus: 'In Stock', packaging: '200 L MS drum' },
       ],
     },
     {
@@ -196,8 +290,16 @@ async function main() {
         { name: 'WHO PQ', expires: 1.8, via: 'WHO PQ list' },
       ],
       products: [
-        { name: 'Paracetamol (Acetaminophen)', cas: '103-90-2', grade: 'USP / EP', purity: '99.6%', moqKg: 50, leadTime: '3 weeks', priceMin: 3.9, priceMax: 4.8 },
-        { name: 'Losartan Potassium', cas: '124750-99-8', grade: 'USP', purity: '99.3%', moqKg: 25, leadTime: '4 weeks', priceMin: 95, priceMax: 130 },
+        { name: 'Paracetamol (Acetaminophen)', cas: '103-90-2', grade: 'USP / EP', purity: '99.6%', moqKg: 50, leadTime: '3 weeks', priceMin: 3.9, priceMax: 4.8, facet: 'anti-inflammatory', incoterms: 'FOB; CIF; DPU', stockStatus: 'In Stock', packaging: '25 kg HDPE drum' },
+        { name: 'Losartan Potassium', cas: '124750-99-8', grade: 'USP', purity: '99.3%', moqKg: 25, leadTime: '4 weeks', priceMin: 95, priceMax: 130, facet: 'cardiovascular', incoterms: 'FOB; CIF', stockStatus: 'Made to Order', packaging: '10 kg alu drum' },
+        // A high-potency specialty API — the segment that carries containment
+        // and handling requirements rather than a therapeutic facet.
+        { name: 'Docetaxel Trihydrate (HPAPI)', cas: '148408-66-6', category: 'Specialty', grade: 'USP', purity: '≥99.0%', moqKg: 1, leadTime: '8 weeks', priceMin: 8500, priceMax: 11000, incoterms: 'CIP; DDP', coldChain: 'Refrigerated 2-8 C', stockStatus: 'Made to Order', packaging: '100 g amber glass, secondary containment' },
+        // A finished dose form. Prices are deliberately left unset: an FDF is
+        // sold per unit, and `priceMin`/`priceMax` are USD-per-kg columns. A
+        // $0.04 tablet written into a per-kg column wins every "price, low to
+        // high" sort forever. The per-unit price gets a home in a later phase.
+        { name: 'Paracetamol Tablets IP 500 mg', cas: '103-90-2', category: 'FDF', grade: 'IP', moqKg: 500, leadTime: '6 weeks', facet: 'tablet', incoterms: 'FOB; CIF; DDP', stockStatus: 'Made to Order', packaging: '10 × 10 blister, 500 packs per carton' },
       ],
     },
   ];
@@ -264,22 +366,7 @@ async function main() {
             },
           ],
         },
-        products: {
-          create: s.products.map((p) => ({
-            name: p.name,
-            cas: p.cas,
-            category: (p as { category?: string }).category ?? 'API',
-            grade: p.grade,
-            purity: (p as { purity?: string }).purity ?? null,
-            moqKg: p.moqKg,
-            leadTime: p.leadTime,
-            priceMin: p.priceMin,
-            priceMax: p.priceMax,
-            shelfLife: '36 months',
-            storage: '15–25°C, dry',
-            status: 'live',
-          })),
-        },
+        products: { create: s.products.map((p) => seedProduct(p)) },
       },
     });
 
@@ -340,7 +427,20 @@ async function main() {
       },
       products: {
         create: [
-          { name: 'Amoxicillin Trihydrate', cas: '61336-70-7', category: 'API', grade: 'IP / BP', purity: '99.0%', moqKg: 50, leadTime: '3 weeks', priceMin: 28, priceMax: 34, status: 'draft' },
+          seedProduct({
+            name: 'Amoxicillin Trihydrate',
+            cas: '61336-70-7',
+            grade: 'IP / BP',
+            purity: '99.0%',
+            moqKg: 50,
+            leadTime: '3 weeks',
+            priceMin: 28,
+            priceMax: 34,
+            facet: 'anti-infective',
+            incoterms: 'FOB; CIF',
+            stockStatus: 'Made to Order',
+            status: 'draft',
+          }),
         ],
       },
     },
@@ -570,17 +670,21 @@ async function main() {
   await prisma.product.create({
     data: {
       orgId: sunOrg!.id,
-      name: 'Tramadol HCl',
-      cas: '27203-92-5',
-      category: 'API',
-      grade: 'IP / BP',
-      purity: '99.1%',
-      moqKg: 5,
-      leadTime: '4 weeks',
-      priceMin: 42,
-      priceMax: 55,
+      ...seedProduct({
+        name: 'Tramadol HCl',
+        cas: '27203-92-5',
+        grade: 'IP / BP',
+        purity: '99.1%',
+        moqKg: 5,
+        leadTime: '4 weeks',
+        priceMin: 42,
+        priceMax: 55,
+        facet: 'cns',
+        incoterms: 'FOB; CIF',
+        stockStatus: 'Made to Order',
+        status: 'draft',
+      }),
       controlledSchedule: 'NDPS / DEA IV',
-      status: 'draft',
       certifications: { create: [{ name: 'US FDA GMP' }, { name: 'CDSCO' }] },
     },
   });
