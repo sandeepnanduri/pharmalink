@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LOGO_HOST, domainFrom, monogram, monogramHue, resolveLogo } from './logo';
+import { LOGO_HOSTS, domainFrom, monogram, monogramHue, resolveLogo } from './logo';
 
 describe('domainFrom', () => {
   it('accepts a bare domain, a full URL, and mixed case', () => {
@@ -74,13 +74,40 @@ describe('resolveLogo', () => {
     expect(r.src).toBe('/uploads/cipla.png');
   });
 
-  it('points at the aggregator, and only at the aggregator, when there is a domain', () => {
-    const r = resolveLogo({ name: 'Cipla Ltd', website: 'https://www.cipla.com/x' }, { size: 80 });
+  it('points at the keyless aggregator when no token is configured', () => {
+    const r = resolveLogo({ name: 'Cipla Ltd', website: 'https://www.cipla.com/x' });
     expect(r.kind).toBe('image');
     const url = new URL(r.src!);
-    expect(url.host).toBe(LOGO_HOST);
+    expect(url.host).toBe(LOGO_HOSTS.keyless);
+    expect(url.pathname).toBe('/cipla.com');
+  });
+
+  it('asks the keyless aggregator NOT to substitute a generic icon', () => {
+    // Left at its default, unavatar answers 200 with a grey placeholder that is
+    // byte-identical across every domain it has nothing for. The browser counts
+    // that as a successful load, so the company would show an anonymous icon
+    // rather than its own initials -- strictly worse than the monogram, and
+    // invisible to `onError`. This flag is the difference.
+    const url = new URL(resolveLogo({ name: 'Cipla Ltd', website: 'cipla.com' }).src!);
+    expect(url.searchParams.get('fallback')).toBe('false');
+  });
+
+  it('switches to the licensed aggregator when a token is configured', () => {
+    const r = resolveLogo({ name: 'Cipla Ltd', website: 'https://www.cipla.com/x' }, { size: 80, token: 'pk_live_x' });
+    const url = new URL(r.src!);
+    expect(url.host).toBe(LOGO_HOSTS.licensed);
     expect(url.pathname).toBe('/cipla.com');
     expect(url.searchParams.get('size')).toBe('80');
+    expect(url.searchParams.get('token')).toBe('pk_live_x');
+  });
+
+  it('never points anywhere but an aggregator', () => {
+    // Hotlinking the owner's own server is the thing this module exists to
+    // avoid: it spends their bandwidth and breaks when they reorganise.
+    for (const token of [undefined, 'pk_live_x']) {
+      const url = new URL(resolveLogo({ name: 'Sun Pharma', website: 'sunpharma.com' }, { token }).src!);
+      expect(Object.values(LOGO_HOSTS)).toContain(url.host);
+    }
   });
 
   it('falls back to the monogram when there is no usable domain', () => {
@@ -95,10 +122,12 @@ describe('resolveLogo', () => {
     expect(r.hue).toBe(monogramHue('Cipla Ltd'));
   });
 
-  it('caps size — the aggregator bills per pixel bucket, so an unbounded caller is a cost bug', () => {
-    const huge = resolveLogo({ name: 'Cipla', website: 'cipla.com' }, { size: 100_000 });
+  it('caps size — the licensed aggregator bills per pixel bucket, so an unbounded caller is a cost bug', () => {
+    // Only meaningful on the billed provider; the keyless one takes no size.
+    const t = { token: 'pk_live_x' };
+    const huge = resolveLogo({ name: 'Cipla', website: 'cipla.com' }, { ...t, size: 100_000 });
     expect(new URL(huge.src!).searchParams.get('size')).toBe('512');
-    const tiny = resolveLogo({ name: 'Cipla', website: 'cipla.com' }, { size: 1 });
+    const tiny = resolveLogo({ name: 'Cipla', website: 'cipla.com' }, { ...t, size: 1 });
     expect(new URL(tiny.src!).searchParams.get('size')).toBe('32');
   });
 
