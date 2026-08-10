@@ -219,7 +219,15 @@ jobs:
           scp -i ~/.ssh/id_deploy \
             web/deploy/oci/docker-compose.prebuilt.yml \
             web/deploy/oci/Caddyfile \
+            web/deploy/oci/remote-deploy.sh \
             "$USER@$HOST:$REMOTE_DIR/"
+
+          # Prove the next step has something to run before it tries. scp is
+          # happy to copy two of three files and say nothing, which is how the
+          # first real deploy died at `bash: remote-deploy.sh: No such file`
+          # after a Sync step that reported success.
+          ssh -i ~/.ssh/id_deploy "$USER@$HOST" "test -f '$REMOTE_DIR/remote-deploy.sh'" \
+            || { echo "::error::remote-deploy.sh did not reach $REMOTE_DIR"; exit 1; }
 
       - name: Deploy, verify health, roll back if it does not come up
         env:
