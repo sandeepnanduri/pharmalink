@@ -147,10 +147,15 @@ describe('logo resolution', () => {
     expect(r.src).toBe('https://cdn.example/x.png');
   });
 
-  it('points only at the licensed aggregator, never the company site', () => {
-    const r = resolveLogo({ name: 'Cipla', website: 'https://www.cipla.com' });
-    expect(r.src).toContain('img.logo.dev/cipla.com');
-    expect(r.src).not.toContain('www.cipla.com/');
+  it('points only at an aggregator, never the company site', () => {
+    // Hotlinking the owner's server is what this module exists to avoid.
+    const keyless = resolveLogo({ name: 'Cipla', website: 'https://www.cipla.com' });
+    expect(keyless.src).toContain('unavatar.io/cipla.com');
+    expect(keyless.src).not.toContain('www.cipla.com/');
+
+    const licensed = resolveLogo({ name: 'Cipla', website: 'https://www.cipla.com' }, { token: 'pk_live_x' });
+    expect(licensed.src).toContain('img.logo.dev/cipla.com');
+    expect(licensed.src).not.toContain('www.cipla.com/');
   });
 
   it('falls back to a monogram when there is no usable domain', () => {
@@ -160,7 +165,9 @@ describe('logo resolution', () => {
   });
 
   it('caps the requested size — an unbounded value is a cost bug', () => {
-    expect(resolveLogo({ name: 'X', website: 'x.com' }, { size: 99999 }).src).toContain('size=512');
-    expect(resolveLogo({ name: 'X', website: 'x.com' }, { size: 1 }).src).toContain('size=32');
+    // The cap protects the metered provider; the keyless one takes no size.
+    const t = { token: 'pk_live_x' };
+    expect(resolveLogo({ name: 'X', website: 'x.com' }, { ...t, size: 99999 }).src).toContain('size=512');
+    expect(resolveLogo({ name: 'X', website: 'x.com' }, { ...t, size: 1 }).src).toContain('size=32');
   });
 });

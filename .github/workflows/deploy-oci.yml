@@ -163,11 +163,15 @@ jobs:
             ${{ steps.ref.outputs.latest }}
           build-args: |
             NEXT_PUBLIC_SITE_URL=${{ vars.SITE_URL }}
+            NEXT_PUBLIC_LOGO_DEV_TOKEN=${{ vars.LOGO_DEV_TOKEN }}
             SEED=false
-          # NEXT_PUBLIC_SITE_URL is inlined into the browser bundle at build
-          # time, so it is a build arg and not a runtime variable. SEED=false
-          # because this image serves real accounts: the schema is created on a
-          # fresh volume, the demo rows are not.
+          # NEXT_PUBLIC_* is inlined into the browser bundle at build time, so
+          # these are build args and not runtime variables -- setting them on
+          # the VM would do nothing. LOGO_DEV_TOKEN is optional: unset, logos
+          # resolve through the keyless aggregator; set, they switch to the
+          # licensed one with no code change. SEED=false because this image
+          # serves real accounts -- the schema is created on a fresh volume, the
+          # demo rows are not.
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
