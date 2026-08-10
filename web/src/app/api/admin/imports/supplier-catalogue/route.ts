@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { currentUser } from '@/lib/session';
 import { can } from '@/lib/rbac';
 import { looksLikeXlsx } from '@/lib/xlsx.server';
-import { applyImport, previewImport } from '@/lib/supplier-import.server';
+import { MAX_IMPORT_BYTES, applyImport, previewImport } from '@/lib/supplier-import.server';
 
 /**
  * Supplier-catalogue workbook upload.
@@ -27,9 +27,6 @@ import { applyImport, previewImport } from '@/lib/supplier-import.server';
  * evidence uploads, and adding a spreadsheet to it would let anyone attach one
  * as a GMP certificate.
  */
-
-/** 25 MB. The full v3 template with 46 companies is well under 1 MB. */
-export const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
 
 export const dynamic = 'force-dynamic';
 /** Parsing a large workbook is CPU-bound; the default 15s is not enough. */

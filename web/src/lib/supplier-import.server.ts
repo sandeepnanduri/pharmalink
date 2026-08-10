@@ -67,6 +67,15 @@ export interface ReportedIssue extends RowIssue {
   location: string;
 }
 
+/**
+ * 25 MB. The full v3 template with 46 companies is well under 1 MB.
+ *
+ * Lives here, not on the route: Next allows a route module to export only its
+ * handlers and a fixed set of config names, and the upload UI needs to state
+ * the cap to the operator.
+ */
+export const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
+
 export interface ImportReport {
   sheets: SheetReport[];
   issues: ReportedIssue[];

@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/session';
 import { redirect } from '@/i18n/routing';
 import { can, opsLanding } from '@/lib/rbac';
 import { ImportConsole } from '@/components/import-console';
-import { MAX_IMPORT_BYTES } from '@/app/api/admin/imports/supplier-catalogue/route';
+import { MAX_IMPORT_BYTES } from '@/lib/supplier-import.server';
 
 /**
  * Admin → Data Import → Supplier Catalogue.
@@ -46,6 +46,28 @@ export default async function ImportsPage({ params }: { params: Promise<{ locale
       <p className="mb-6 mt-1 max-w-3xl text-sm text-muted">{t('subtitle')}</p>
 
       <ImportConsole maxBytes={MAX_IMPORT_BYTES} />
+
+      {/* Export — the other half of the round trip. Download, edit in Excel,
+          upload the same file back. Every record carries its external ID, so
+          the second upload updates rather than duplicates. */}
+      <section className="card mt-6" data-testid="catalogue-export">
+        <h2 className="text-base font-bold">{t('exportTitle')}</h2>
+        <p className="mt-1 max-w-3xl text-sm text-muted">{t('exportBody')}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <a href="/api/admin/exports/supplier-catalogue" className="btn-primary" data-testid="catalogue-export-all" download>
+            {t('exportAll')}
+          </a>
+          <a
+            href="/api/admin/exports/supplier-catalogue?prices=0"
+            className="btn-ghost"
+            data-testid="catalogue-export-no-prices"
+            download
+          >
+            {t('exportNoPrices')}
+          </a>
+        </div>
+        <p className="mt-3 text-xs text-muted">{t('exportNote')}</p>
+      </section>
 
       <h2 className="mb-3 mt-8 text-base font-bold">{t('history')}</h2>
       {batches.length === 0 ? (
