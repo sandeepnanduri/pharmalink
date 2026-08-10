@@ -150,6 +150,13 @@ function NavLink({ item, onNavigate }: { item: NavGroup['items'][number]; onNavi
   return (
     <Link
       href={item.href}
+      // Every sidebar link is on screen at all times, so the default eager
+      // prefetch renders the whole console on every page view: seven full
+      // server renders, against one SQLite connection, for pages nobody has
+      // asked for. It also starves the page you ARE on -- a `router.refresh()`
+      // after an action queues behind the prefetches, and the screen keeps
+      // showing pre-action state until they drain.
+      prefetch={false}
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
       data-testid={`nav-${item.href.replace(/\W+/g, '-').replace(/^-|-$/g, '') || 'root'}`}

@@ -12,6 +12,7 @@ import {
 } from '@/lib/actions';
 import { API_SCOPES, WEBHOOK_EVENTS } from '@/lib/integrations.constants';
 import { ButtonContent } from './spinner';
+import { ActionForm } from '@/components/action-form';
 
 interface KeyRow {
   id: string;
@@ -123,12 +124,12 @@ export function IntegrationsManager({ keys, hooks }: { keys: KeyRow[]; hooks: Ho
                     <td className="td text-xs text-muted">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : t('never')}</td>
                     <td className="td">
                       {k.active ? (
-                        <form action={revokeApiKeyAction}>
+                        <ActionForm action={revokeApiKeyAction}>
                           <input type="hidden" name="id" value={k.id} />
                           <button type="submit" className="text-xs font-semibold text-red-700 hover:underline" data-testid={`revoke-${k.id}`}>
                             {t('revoke')}
                           </button>
-                        </form>
+                        </ActionForm>
                       ) : (
                         <span className="badge-rejected">{t('revoked')}</span>
                       )}

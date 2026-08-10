@@ -14,6 +14,8 @@ import { NegotiationPanel } from '@/components/negotiation-panel';
 import { getSellerSampleRequests } from '@/lib/sample-queries';
 import { nextSellerSampleStatuses } from '@/lib/samples';
 import { updateSampleAction } from '@/lib/sample-actions';
+import { ActionForm } from '@/components/action-form';
+import { ActionSubmit } from '@/components/action-submit';
 
 // Renders per-user data (session, org plan, quotas) — must never be served
 // from the static/full route cache.
@@ -117,13 +119,22 @@ export default async function SellerDashboard({ params }: { params: Promise<{ lo
                     {ts(`st_${s.status}`)}
                   </span>
                   {next.map((n) => (
-                    <form key={n} action={updateSampleAction}>
+                    <ActionForm key={n} action={updateSampleAction}>
                       <input type="hidden" name="id" value={s.id} />
                       <input type="hidden" name="status" value={n} />
-                      <button type="submit" className="text-xs font-semibold text-brand hover:underline" data-testid={`sample-${n}-${s.id}`}>
-                        {ts(`action_${n}`)}
-                      </button>
-                    </form>
+                      {/* ActionSubmit, not a bare button: it disables itself
+                          while the action is in flight. Approving and shipping
+                          are two clicks in the same row, and the refresh after
+                          the first one replaces this subtree — a second click
+                          landing in that window hits a node on its way out and
+                          is simply lost. Disabling makes the button unavailable
+                          until the new one is on screen. */}
+                      <ActionSubmit
+                        label={ts(`action_${n}`)}
+                        className="text-xs font-semibold text-brand hover:underline disabled:opacity-50"
+                        testId={`sample-${n}-${s.id}`}
+                      />
+                    </ActionForm>
                   ))}
                 </li>
               );
@@ -190,7 +201,7 @@ export default async function SellerDashboard({ params }: { params: Promise<{ lo
                       ) : (
                         <div className="flex items-center gap-2">
                           <QuoteForm rfqId={r.id} product={r.productName} buyer={r.buyerOrg.name} label={tq('submitTitle')} />
-                          <form action={declineRfqAction}>
+                          <ActionForm action={declineRfqAction}>
                             <input type="hidden" name="rfqId" value={r.id} />
                             <ConfirmSubmit
                               className="text-xs font-semibold text-muted hover:text-red-700"
@@ -198,7 +209,7 @@ export default async function SellerDashboard({ params }: { params: Promise<{ lo
                               label={tr('decline')}
                               testId={`decline-${r.reference}`}
                             />
-                          </form>
+                          </ActionForm>
                         </div>
                       )}
                     </td>

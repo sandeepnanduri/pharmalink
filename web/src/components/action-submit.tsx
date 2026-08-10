@@ -55,7 +55,17 @@ export function ActionSubmit({
   const router = useRouter();
 
   useEffect(() => {
-    if (wasPending.current && !pending) router.refresh();
+    if (wasPending.current && !pending) {
+      // Deferred by one task, deliberately. Called synchronously on the
+      // pending->settled edge, the refresh lands while React is still applying
+      // the action's own response and the router treats the current segment as
+      // already fresh: it re-prefetches every sibling link and never refetches
+      // the page you are on. Measured on /en/admin -- fourteen RSC requests
+      // after an approval, not one of them for /en/admin.
+      const id = setTimeout(() => router.refresh(), 0);
+      wasPending.current = pending;
+      return () => clearTimeout(id);
+    }
     wasPending.current = pending;
   }, [pending, router]);
 

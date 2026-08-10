@@ -8,6 +8,7 @@ import { StatCard } from '@/components/stat-card';
 import { StatusBadge } from '@/components/status-badge';
 import { OrgDossier } from '@/components/org-dossier';
 import { ActionSubmit } from '@/components/action-submit';
+import { ActionForm } from '@/components/action-form';
 
 // Renders per-user data (session, org plan, quotas) — must never be served
 // from the static/full route cache.
@@ -115,7 +116,7 @@ export default async function AdminPage({ params }: { params: Promise<{ locale: 
                 </div>
 
                 <div className="flex shrink-0 flex-col gap-2">
-                  <form action={reviewOrgAction} className="flex items-center gap-2">
+                  <ActionForm action={reviewOrgAction} className="flex items-center gap-2">
                     <input type="hidden" name="orgId" value={org.id} />
                     <input type="hidden" name="decision" value="approve" />
                     {/* Client submits, so the queue actually drains when the
@@ -124,8 +125,8 @@ export default async function AdminPage({ params }: { params: Promise<{ locale: 
                         the queue as though nothing happened is what teaches a
                         verifier to click twice. */}
                     <ActionSubmit label={`✓ ${t('approve')}`} className="btn-primary !py-2 text-xs" testId={`approve-${org.id}`} />
-                  </form>
-                  <form action={reviewOrgAction} className="flex items-center gap-2">
+                  </ActionForm>
+                  <ActionForm action={reviewOrgAction} className="flex items-center gap-2">
                     <input type="hidden" name="orgId" value={org.id} />
                     <input type="hidden" name="decision" value="reject" />
                     <input
@@ -144,7 +145,7 @@ export default async function AdminPage({ params }: { params: Promise<{ locale: 
                       testId={`reject-${org.id}`}
                       confirm={t('confirmReject', { name: org.name })}
                     />
-                  </form>
+                  </ActionForm>
                 </div>
               </div>
 
