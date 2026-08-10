@@ -84,8 +84,7 @@ if healthy; then
   if [ -f .env ] && grep -q '^APP_IMAGE=' .env; then
     sed -i "s|^APP_IMAGE=.*|APP_IMAGE=$NEW_IMAGE|" .env
   else
-    printf 'APP_IMAGE=%s
-' "$NEW_IMAGE" >> .env
+    echo "APP_IMAGE=$NEW_IMAGE" >> .env
   fi
 
   # Keep recent images so a rollback has something to roll back to; drop the
