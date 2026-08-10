@@ -203,8 +203,57 @@ model Organization {
   /// Which trade association vouches for this supplier, e.g. "BDMA,Pharmexcil".
   associations String?
 
+  // --- Curated company detail (template sheet 1) ------------------------------
+  /// The template's `Company_ID` — `SELL-IND-0001`, "never changes once
+  /// assigned". Globally unique, unlike Product.externalId, whose documented
+  /// format ends in a per-company sequence.
+  externalId String? @unique
+
+  /// The template's `Verification_Status`: how good the CURATED RECORD is.
+  ///
+  /// Deliberately NOT `status`. That column is ops approval — it gates the
+  /// catalogue's "only verified suppliers are ever returned" invariant and the
+  /// whole REQUIRES_VERIFIED permission set in rbac.ts. A curator writing
+  /// "Verified" into it would publish an imported company as an RFQ-eligible
+  /// supplier with no human review at all.
+  /// verified | unverified | outdated | flagged | duplicate
+  curationStatus String?
+
+  /// Two subsidiaries of one parent are not dual sourcing — a real supply-risk
+  /// input, not just an org-chart detail.
+  parentCompany    String?
+  /// Comma-separated, per the convention above. Drives a supplier-level filter.
+  therapeuticAreas String?
+  revenueUsdM      Float?
+  /// The year the revenue figure is for. Not optional in practice: a revenue
+  /// number without its year invites a stale figure being read as current.
+  revenueYear      String?
+  generalEmail     String?
+  hqPhone          String?
+  /// Sheet 9 says a contact's LinkedIn is always shown, so the company's is
+  /// part of the same public tier.
+  linkedinUrl      String?
+  addressLine      String?
+  state            String?
+  postalCode       String?
+
+  // --- Provenance -------------------------------------------------------------
+  // Every curated record carries where it came from and when it was last
+  // checked. "Outdated (>6 months)" is computed from `lastVerifiedAt` rather
+  // than stored, and the template makes Source URL a required, non-blank field.
+  sourceUrl      String?
+  dataSourceName String?
+  curatedAt      DateTime?
+  curatedBy      String?
+  lastVerifiedAt DateTime?
+  curationNote   String?
+
+  filings  RegulatoryFiling[]
+  contacts Contact[]
+
   @@index([status])
   @@index([kind])
+  @@index([curationStatus])
 }
 
 // --------------------------------------------------------------------------
@@ -307,8 +356,51 @@ model Site {
   /// own register instead of trusting the uploaded PDF.
   regulatoryId String?
 
+  // --- Curated facility detail (template sheet 8) -----------------------------
+  // Sheet 8 is "one row per manufacturing site" and its own note calls the FDA
+  // FEI "the primary key". That is `regulatoryId` above, already written by the
+  // onboarding wizard — so the sheet lands on Site rather than a parallel
+  // `Facility` model. A second model would fork the answer to "which site does
+  // this GMP certificate belong to", which is the one thing that makes a
+  // certificate checkable (Certification.siteId points here).
+  externalId           String?
+  /// EudraGMDP site registration, distinct from the FDA FEI in `regulatoryId`.
+  emaSiteRef           String?
+  /// Per-authority GMP standing. Parsed from the sheet into one vocabulary.
+  fdaGmpStatus         String?
+  euGmpStatus          String?
+  whoGmpStatus         String?
+  /// Inspection history. The outcome vocabularies differ by authority and the
+  /// template is emphatic about using the exact terms — NAI/VAI/OAI for the FDA,
+  /// Satisfactory/Deficiency/Refused for the EMA — so they are separate columns
+  /// rather than one column that would need to carry its own authority.
+  lastFdaInspectionAt  DateTime?
+  fdaInspectionOutcome String?
+  lastEuInspectionAt   DateTime?
+  euInspectionOutcome  String?
+  form483Count         Int?
+  /// Capacity and its unit. Sheet 8's own heading is "Annual Capacity (MT or
+  /// Units)" with a separate unit column — a number without it is meaningless.
+  capacityValue        Float?
+  capacityUnit         String?
+  utilizationPct       Float?
+  manufacturingType    String?
+  containmentLevel     String?
+  sterile              Boolean?
+  coldChainCapability  String?
+  productionLines      Int?
+  qcLabs               Int?
+  yearEstablished      Int?
+  employees            Int?
+
+  // --- Provenance -------------------------------------------------------------
+  sourceUrl      String?
+  dataSourceName String?
+  lastVerifiedAt DateTime?
+
   certifications Certification[]
 
+  @@unique([orgId, externalId])
   @@index([orgId])
 }
 
@@ -454,6 +546,15 @@ model Product {
   /// function for excipients. One column because a product has exactly one.
   facet       String?
 
+  // --- Identity & chemistry --------------------------------------------------
+  /// Full systematic name. Distinct from `name`, which is the trade name a
+  /// buyer searches by ("Metformin HCl" vs "1,1-Dimethylbiguanide HCl").
+  iupacName       String?
+  molecularWeight Float?
+  /// WHO ATC code — the standard therapeutic classification.
+  atcCode         String?
+  physicalForm    String?
+
   // --- Technical specification -----------------------------------------------
   /// Numeric purity so it can be range-filtered. `purity` above stays as the
   /// human string ("≥ 99.0%, HPLC") because the spec sheet wording matters.
@@ -463,18 +564,107 @@ model Product {
   polymorphForm  String?
   synthesisRoute String?
 
+  // --- Synthesis lineage (KSMs and intermediates) ----------------------------
+  /// The API this material feeds, as a plain CAS rather than a self-relation.
+  /// A KSM's parent API is a fact about chemistry, true whether or not anyone
+  /// on this platform lists it — the same reasoning that keeps PriceObservation
+  /// keyed on CAS with no FK. A relation would be null for every parent nobody
+  /// lists, and would break on import ordering. Resolving at query time also
+  /// gives the more useful answer: who ELSE supplies that API, plural.
+  parentApiCas  String?
+  parentApiName String?
+  synthesisStep String?
+  /// ICH Q11: starting material vs intermediate. Decides what must be filed.
+  ichQ11Class   String?
+
+  // --- Finished dose forms ---------------------------------------------------
+  strength     String?
+  routeOfAdmin String?
+
+  // --- Raw materials & excipients --------------------------------------------
+  /// Plant / animal / synthetic — required for the dietary-compliance filters.
+  origin           String?
+  /// Nullable Booleans on purpose: unknown is NOT the same as no. A buyer
+  /// filtering for Halal-certified excipients must not be shown an uncurated
+  /// product, and must not have it silently excluded either — which is exactly
+  /// what a non-nullable Boolean defaulting to false would do.
+  nonGmo           Boolean?
+  bseTseFree       Boolean?
+  halal            Boolean?
+  kosher           Boolean?
+  vendorQualStatus String?
+
+  // --- Intellectual property -------------------------------------------------
+  ipStatus     String?
+  patentExpiry String?
+
   // --- Commercial ------------------------------------------------------------
+  /// Numeric lead time so the catalogue can sort and range-filter on it.
+  /// `leadTime` above stays the human string ("2–3 weeks"), which is what a
+  /// seller writes and a buyer reads. Without this column `SORT_MAP.lead_time`
+  /// silently fell back to newest-first and the "maximum lead time" filter was
+  /// parsed but never applied.
+  ///
+  /// A range resolves to its UPPER bound: the filter means "no longer than", so
+  /// a supplier quoting 3–5 weeks must not match a buyer asking for 21 days.
+  leadTimeDays     Int?
+  /// Expedited lead time where the supplier offers one, same units.
+  expediteLeadDays Int?
   /// Comma-separated incoterms this listing is offered on, e.g. "FOB,CIF,DDP".
-  incoterms    String?
+  incoterms        String?
   /// ambient | refrigerated | frozen | ultracold
-  coldChain    String?
-  packaging    String?
+  coldChain        String?
+  packaging        String?
   /// in_stock | made_to_order | low
-  stockStatus  String  @default("made_to_order")
+  stockStatus      String  @default("made_to_order")
   /// Annual capacity in metric tonnes, for scale-up questions.
-  capacityMtYr Float?
+  capacityMtYr     Float?
+  /// Current utilisation of that capacity, %. Headroom is a supply-risk input.
+  utilizationPct   Float?
   /// European Active Substance Master File reference.
-  asmfNumber   String?
+  asmfNumber       String?
+
+  /// What `priceMin`/`priceMax` and `moqKg` are actually denominated in.
+  ///
+  /// Load-bearing. Sheet 3 of the curation template prices finished dose forms
+  /// PER UNIT — $0.042 a tablet — while `priceMin`, the price range filter,
+  /// `SORT_MAP.price_low`, `match-score.ts` and `PriceObservation.unitPriceUsdKg`
+  /// are all per-kilogram. Without a unit, one tablet price wins every
+  /// "price, low to high" sort forever and drags the market median for any CAS
+  /// it shares with an API listing. The price sort and range filter are
+  /// restricted to `priceUnit = "kg"` for exactly this reason.
+  priceUnit String @default("kg")
+  moqUnit   String @default("kg")
+
+  /// Customs classification. Real per-product HS codes let the customs price
+  /// connector stop depending on the hand-maintained HS_BY_CAS map in
+  /// `market-data.ts`.
+  hsCode  String?
+  hsnCode String?
+
+  /// The template's `Product_ID`, e.g. `API-1115704-0001`.
+  ///
+  /// Scoped unique, NOT global. The documented format
+  /// `[CAT]-[CAS_stripped]-[COMPANY_SEQ]` ends in a per-company sequence, so
+  /// the next supplier of metformin produces the same string. A global unique
+  /// would throw on the second one.
+  externalId String?
+
+  // --- Provenance -------------------------------------------------------------
+  sourceUrl      String?
+  dataSourceName String?
+  lastVerifiedAt DateTime?
+
+  /// The long tail of the curation template's ~250 product columns, as JSON
+  /// held in text — the `Deal.termsJson` precedent, since this schema has no
+  /// `Json` columns and Postgres portability is a stated goal.
+  ///
+  /// Opaque to the database, NOT to the application: its keys are governed by
+  /// the registry in `src/lib/product-spec.ts`, which is also what renders,
+  /// edits and exports them. Nothing here is ever queried — a field that needs
+  /// a filter gets promoted to a real column, and that promotion is the
+  /// deliberate act, with a backfill.
+  specJson String?
 
   certifications ProductCertification[]
   priceTiers     ProductPriceTier[]
@@ -483,10 +673,13 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([orgId, externalId])
   @@index([orgId])
   @@index([cas])
   @@index([status])
   @@index([controlledSchedule])
+  /// Answers "who supplies the API this KSM feeds" without a self-relation.
+  @@index([parentApiCas])
 }
 
 /// A buyer's request for a product sample; the seller approves/ships/declines.
@@ -974,7 +1167,31 @@ model PriceObservation {
 
   /// 0..1 evidence weight. A signed deal is stronger evidence than a customs
   /// aggregate covering a whole HS line; the model must not pretend otherwise.
-  weight     Float    @default(1)
+  weight Float @default(1)
+
+  // --- Curated provenance (template sheet 6) ----------------------------------
+  /// The rate applied to reach `unitPriceUsdKg`. An FX-converted price you
+  /// cannot re-derive is unauditable.
+  fxRate         Float?
+  /// HIGH | MEDIUM | LOW -- the LABEL. `weight` above stays the number the model
+  /// reads, derived from this through one exported table in `vocab.ts`, so a
+  /// spreadsheet can never outvote a platform transaction by setting it directly.
+  dataConfidence String?
+  /// Where the goods ship FROM. `region` already means the destination market --
+  /// a FOB India price and a FOB China price are different series.
+  originCountry  String?
+  /// 99.5% USP and 98% technical grade are not the same product, and conflating
+  /// them is a major source of apparent volatility.
+  purityGrade    String?
+  validUntil     DateTime?
+  /// Excluded from the forecast when set. A curator flagging an outlier is
+  /// evidence; silently dropping it would not be.
+  outlierFlag    Boolean   @default(false)
+  outlierReason  String?
+  /// Nullable on purpose: a market price for paracetamol exists whether or not
+  /// anyone here lists it, so the CAS-keyed doctrine above still holds.
+  supplierOrgId  String?
+
   ingestedAt DateTime @default(now())
 
   @@index([cas, observedAt])
@@ -1065,4 +1282,200 @@ model IngestRun {
   error      String?
 
   @@index([source, startedAt])
+}
+
+// --------------------------------------------------------------------------
+// Curated supplier intelligence (Data Curation Template v3, sheets 7 and 9)
+// --------------------------------------------------------------------------
+
+/// A regulatory submission a buyer's regulatory team can reference.
+///
+/// Distinct from the two models it sits between, and the boundary is worth
+/// stating because all three are "regulatory":
+///
+///   - `Certification` is a credential the supplier HOLDS: issued to them,
+///     numbered, expiring, evidenced by a Document, and driving the expiry
+///     register in lib/compliance.ts. It answers "may this site legally
+///     manufacture".
+///   - `RegulatoryFiling` is a submission SOMEONE ELSE REFERENCES: a DMF, ASMF,
+///     CEP, ANDA, NDA or MAA. It has a lifecycle rather than an expiry — many
+///     have no expiry at all ("N/A — DMF, no expiry") — a type, a scope, an
+///     open-to-reference flag and a count of filings that cite it. It answers
+///     "can my regulatory team cite this supplier in my submission", which is a
+///     different question checked against a different register.
+///   - `RegulatoryAction` is an ADVERSE finding, sourced from openFDA and
+///     EudraGMDP and never self-declared. Nothing here writes it.
+///
+/// One deliberate bridge: `expiresAt` feeds the same expiry register as
+/// certificates, because compliance.ts's `summarize()` and `certExpiryLevel()`
+/// are pure and already take `{ expiresAt }[]`. A CEP is genuinely both a
+/// certificate and a filing; it lives here only.
+model RegulatoryFiling {
+  id    String       @id @default(cuid())
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  /// The template's `Filing_ID`, e.g. `RF-2026-0001`.
+  externalId String?
+
+  /// Optional: a DMF is per-product, a company GMP filing is not.
+  productId   String?
+  cas         String?
+  productName String?
+
+  /// US FDA Type II DMF | ASMF | CEP | ANDA | NDA | EU MAA | WHO PQ | CDSCO | PMDA
+  filingType   String
+  filingNumber String
+  authority    String?
+  country      String?
+  /// active | approved | pending | suspended | withdrawn | expired
+  status       String  @default("active")
+
+  filedAt      DateTime?
+  approvedAt   DateTime?
+  /// Null is a real, common answer — a DMF does not expire. `certExpiryLevel`
+  /// buckets that as "unknown", never as "ok".
+  expiresAt    DateTime?
+  renewalDueAt DateTime?
+
+  holderName       String?
+  scope            String?
+  /// Whether third parties may cite this filing — the whole point of a DMF.
+  openToReference  Boolean?
+  /// How many ANDAs/MAAs already reference it. A commercial trust signal.
+  referencingCount Int?
+  annualFeeUsd     Float?
+
+  lastInspectionAt      DateTime?
+  lastInspectionOutcome String?
+  form483Count          Int?
+  capaStatus            String?
+
+  /// Comma-separated site references (FEI or site name), resolved at render.
+  ///
+  /// KNOWN DEBT. This is multi-valued AND genuinely queryable ("which filings
+  /// cover this site"), so by the convention at the top of this file it deserves
+  /// a join table. Deferred until a per-site filing filter is actually asked
+  /// for, rather than built on speculation — but it is debt, not a design.
+  sitesCovered String?
+
+  // --- Provenance -------------------------------------------------------------
+  sourceUrl      String?
+  dataSourceName String?
+  lastVerifiedAt DateTime?
+  verifiedBy     String?
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([orgId, filingType, filingNumber])
+  @@index([orgId, status])
+  @@index([expiresAt])
+  @@index([cas])
+}
+
+/// A named person at a supplier, for buyer outreach.
+///
+/// ## What is deliberately absent
+///
+/// Sheet 9 also carries `Personal Email`, `Twitter / X Handle`,
+/// `Last Contacted`, `Interaction Summary`, `Relationship Status` and
+/// `Key Interests / Pain Points`. Those are CRM notes about a named natural
+/// person, scraped from LinkedIn, with no lawful basis recorded. This platform
+/// carries a DsarRequest model and explicit GDPR Art. 15/17 and DPDP
+/// commitments, so importing them would make them subject-access-exportable and
+/// erasure-obligated for data we cannot justify holding. The sheet's own header
+/// says "Business email only (not personal)". The importer refuses those columns
+/// at the mapper with a visible notice, rather than storing them and hiding
+/// them — hidden is not the same as not held.
+///
+/// Visibility is decided in the query, not the component: see
+/// src/lib/contact-queries.ts.
+model Contact {
+  id    String       @id @default(cuid())
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  externalId String?
+
+  salutation  String?
+  firstName   String
+  lastName    String
+  jobTitle    String?
+  department  String?
+  /// c_level | vp | director | manager | executive
+  seniority   String?
+  /// export_sales | business_development | regulatory | quality | finance | leadership
+  primaryRole String?
+
+  /// The only email held. See the note above.
+  businessEmail String?
+  officePhone   String?
+  mobile        String?
+  /// Always visible, at every tier — the sheet is explicit about that.
+  linkedinUrl   String?
+
+  city            String?
+  country         String?
+  /// Comma-separated markets this person covers.
+  territories     String?
+  languages       String?
+  /// Median response time in hours, as an outreach expectation.
+  responseHours   Float?
+  bestContactTime String?
+
+  // --- Provenance -------------------------------------------------------------
+  sourceUrl      String?
+  dataSourceName String?
+  lastVerifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([orgId, businessEmail])
+  @@index([orgId])
+}
+
+/// One uploaded curation workbook, and what happened to it.
+///
+/// The association importer re-fetches its source on apply; a file cannot be
+/// re-fetched, so the preview has to be able to find the bytes again. Holding
+/// them in memory breaks the moment `output: 'standalone'` runs more than one
+/// instance and apply lands on a different one.
+///
+/// It also gives the import history that "Data Import" as a nav item implies,
+/// and `sha256` gives "you already uploaded this exact file" for free.
+model ImportBatch {
+  id         String  @id @default(cuid())
+  kind       String  @default("supplier-catalogue")
+  filename   String
+  /// Content hash — the same dedupe key the document upload path uses.
+  sha256     String
+  /// Opaque storage key, never a public URL. Downloads are brokered.
+  storageKey String?
+  sizeBytes  Int
+
+  uploadedById String?
+  /// uploaded | previewed | applied | failed
+  status       String  @default("uploaded")
+
+  /// Per-sheet counts as JSON text, following the Deal.termsJson precedent.
+  sheetCountsJson String?
+  errorCount      Int     @default(0)
+  /// The row-level report, CAPPED. A 46-company import easily produces 50 KB,
+  /// and AuditLog.meta has no size discipline — this is where the detail goes
+  /// so the audit row stays a summary.
+  reportJson      String?
+
+  /// The IngestRun this batch was applied under, so a failed apply is visible
+  /// in the same operator console as every other connector.
+  ingestRunId String?
+
+  createdAt   DateTime  @default(now())
+  previewedAt DateTime?
+  appliedAt   DateTime?
+
+  @@index([kind, createdAt])
+  @@index([sha256])
 }

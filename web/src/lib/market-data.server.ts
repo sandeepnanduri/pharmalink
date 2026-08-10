@@ -1,5 +1,6 @@
 import 'server-only';
 import { prisma } from '@/lib/db';
+import { withRun, type IngestSummary } from './ingest-run.server';
 import { assertSafeUrl } from '@/lib/net-guard.server';
 import { mirrorInternalPrices } from '@/lib/market-data-internal';
 import {
@@ -80,27 +81,11 @@ async function fetchJson<T>(rawUrl: string, attempt = 0): Promise<T> {
 // Run bookkeeping
 // ---------------------------------------------------------------------------
 
-export interface IngestSummary {
-  source: string;
-  status: 'ok' | 'failed';
-  fetched: number;
-  inserted: number;
-  skipped: number;
-  error?: string;
-}
-
-async function withRun(source: string, work: () => Promise<{ fetched: number; inserted: number; skipped: number }>): Promise<IngestSummary> {
-  const run = await prisma.ingestRun.create({ data: { source } });
-  try {
-    const counts = await work();
-    await prisma.ingestRun.update({ where: { id: run.id }, data: { ...counts, status: 'ok', finishedAt: new Date() } });
-    return { source, status: 'ok', ...counts };
-  } catch (e) {
-    const error = e instanceof Error ? e.message : String(e);
-    await prisma.ingestRun.update({ where: { id: run.id }, data: { status: 'failed', error: error.slice(0, 500), finishedAt: new Date() } });
-    return { source, status: 'failed', fetched: 0, inserted: 0, skipped: 0, error };
-  }
-}
+// `withRun` and `IngestSummary` live in `ingest-run.server.ts`: the workbook
+// importer needs the same bookkeeping, and two copies would be two places to
+// keep the failure semantics consistent. Re-exported so existing callers of
+// this module keep their import path.
+export type { IngestSummary };
 
 // ---------------------------------------------------------------------------
 // UN Comtrade — implied unit values

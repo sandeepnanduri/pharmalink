@@ -23,12 +23,34 @@ test('seller sees demand + tiers, exports CSV, and bulk-imports products', async
   expect(res.headers()['content-type']).toContain('text/csv');
   expect(await res.text()).toContain('name,cas');
 
-  // Bulk-import a new product from pasted CSV.
+  // Bulk-import a new product from pasted CSV. The CAS must be real: the
+  // importer validates the check digit, so a made-up number is rejected.
   await page.getByTestId('bulk-import-toggle').click();
-  await page.getByTestId('csv-textarea').fill('name,cas,category,priceMin,priceMax\nE2E Bulk API,999-00-0,API,10,12');
+  await page
+    .getByTestId('csv-textarea')
+    .fill('name,cas,category,priceMin,priceMax,productType,facet,incoterms,leadTime\nE2E Bulk API,50-78-2,API,10,12,api,cardiovascular,FOB; CIF,3 weeks');
   await page.getByTestId('csv-import').click();
   await expect(page.getByTestId('import-result')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('product-row').filter({ hasText: 'E2E Bulk API' })).toBeVisible();
+});
+
+test('a bulk import names the row and the reason when it rejects one', async ({ page }) => {
+  // The parser has always collected per-row errors rather than dropping rows
+  // silently; before this they were computed and then thrown away, so a seller
+  // saw "no valid rows" with no way to find the bad cell.
+  await login(page, USERS.seller);
+  await page.goto('/en/seller/products');
+  await page.getByTestId('bulk-import-toggle').click();
+  // 1115-70-5 is a one-digit typo of metformin's real CAS, 1115-70-4.
+  await page.getByTestId('csv-textarea').fill('name,cas\nTypo Product,1115-70-5');
+  await page.getByTestId('csv-import').click();
+
+  const errors = page.getByTestId('import-row-errors');
+  await expect(errors).toBeVisible({ timeout: 15_000 });
+  await expect(errors).toContainText('row 2');
+  await expect(errors).toContainText('check digit');
+  // And nothing was created from the bad paste.
+  await expect(page.getByTestId('product-row').filter({ hasText: 'Typo Product' })).toHaveCount(0);
 });
 
 test('the export endpoint is forbidden without a seller session', async ({ request }) => {

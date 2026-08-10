@@ -375,3 +375,63 @@ export function MarketingFooter({ t }: { t: T }) {
     </footer>
   );
 }
+
+/**
+ * Editorially featured content, in the news grammar.
+ *
+ * The homepage rebuild dropped this section, which quietly broke the CMS: ops
+ * could still tick "featured" in Admin → Content and the article went nowhere.
+ * A curation control with no surface is worse than no control at all, because
+ * it looks like it worked.
+ *
+ * Distinct from `NewsSection`: that lists `NewsPost` (our own newsroom), this
+ * lists `ContentItem` (curated articles and crawled external links). They are
+ * different tables with different editorial owners, so they stay separate
+ * sections rather than one merged feed.
+ */
+export function SpotlightSection({
+  t,
+  items,
+}: {
+  t: T;
+  items: { id: string; title: string; summary: string | null; label: string; href: string; external: boolean }[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section className="listings" style={{ paddingTop: 0, background: '#fff' }} data-testid="spotlight">
+      <div className="wrap">
+        <div className="sec-head split reveal">
+          <div>
+            <div className="eyebrow">{t('spEyebrow')}</div>
+            <h2 className="sec">{t('spTitle')}</h2>
+          </div>
+          <Link className="btn btn-dark btn-sm" href="/content">
+            {t('spCta')}
+          </Link>
+        </div>
+        <div className="newsgrid">
+          {items.map((it) => {
+            const inner = (
+              <>
+                <span className="src">● {it.label}</span>
+                <h4>{it.title}</h4>
+                {it.summary && <span className="dt">{it.summary}</span>}
+              </>
+            );
+            // A crawled link leaves the site, so it is a plain anchor with
+            // `nofollow` — the same treatment the /content index gives it.
+            return it.external ? (
+              <a className="news reveal" key={it.id} href={it.href} target="_blank" rel="noopener noreferrer nofollow" data-testid="spotlight-card">
+                {inner}
+              </a>
+            ) : (
+              <Link className="news reveal" key={it.id} href={it.href} data-testid="spotlight-card">
+                {inner}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}

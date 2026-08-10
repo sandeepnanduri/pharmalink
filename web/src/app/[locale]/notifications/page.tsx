@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireUser } from '@/lib/session';
 import { markNotificationsReadAction } from '@/lib/actions';
 import { groupNotifications, kindMeta, relativeTime, type NotificationGroup } from '@/lib/notifications';
+import { ActionForm } from '@/components/action-form';
 
 // Per-user data — never served from the static/full route cache.
 export const dynamic = 'force-dynamic';
@@ -59,11 +60,11 @@ export default async function NotificationsPage({ params }: { params: Promise<{ 
           </p>
         </div>
         {grouped.unread.total > 0 && (
-          <form action={markNotificationsReadAction}>
+          <ActionForm action={markNotificationsReadAction}>
             <button type="submit" className="btn-ghost" data-testid="mark-all-read">
               {t('markAllRead')}
             </button>
-          </form>
+          </ActionForm>
         )}
       </div>
 

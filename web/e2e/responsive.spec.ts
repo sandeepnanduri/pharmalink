@@ -67,27 +67,34 @@ test.describe('mobile navigation', () => {
 
   test('primary nav is reachable on a phone', async ({ page }) => {
     await login(page, USERS.buyer);
-    await page.goto('/en');
+    await page.goto('/en/buyer');
 
-    // The desktop nav is hidden below md — the drawer is the only way through.
-    await expect(page.getByTestId('mobile-menu-button')).toBeVisible();
-    await page.getByTestId('mobile-menu-button').click();
+    // Signed in, the 248px shell rail is most of a phone, so it collapses to a
+    // drawer. The marketing header's own drawer is now visitors-only.
+    await expect(page.getByTestId('shell-menu')).toBeVisible();
+    await page.getByTestId('shell-menu').click();
 
-    const nav = page.getByTestId('mobile-nav');
+    const nav = page.locator('[data-testid="app-shell"] nav').last();
     await expect(nav).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'My RFQs' })).toBeVisible();
 
     await nav.getByRole('link', { name: 'My RFQs' }).click();
     await expect(page).toHaveURL(/\/en\/buyer\/rfqs$/, { timeout: 15_000 });
-    // Drawer must close after navigating, or it covers the page you opened.
-    await expect(page.getByTestId('mobile-nav')).toHaveCount(0);
+    // The drawer must close after navigating, or it covers the page you opened.
+    await expect(page.getByTestId('shell-menu')).toBeVisible();
+    await expect(page.locator('[data-testid="app-shell"] .fixed.inset-y-0')).toHaveCount(0);
   });
 
-  test('drawer is not shown on desktop', async ({ page }) => {
+  test('the drawer trigger is desktop-hidden for both chromes', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
+    // Visitor: the marketing header's own drawer.
     await page.goto('/en');
     await expect(page.getByTestId('mobile-menu-button')).toBeHidden();
+    // Signed in: the shell's.
+    await login(page, USERS.buyer);
+    await page.goto('/en/buyer');
+    await expect(page.getByTestId('shell-menu')).toBeHidden();
   });
 });
 

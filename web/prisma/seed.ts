@@ -10,6 +10,16 @@ import bcrypt from 'bcryptjs';
 import { createHash } from 'node:crypto';
 import { seedMarketData, seedForecastScoreboard } from './seed-market-data';
 import { mirrorInternalPrices } from '../src/lib/market-data-internal';
+import {
+  parseColdChain,
+  parseLeadTimeDays,
+  parsePurityPct,
+  parseStockStatus,
+  productTypeFromCategory,
+  readSpecFromForm,
+  validFacetFor,
+} from '../src/lib/product-fields';
+import { joinMulti, parseIncoterms } from '../src/lib/vocab';
 
 /**
  * Deterministic user ids, derived from the email.
@@ -54,6 +64,8 @@ async function main() {
   await prisma.rfq.deleteMany();
   await prisma.productCertification.deleteMany();
   await prisma.product.deleteMany();
+  await prisma.regulatoryFiling.deleteMany();
+  await prisma.contact.deleteMany();
   await prisma.certification.deleteMany(); // FK to site
   await prisma.site.deleteMany();
   await prisma.account.deleteMany();
@@ -106,8 +118,93 @@ async function main() {
   const certNumber = (org: string, cert: string) =>
     `${cert.split(' ')[0].toUpperCase()}-${org.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase()}-${cert.length}${org.length}`;
 
+  /**
+   * A seeded listing, before derivation. Everything the seller would actually
+   * type; the numeric and enum twins the catalogue filters on are computed.
+   */
+  interface SeedProduct {
+    name: string;
+    cas: string;
+    category?: string;
+    grade?: string | null;
+    purity?: string | null;
+    moqKg: number;
+    leadTime: string;
+    priceMin?: number;
+    priceMax?: number;
+    facet?: string;
+    incoterms?: string;
+    coldChain?: string;
+    stockStatus?: string;
+    packaging?: string;
+    cepNumber?: string;
+    asmfNumber?: string;
+    status?: string;
+    /** Registry-backed columns and specJson keys, keyed exactly as the registry names them. */
+    spec?: Record<string, string>;
+  }
+
+  /**
+   * Builds a listing the same way `saveProductAction` and the CSV importer do —
+   * through the shared derivations in `src/lib/product-fields.ts`.
+   *
+   * Going through the same code rather than hand-writing `productType` and
+   * `purityPct` here is the point: it means the seed cannot drift from what the
+   * application actually writes, which is precisely how the catalogue ended up
+   * with a filter rail no seeded row could ever satisfy.
+   */
+  function seedProduct(p: SeedProduct) {
+    const productType = productTypeFromCategory(p.category ?? 'API');
+    const storage = p.coldChain ?? '15–25°C, dry';
+    // Spec values go through the same registry split the seller editor and the
+    // importer use, so the seed cannot produce a shape the application would
+    // not — including landing a blob key in a column or vice versa.
+    const spec = p.spec ? readSpecFromForm({ get: (k) => p.spec?.[k] ?? null }, productType) : {};
+    return {
+      ...spec,
+      name: p.name,
+      cas: p.cas,
+      category: p.category ?? 'API',
+      grade: p.grade ?? null,
+      purity: p.purity ?? null,
+      moqKg: p.moqKg,
+      leadTime: p.leadTime,
+      priceMin: p.priceMin ?? null,
+      priceMax: p.priceMax ?? null,
+      shelfLife: '36 months',
+      storage,
+      status: p.status ?? 'live',
+      packaging: p.packaging ?? null,
+      cepNumber: p.cepNumber ?? null,
+      asmfNumber: p.asmfNumber ?? null,
+      productType,
+      facet: validFacetFor(productType, p.facet),
+      purityPct: parsePurityPct(p.purity),
+      leadTimeDays: parseLeadTimeDays(p.leadTime),
+      incoterms: joinMulti(parseIncoterms(p.incoterms)),
+      coldChain: parseColdChain(storage),
+      stockStatus: parseStockStatus(p.stockStatus) ?? 'made_to_order',
+    };
+  }
+
+  interface SeedSupplier {
+    name: string;
+    city: string;
+    country: string;
+    user: { email: string; name: string };
+    markets: string;
+    dmf: string;
+    website: string;
+    associations: string | null;
+    foundedYear: number;
+    employees: number;
+    listedOn: string;
+    certs: { name: string; expires: number; via: string }[];
+    products: SeedProduct[];
+  }
+
   // ---------------------------------------------------------------- Suppliers
-  const suppliers = [
+  const suppliers: SeedSupplier[] = [
     {
       name: 'Sun Pharma API Division',
       city: 'Mumbai',
@@ -129,8 +226,35 @@ async function main() {
         { name: 'WHO PQ', expires: 2.5, via: 'WHO PQ list' },
       ],
       products: [
-        { name: 'Paracetamol (Acetaminophen)', cas: '103-90-2', grade: 'IP / BP / USP', purity: '99.8%', moqKg: 25, leadTime: '2–3 weeks', priceMin: 4.2, priceMax: 5.1 },
-        { name: 'Ibuprofen', cas: '15687-27-1', grade: 'BP / USP', purity: '99.7%', moqKg: 25, leadTime: '2 weeks', priceMin: 6.1, priceMax: 7.4 },
+        { name: 'Paracetamol (Acetaminophen)', cas: '103-90-2', grade: 'IP / BP / USP', purity: '99.8%', moqKg: 25, leadTime: '2–3 weeks', priceMin: 4.2, priceMax: 5.1, facet: 'anti-inflammatory', incoterms: 'FOB; CIF; DAP; DDP', stockStatus: 'In Stock', packaging: '25 kg HDPE drum', cepNumber: 'CEP 2019-021-3-0' },
+        { name: 'Ibuprofen', cas: '15687-27-1', grade: 'BP / USP', purity: '99.7%', moqKg: 25, leadTime: '2 weeks', priceMin: 6.1, priceMax: 7.4, facet: 'anti-inflammatory', incoterms: 'FOB; CIF', stockStatus: 'In Stock', packaging: '25 kg fibre drum' },
+        // A KSM, so the segment filter has something outside `api` to return.
+        // Dicyandiamide is the metformin precursor from the curation template.
+        {
+          name: 'Dicyandiamide (DCDA)', cas: '461-58-5', category: 'KSM', grade: 'Technical', purity: '≥98.0%',
+          moqKg: 1000, leadTime: '4 weeks', priceMin: 2.8, priceMax: 3.2, incoterms: 'FOB; CIF',
+          stockStatus: 'In Stock', packaging: '500 kg bulk bag',
+          // Links to the metformin listing above by CAS, so the product page can
+          // answer "who else supplies the API this feeds".
+          spec: {
+            iupacName: 'Cyanoguanidine',
+            formula: 'C2H4N4',
+            molecularWeight: '84.08',
+            inchiKey: 'RXGJHLEKF-UHFFFAOYSA-N',
+            smiles: 'NC(=N)NC#N',
+            parentApiName: 'Metformin Hydrochloride',
+            parentApiCas: '1115-70-4',
+            synthesisStep: 'Step 1 (Early)',
+            totalSteps: '2',
+            roleInSynthesis: 'Biguanide core precursor — provides the guanidyl group',
+            ichQ11Class: 'ICH Q11 Starting Material',
+            analyticalMethod: 'GC-FID; HPLC-UV; 1H-NMR',
+            genotoxConcern: 'No genotoxic concern',
+            nitrosamineRisk: 'Not applicable at starting-material stage',
+            capacityMtYr: '1200',
+            utilizationPct: '55',
+          },
+        },
       ],
     },
     {
@@ -151,8 +275,49 @@ async function main() {
         { name: 'WHO PQ', expires: 1.2, via: 'WHO PQ list' },
       ],
       products: [
-        { name: 'Metformin HCl', cas: '1115-70-4', grade: 'IP / USP', purity: '99.5%', moqKg: 100, leadTime: '3–4 weeks', priceMin: 3.8, priceMax: 4.6 },
-        { name: 'Pantoprazole Sodium', cas: '138786-67-1', grade: 'EP', purity: '99.4%', moqKg: 10, leadTime: '4 weeks', priceMin: 180, priceMax: 240 },
+        {
+          name: 'Metformin HCl', cas: '1115-70-4', grade: 'IP / USP', purity: '99.5%', moqKg: 100, leadTime: '3–4 weeks',
+          priceMin: 3.8, priceMax: 4.6, facet: 'antidiabetic', incoterms: 'EXW; FOB; CIF; DDP', stockStatus: 'In Stock',
+          packaging: '25 kg HDPE drum', asmfNumber: 'EU/ASMF/00198',
+          // The worked example from the curation template — enough spec depth to
+          // exercise <SpecTable>'s grouping, units and long-text wrapping.
+          spec: {
+            iupacName: '1,1-Dimethylbiguanide Hydrochloride',
+            molecularWeight: '165.62',
+            atcCode: 'A10BA02',
+            physicalForm: 'Crystalline Powder',
+            appearance: 'White to off-white crystalline powder',
+            solubility: 'Freely soluble in water',
+            chirality: 'Achiral',
+            polymorphForm: 'Monocrystalline Form I',
+            particleSize: 'D50: 45–75 µm',
+            phRange: '6.68 (1% aqueous solution)',
+            lossOnDrying: '≤0.5',
+            heavyMetals: '≤10',
+            residualSolvents: 'ICH Q3C Class II — ethanol and acetonitrile residuals tested',
+            impurityProfile: 'Dimethylguanidine ≤0.05%; no genotoxic impurities',
+            synthesisRoute: 'Condensation of dicyandiamide with dimethylamine sulphate; ICH Q11 step-1 listed',
+            startingMaterial: 'Dicyandiamide (DCDA); Dimethylamine Sulfate',
+            ipStatus: 'Generic (Post-Patent)',
+            patentExpiry: 'Expired 1978',
+            dmfType: 'Type II',
+            capacityMtYr: '2400',
+            utilizationPct: '65',
+            hsCode: '292690',
+            hsnCode: '29279090',
+            gstRate: '12',
+            priceUnit: 'kg',
+            moqUnit: 'kg',
+            expediteLeadDays: '28',
+            coaType: 'Batch CoA per consignment',
+            sdsAvailable: 'yes',
+            tdsAvailable: 'yes',
+            stabilityData: 'ICH Zones I–IV; 24 months primary, 36 months ongoing',
+          },
+        },
+        { name: 'Pantoprazole Sodium', cas: '138786-67-1', grade: 'EP', purity: '99.4%', moqKg: 10, leadTime: '4 weeks', priceMin: 180, priceMax: 240, facet: 'gastrointestinal', incoterms: 'FOB; CIP', coldChain: 'Refrigerated 2-8 C', stockStatus: 'Made to Order', packaging: '5 kg alu-alu pack' },
+        // An intermediate — the fifth of the seven segments.
+        { name: 'Pantoprazole Sulphide', cas: '102625-64-9', category: 'Intermediate', grade: 'In-house', purity: '≥98.5%', moqKg: 50, leadTime: '5 weeks', priceMin: 95, priceMax: 120, incoterms: 'FOB', stockStatus: 'Made to Order' },
       ],
     },
     {
@@ -172,8 +337,42 @@ async function main() {
         { name: 'CDSCO', expires: 1.6, via: 'CDSCO portal' },
       ],
       products: [
-        { name: 'Atorvastatin Calcium', cas: '134523-03-8', grade: 'USP / EP', purity: '99.2%', moqKg: 5, leadTime: '4–5 weeks', priceMin: 310, priceMax: 420 },
-        { name: 'Microcrystalline Cellulose', cas: '9004-34-6', category: 'Excipient', grade: 'NF / EP', moqKg: 500, leadTime: '2 weeks', priceMin: 2.1, priceMax: 2.8 },
+        { name: 'Atorvastatin Calcium', cas: '134523-03-8', grade: 'USP / EP', purity: '99.2%', moqKg: 5, leadTime: '4–5 weeks', priceMin: 310, priceMax: 420, facet: 'cardiovascular', incoterms: 'FOB; CIF; CPT', stockStatus: 'Made to Order', packaging: '5 kg alu drum' },
+        {
+          name: 'Microcrystalline Cellulose', cas: '9004-34-6', category: 'Excipient', grade: 'NF / EP',
+          purity: '≥97.0% (dried basis)', moqKg: 500, leadTime: '2 weeks', priceMin: 2.1, priceMax: 2.8,
+          facet: 'filler', incoterms: 'EXW; FOB; CIF; DAP', stockStatus: 'In Stock',
+          packaging: '25 kg PE bag; 500 kg octabin',
+          // Exercises the dietary-compliance tri-states, including one that is
+          // deliberately "no" and one deliberately left unstated.
+          spec: {
+            functionInFormulation: 'Diluent / Filler',
+            compendialGrade: 'USP-NF',
+            pharmacopoeiaRef: 'USP 43-NF 38',
+            monographName: 'Microcrystalline Cellulose',
+            functionalGrade: 'Direct Compression Grade',
+            origin: 'Plant-derived',
+            nonGmo: 'yes',
+            bseTseFree: 'yes',
+            halal: 'yes',
+            kosher: 'yes',
+            organicCertified: 'no',
+            veganStatus: 'Vegan-compatible',
+            allergenDeclaration: 'None (non-allergenic)',
+            vendorQualStatus: 'Qualified (Fully)',
+            bulkDensity: '0.28–0.33',
+            moistureContent: '≤5.0',
+            microbialLimits: 'TAMC ≤1000 CFU/g; TYMC ≤100 CFU/g',
+            colourAppearance: 'White to off-white powder; odourless',
+            grasStatus: 'GRAS Notice GRN 000xxx',
+            cfr21Listed: '21 CFR 182.70',
+            inciName: 'Cellulose',
+            hsCode: '391200',
+            hsnCode: '39129000',
+          },
+        },
+        // A pharma raw material — solvent grade, consumed in manufacture.
+        { name: 'Acetone (Pharma Grade)', cas: '67-64-1', category: 'Raw Material', grade: 'USP / Ph.Eur', purity: '≥99.5%', moqKg: 2000, leadTime: '1 week', priceMin: 1.1, priceMax: 1.4, incoterms: 'EXW; FCA; FOB', stockStatus: 'In Stock', packaging: '200 L MS drum' },
       ],
     },
     {
@@ -196,8 +395,36 @@ async function main() {
         { name: 'WHO PQ', expires: 1.8, via: 'WHO PQ list' },
       ],
       products: [
-        { name: 'Paracetamol (Acetaminophen)', cas: '103-90-2', grade: 'USP / EP', purity: '99.6%', moqKg: 50, leadTime: '3 weeks', priceMin: 3.9, priceMax: 4.8 },
-        { name: 'Losartan Potassium', cas: '124750-99-8', grade: 'USP', purity: '99.3%', moqKg: 25, leadTime: '4 weeks', priceMin: 95, priceMax: 130 },
+        { name: 'Paracetamol (Acetaminophen)', cas: '103-90-2', grade: 'USP / EP', purity: '99.6%', moqKg: 50, leadTime: '3 weeks', priceMin: 3.9, priceMax: 4.8, facet: 'anti-inflammatory', incoterms: 'FOB; CIF; DPU', stockStatus: 'In Stock', packaging: '25 kg HDPE drum' },
+        { name: 'Losartan Potassium', cas: '124750-99-8', grade: 'USP', purity: '99.3%', moqKg: 25, leadTime: '4 weeks', priceMin: 95, priceMax: 130, facet: 'cardiovascular', incoterms: 'FOB; CIF', stockStatus: 'Made to Order', packaging: '10 kg alu drum' },
+        // A high-potency specialty API — the segment that carries containment
+        // and handling requirements rather than a therapeutic facet.
+        { name: 'Docetaxel Trihydrate (HPAPI)', cas: '148408-66-6', category: 'Specialty', grade: 'USP', purity: '≥99.0%', moqKg: 1, leadTime: '8 weeks', priceMin: 8500, priceMax: 11000, incoterms: 'CIP; DDP', coldChain: 'Refrigerated 2-8 C', stockStatus: 'Made to Order', packaging: '100 g amber glass, secondary containment' },
+        // A finished dose form. Prices are deliberately left unset: an FDF is
+        // sold per unit, and `priceMin`/`priceMax` are USD-per-kg columns. A
+        // $0.04 tablet written into a per-kg column wins every "price, low to
+        // high" sort forever. The per-unit price gets a home in a later phase.
+        {
+          name: 'Paracetamol Tablets IP 500 mg', cas: '103-90-2', category: 'FDF', grade: 'IP', moqKg: 500,
+          leadTime: '6 weeks', facet: 'tablet', incoterms: 'FOB; CIF; DDP', stockStatus: 'Made to Order',
+          packaging: '10 × 10 blister, 500 packs per carton',
+          spec: {
+            innName: 'Paracetamol',
+            fdcCombination: 'Paracetamol 500 mg (single API)',
+            strength: '500 mg',
+            routeOfAdmin: 'Oral',
+            referenceProduct: 'Panadol (Haleon)',
+            packSize: '10 tablets per blister; 10 blisters per box',
+            containerClosure: 'PVC/PVDC blister; HDPE bottle with child-resistant cap',
+            keyExcipients: 'Microcrystalline Cellulose; Povidone K30; Magnesium Stearate; Croscarmellose Na',
+            bioequivalence: 'Conducted (crossover, 24 subjects)',
+            sterileManufacture: 'no',
+            // Per unit, not per kg. `priceMin`/`priceMax` stay null above for
+            // exactly this reason — see the note on Product.priceUnit.
+            priceUnit: 'unit',
+            moqUnit: 'unit',
+          },
+        },
       ],
     },
   ];
@@ -264,22 +491,7 @@ async function main() {
             },
           ],
         },
-        products: {
-          create: s.products.map((p) => ({
-            name: p.name,
-            cas: p.cas,
-            category: (p as { category?: string }).category ?? 'API',
-            grade: p.grade,
-            purity: (p as { purity?: string }).purity ?? null,
-            moqKg: p.moqKg,
-            leadTime: p.leadTime,
-            priceMin: p.priceMin,
-            priceMax: p.priceMax,
-            shelfLife: '36 months',
-            storage: '15–25°C, dry',
-            status: 'live',
-          })),
-        },
+        products: { create: s.products.map((p) => seedProduct(p)) },
       },
     });
 
@@ -340,7 +552,20 @@ async function main() {
       },
       products: {
         create: [
-          { name: 'Amoxicillin Trihydrate', cas: '61336-70-7', category: 'API', grade: 'IP / BP', purity: '99.0%', moqKg: 50, leadTime: '3 weeks', priceMin: 28, priceMax: 34, status: 'draft' },
+          seedProduct({
+            name: 'Amoxicillin Trihydrate',
+            cas: '61336-70-7',
+            grade: 'IP / BP',
+            purity: '99.0%',
+            moqKg: 50,
+            leadTime: '3 weeks',
+            priceMin: 28,
+            priceMax: 34,
+            facet: 'anti-infective',
+            incoterms: 'FOB; CIF',
+            stockStatus: 'Made to Order',
+            status: 'draft',
+          }),
         ],
       },
     },
@@ -570,17 +795,21 @@ async function main() {
   await prisma.product.create({
     data: {
       orgId: sunOrg!.id,
-      name: 'Tramadol HCl',
-      cas: '27203-92-5',
-      category: 'API',
-      grade: 'IP / BP',
-      purity: '99.1%',
-      moqKg: 5,
-      leadTime: '4 weeks',
-      priceMin: 42,
-      priceMax: 55,
+      ...seedProduct({
+        name: 'Tramadol HCl',
+        cas: '27203-92-5',
+        grade: 'IP / BP',
+        purity: '99.1%',
+        moqKg: 5,
+        leadTime: '4 weeks',
+        priceMin: 42,
+        priceMax: 55,
+        facet: 'cns',
+        incoterms: 'FOB; CIF',
+        stockStatus: 'Made to Order',
+        status: 'draft',
+      }),
       controlledSchedule: 'NDPS / DEA IV',
-      status: 'draft',
       certifications: { create: [{ name: 'US FDA GMP' }, { name: 'CDSCO' }] },
     },
   });
@@ -788,6 +1017,197 @@ async function main() {
   await prisma.document.create({
     data: { orgId: sun!.id, kind: 'gmp_cert', filename: 'FDA_GMP_Sun_Halol_2027.pdf', mimeType: 'application/pdf', sizeBytes: 284102, sha256: DEMO_DOC_HASH, status: 'verified' },
   });
+
+  // ------------------------------------------------- Curated supplier detail
+  // Facilities, regulatory filings and contacts -- the data the v3 curation
+  // template adds. Kept small deliberately: e2e runs `workers: 1` against one
+  // SQLite file, so every seeded row is paid for by all thirty-odd specs.
+  {
+    const sunSites = await prisma.site.findMany({ where: { orgId: sun!.id }, select: { id: true } });
+    if (sunSites[0]) {
+      await prisma.site.update({
+        where: { id: sunSites[0].id },
+        data: {
+          externalId: 'FAC-IND-3002807546',
+          fdaGmpStatus: 'Current (Active)',
+          euGmpStatus: 'Current (Active)',
+          whoGmpStatus: 'Listed (Active)',
+          lastFdaInspectionAt: daysFromNow(-330),
+          fdaInspectionOutcome: 'NAI (No Action Indicated)',
+          lastEuInspectionAt: daysFromNow(-420),
+          euInspectionOutcome: 'Satisfactory',
+          form483Count: 0,
+          capacityValue: 2400,
+          capacityUnit: 'MT/year',
+          utilizationPct: 65,
+          manufacturingType: 'API Manufacturing',
+          containmentLevel: 'Standard Containment (open API)',
+          sterile: false,
+          coldChainCapability: 'Ambient (15-25C) only',
+          productionLines: 8,
+          qcLabs: 3,
+          yearEstablished: 1998,
+          employees: 2200,
+          sourceUrl: 'https://www.accessdata.fda.gov/scripts/cder/daf/',
+          dataSourceName: 'FDA FEI Search',
+          lastVerifiedAt: daysFromNow(-20),
+        },
+      });
+    }
+    // A second site carrying VAI, so both badge variants render. An inspection
+    // outcome that is never anything but clean teaches an operator nothing.
+    await prisma.site.create({
+      data: {
+        orgId: sun!.id,
+        name: 'Ankleshwar API Facility (Unit II)',
+        location: 'Ankleshwar, Gujarat, India',
+        city: 'Ankleshwar',
+        state: 'Gujarat',
+        country: 'India',
+        siteType: 'manufacturing',
+        regulatoryId: '3002808041',
+        externalId: 'FAC-IND-3002808041',
+        fdaGmpStatus: 'Current (Active)',
+        lastFdaInspectionAt: daysFromNow(-160),
+        fdaInspectionOutcome: 'VAI (Voluntary Action Indicated)',
+        form483Count: 3,
+        capacityValue: 900,
+        capacityUnit: 'MT/year',
+        utilizationPct: 48,
+        manufacturingType: 'API Manufacturing',
+        dataSourceName: 'FDA FEI Search',
+        lastVerifiedAt: daysFromNow(-20),
+      },
+    });
+
+    // Curation provenance on the two suppliers that carry curated detail, so
+    // the data-quality page has all three freshness buckets to show rather than
+    // nine identical "never verified" rows. The dates are the ones that make
+    // the buckets differ: Sun inside 90 days, Huahai past the template's
+    // six-month "outdated" line, everyone else genuinely never checked.
+    await prisma.organization.update({
+      where: { id: sun!.id },
+      data: { sourceUrl: 'https://sunpharma.com/api', dataSourceName: 'Company website', curatedBy: 'seed', lastVerifiedAt: daysFromNow(-20) },
+    });
+    await prisma.organization.update({
+      where: { id: huahai!.id },
+      data: { sourceUrl: 'https://www.huahaipharm.com', dataSourceName: 'Company website', curatedBy: 'seed', lastVerifiedAt: daysFromNow(-210) },
+    });
+
+    // Three filings covering the three expiry shapes the compliance register
+    // has to tell apart: none at all, imminent, and already gone.
+    await prisma.regulatoryFiling.createMany({
+      data: [
+        {
+          orgId: sun!.id,
+          externalId: 'RF-2026-0001',
+          filingType: 'US FDA Type II DMF',
+          filingNumber: 'Type II DMF #23412',
+          authority: 'US FDA CDER',
+          country: 'United States',
+          status: 'active',
+          cas: '103-90-2',
+          productName: 'Paracetamol (Acetaminophen)',
+          filedAt: daysFromNow(-4200),
+          approvedAt: daysFromNow(-4100),
+          // A DMF genuinely has no expiry. This row is what proves the register
+          // reports "unknown" rather than quietly reporting "ok".
+          expiresAt: null,
+          holderName: 'Sun Pharma API Division',
+          openToReference: true,
+          referencingCount: 48,
+          annualFeeUsd: 4867,
+          sitesCovered: '3002807546,3002808041',
+          sourceUrl: 'https://www.accessdata.fda.gov/scripts/cder/daf/',
+          dataSourceName: 'FDA CDER DMF list',
+          lastVerifiedAt: daysFromNow(-20),
+        },
+        {
+          orgId: sun!.id,
+          externalId: 'RF-2026-0002',
+          filingType: 'CEP (EDQM)',
+          filingNumber: 'CEP 2019-021-3-0',
+          authority: 'EDQM',
+          country: 'European Union',
+          status: 'active',
+          cas: '103-90-2',
+          productName: 'Paracetamol (Acetaminophen)',
+          approvedAt: daysFromNow(-1800),
+          // Twenty days out: lands in the `warning` bucket in compliance.ts.
+          expiresAt: daysFromNow(20),
+          holderName: 'Sun Pharma API Division',
+          openToReference: true,
+          sitesCovered: '3002807546',
+          dataSourceName: 'EDQM CEP database',
+          lastVerifiedAt: daysFromNow(-20),
+        },
+        {
+          orgId: sun!.id,
+          externalId: 'RF-2026-0003',
+          filingType: 'US FDA ANDA',
+          filingNumber: 'ANDA 200123',
+          authority: 'US FDA CDER',
+          country: 'United States',
+          status: 'expired',
+          cas: '15687-27-1',
+          productName: 'Ibuprofen',
+          approvedAt: daysFromNow(-2600),
+          expiresAt: daysFromNow(-90),
+          holderName: 'Sun Pharma API Division',
+          openToReference: false,
+          dataSourceName: 'FDA Orange Book',
+          lastVerifiedAt: daysFromNow(-40),
+        },
+      ],
+    });
+
+    // Contacts on BOTH Sun and Huahai, which is what makes the gate testable:
+    // Cipla's seeded deal (DEAL-2001) was awarded to Huahai and Sun's quote
+    // stays 'submitted', so the same buyer sees the `full` tier on Huahai and
+    // the `email` tier on Sun.
+    await prisma.contact.createMany({
+      data: [
+        {
+          orgId: sun!.id, externalId: 'CON-IND-0001', salutation: 'Mr.', firstName: 'Suresh', lastName: 'Kumar',
+          jobTitle: 'Vice President - International API Exports', department: 'Global API Business',
+          seniority: 'vp', primaryRole: 'export_sales',
+          businessEmail: 'suresh.exports@sunpharma.test', mobile: '+91-98765-43210', officePhone: '+91-22-6645-5645',
+          linkedinUrl: 'https://linkedin.com/in/example-suresh', city: 'Mumbai', country: 'India',
+          territories: 'USA,EU27,UK,Canada,Japan', languages: 'English,Hindi,Gujarati',
+          responseHours: 4, bestContactTime: '08:00-18:00 IST',
+          dataSourceName: 'Supplier confirmation', lastVerifiedAt: daysFromNow(-25),
+        },
+        {
+          orgId: sun!.id, externalId: 'CON-IND-0002', salutation: 'Dr.', firstName: 'Meera', lastName: 'Iyer',
+          jobTitle: 'Head of Regulatory Affairs', department: 'Regulatory',
+          seniority: 'director', primaryRole: 'regulatory',
+          businessEmail: 'meera.ra@sunpharma.test', officePhone: '+91-22-6645-5700',
+          linkedinUrl: 'https://linkedin.com/in/example-meera', city: 'Mumbai', country: 'India',
+          territories: 'USA,EU27', languages: 'English,Hindi', responseHours: 24,
+          dataSourceName: 'Supplier confirmation', lastVerifiedAt: daysFromNow(-25),
+        },
+        {
+          orgId: huahai!.id, externalId: 'CON-CHN-0001', salutation: 'Ms.', firstName: 'Li', lastName: 'Wei',
+          jobTitle: 'Director - International Sales', department: 'Export',
+          seniority: 'director', primaryRole: 'export_sales',
+          businessEmail: 'liwei.export@huahai.test', mobile: '+86-138-0000-0000', officePhone: '+86-576-8888-0000',
+          linkedinUrl: 'https://linkedin.com/in/example-liwei', city: 'Taizhou', country: 'China',
+          territories: 'EU27,WHO,LATAM', languages: 'Mandarin,English',
+          responseHours: 8, bestContactTime: '09:00-18:00 CST',
+          dataSourceName: 'Supplier confirmation', lastVerifiedAt: daysFromNow(-15),
+        },
+        {
+          orgId: huahai!.id, externalId: 'CON-CHN-0002', firstName: 'Zhang', lastName: 'Hua',
+          jobTitle: 'QA Manager', department: 'Quality Assurance',
+          seniority: 'manager', primaryRole: 'quality',
+          businessEmail: 'zhang.qa@huahai.test', officePhone: '+86-576-8888-0100',
+          linkedinUrl: 'https://linkedin.com/in/example-zhang', city: 'Taizhou', country: 'China',
+          languages: 'Mandarin', responseHours: 48,
+          dataSourceName: 'Supplier confirmation', lastVerifiedAt: daysFromNow(-15),
+        },
+      ],
+    });
+  }
 
   // ---------------------------------------------------------------- News hub
   // Real-sounding regulatory/market posts so the homepage feed and /news are

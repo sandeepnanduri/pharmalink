@@ -28,7 +28,9 @@ test.describe('crawl directives', () => {
   test('manifest is served for PWA/icon metadata', async ({ request }) => {
     const m = await (await request.get('/manifest.webmanifest')).json();
     expect(m.name).toContain('PharmaLink');
-    expect(m.theme_color).toBe('#4F46E5');
+    // Ink, matching the shell rail and the marketing hero. This pinned the
+    // pre-redesign indigo, which the palette retired.
+    expect(m.theme_color).toBe('#06121F');
     expect(m.icons.length).toBeGreaterThan(0);
   });
 });

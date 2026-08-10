@@ -53,13 +53,37 @@ function runQuery(where: Prisma.ProductWhereInput, orderBy: Prisma.ProductOrderB
 const SORT_MAP: Record<string, Prisma.ProductOrderByWithRelationInput[]> = {
   relevance: [{ createdAt: 'desc' }],
   newest: [{ createdAt: 'desc' }],
+  // Price ordering is only meaningful across one denomination — see the
+  // `priceUnit` guard in `searchCatalog`.
   price_low: [{ priceMin: 'asc' }],
   price_high: [{ priceMin: 'desc' }],
   moq_low: [{ moqKg: 'asc' }],
-  // Lead time is free text on the listing, so it cannot be ordered in SQL
-  // without a numeric column. Falls back to newest rather than pretending.
-  lead_time: [{ createdAt: 'desc' }],
+  // Handled by `runOrdered` — see the note there on why this one sort cannot be
+  // expressed as a single orderBy on SQLite.
+  lead_time: [{ leadTimeDays: 'asc' }],
 };
+
+/**
+ * Runs the catalogue query in the requested order.
+ *
+ * Every sort is a plain `orderBy` except lead time. `leadTimeDays` is nullable,
+ * SQLite sorts NULLs **first** in ascending order, and Prisma's `nulls: 'last'`
+ * option is PostgreSQL/SQL Server only — on SQLite it is accepted by the types,
+ * accepted at runtime, and silently ignored. That would put every listing which
+ * has not stated a lead time at the top of "shortest lead time", which is the
+ * opposite of the truth: an unknown lead time is not a short one.
+ *
+ * Two passes rather than one, so the behaviour is the same on SQLite today and
+ * on the Postgres target later.
+ */
+async function runOrdered(where: Prisma.ProductWhereInput, sort: string, take: number) {
+  if (sort !== 'lead_time') return runQuery(where, SORT_MAP[sort] ?? SORT_MAP.relevance, take);
+
+  const stated = await runQuery({ ...where, leadTimeDays: { not: null } }, [{ leadTimeDays: 'asc' }], take);
+  if (stated.length >= take) return stated;
+  const unstated = await runQuery({ ...where, leadTimeDays: null }, [{ createdAt: 'desc' }], take - stated.length);
+  return [...stated, ...unstated];
+}
 
 export async function searchCatalog(f: ParsedFilters, take = 60): Promise<CatalogResult> {
   // Free text: try the taxonomy first so "bulk drug" and "softgel" narrow the
@@ -100,9 +124,23 @@ export async function searchCatalog(f: ParsedFilters, take = 60): Promise<Catalo
     ...(facetFilter.length ? { facet: { in: facetFilter } } : {}),
     ...(f.pharmacopoeia.length ? { OR: f.pharmacopoeia.map((g) => ({ grade: { contains: g } })) } : {}),
     ...(f.purityMin != null ? { purityPct: { gte: f.purityMin } } : {}),
+    // Price is a USD/kg range, and the filter rail says so. A finished dose
+    // form priced per unit ($0.042 a tablet) is not cheap, it is denominated
+    // differently — including it would put it at the top of every "price, low
+    // to high" result and inside every price band a buyer sets. Both the range
+    // filter and the price sorts are therefore restricted to per-kg listings.
+    ...(f.priceMin != null || f.priceMax != null || f.sort === 'price_low' || f.sort === 'price_high'
+      ? { priceUnit: 'kg' }
+      : {}),
     ...(f.priceMin != null ? { priceMin: { gte: f.priceMin } } : {}),
     ...(f.priceMax != null ? { priceMin: { lte: f.priceMax } } : {}),
     ...(f.moqMax != null ? { moqKg: { lte: f.moqMax } } : {}),
+    // `leadTimeMax` has been parsed from the URL since the filter rail was
+    // built, but there was no numeric column to compare it against, so the
+    // section rendered and did nothing. A listing with no stated lead time is
+    // excluded when the buyer sets a maximum: we cannot claim it meets a
+    // deadline we do not know.
+    ...(f.leadTimeMax != null ? { leadTimeDays: { lte: f.leadTimeMax } } : {}),
     ...(f.sampleAvailable ? { sampleAvailable: true } : {}),
     ...(f.coldChain.length ? { coldChain: { in: f.coldChain } } : {}),
     ...(f.incoterm.length ? { OR: f.incoterm.map((i) => ({ incoterms: { contains: i } })) } : {}),
@@ -112,10 +150,7 @@ export async function searchCatalog(f: ParsedFilters, take = 60): Promise<Catalo
     ...(f.q && !interpretedAs ? { OR: [{ name: { contains: f.q } }, { cas: { contains: f.q } }] } : {}),
   };
 
-  const [products, total] = await Promise.all([
-    runQuery(where, SORT_MAP[f.sort] ?? SORT_MAP.relevance, take),
-    prisma.product.count({ where }),
-  ]);
+  const [products, total] = await Promise.all([runOrdered(where, f.sort, take), prisma.product.count({ where })]);
 
   // Facet counts computed over the CURRENT result set, so a buyer can see what
   // each remaining option would yield rather than guessing.

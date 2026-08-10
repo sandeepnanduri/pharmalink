@@ -1,0 +1,85 @@
+# Checks that run on every push and every pull request.
+#
+# The split between blocking and non-blocking here is deliberate and worth
+# stating, because a gate that cries wolf gets ignored and then removed.
+#
+#   verify  — lint, typecheck and 739 unit tests. Deterministic. Blocking.
+#   e2e     — 205 Playwright specs. Currently ~5 fail per run, and *which* five
+#             changes between runs: the suite runs with `workers: 1` against one
+#             shared SQLite fixture, and specs mutate rows other specs assert
+#             on. Running the same failures together makes them pass. Until that
+#             fixture is per-spec, blocking merges on it would block every merge
+#             for reasons unrelated to the change under review.
+#
+# So e2e reports but does not block, and its report is uploaded so a regression
+# is still visible. When the fixture is fixed, delete `continue-on-error` here
+# and add e2e to the deploy gate in deploy-oci.yml.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: web
+
+jobs:
+  verify:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      # Prisma's generated client is imported by type-checked code, so it has to
+      # exist before tsc runs.
+      - run: npx prisma generate
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  e2e:
+    name: End-to-end (reports, does not block)
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx playwright install --with-deps chromium
+
+      # playwright.config.ts owns the whole web server lifecycle: it clears
+      # .next, pushes the schema, seeds its own test.db, builds and starts. It
+      # never touches a developer's dev.db.
+      - run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7

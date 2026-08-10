@@ -165,6 +165,19 @@ export function resolveSegment(term: string): ProductSegment | null {
   return candidates[0]?.s ?? null;
 }
 
+/**
+ * The human label for a `(productType, facet)` pair, or null.
+ *
+ * Null covers three cases that all render the same way: the segment has no
+ * facet (KSM, intermediate, raw material, specialty), the listing has not stated
+ * one, or the stored value does not belong to this segment. Callers show
+ * nothing rather than a raw id.
+ */
+export function facetLabel(type: string, facet: string | null | undefined): string | null {
+  if (!facet) return null;
+  return segment(type)?.facet?.options.find((o) => o.id === facet)?.label ?? null;
+}
+
 /** Flattens every node so search can match a facet as well as a segment. */
 export function allFacetOptions(): { segment: ProductType; key: string; node: TaxonomyNode }[] {
   return SEGMENTS.flatMap((s) => (s.facet ? s.facet.options.map((node) => ({ segment: s.type, key: s.facet!.key, node })) : []));

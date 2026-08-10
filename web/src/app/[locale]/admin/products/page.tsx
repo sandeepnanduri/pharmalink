@@ -6,6 +6,7 @@ import { can, opsLanding } from '@/lib/rbac';
 import { moderateProductAction } from '@/lib/actions';
 import { StatusBadge } from '@/components/status-badge';
 import { StatCard } from '@/components/stat-card';
+import { ActionSubmit } from '@/components/action-submit';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,13 +92,21 @@ export default async function ProductModerationPage({ params }: { params: Promis
                         className="input !w-36 !py-1.5 text-xs"
                         data-testid={`reason-${p.id}`}
                       />
-                      <button
-                        type="submit"
-                        className="whitespace-nowrap text-xs font-semibold text-brand hover:underline"
-                        data-testid={`moderate-${p.id}`}
-                      >
-                        {p.status === 'live' ? t('hold') : t('publish')}
-                      </button>
+                      {/* A client submit, so the row actually re-renders once
+                          the action resolves — see ActionSubmit and
+                          HARDENING-PLAN.md 1.8. Holding a listing is
+                          destructive to a supplier's visibility, so it is
+                          confirmed; publishing is not. */}
+                      <ActionSubmit
+                        label={p.status === 'live' ? t('hold') : t('publish')}
+                        className={
+                          p.status === 'live'
+                            ? 'whitespace-nowrap rounded-control border border-danger/40 px-2.5 py-1 text-xs font-semibold text-danger transition hover:bg-danger-pale disabled:opacity-50'
+                            : 'whitespace-nowrap text-xs font-semibold text-brand hover:underline disabled:opacity-50'
+                        }
+                        testId={`moderate-${p.id}`}
+                        confirm={p.status === 'live' ? t('confirmHold', { name: p.name }) : undefined}
+                      />
                     </form>
                   )}
                 </td>

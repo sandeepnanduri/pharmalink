@@ -1,15 +1,65 @@
 import { prisma } from '@/lib/db';
 import { certExpiryLevel, needsAttention, summarize } from '@/lib/compliance';
 
-/** A seller org's own certifications, classified by expiry (for renewal alerts). */
+/**
+ * A seller org's own credentials, classified by expiry (for renewal alerts).
+ *
+ * Certificates and regulatory filings are different things — one is a
+ * credential the supplier holds, the other a submission someone else references
+ * — but they expire the same way and a supplier renewing them wants one list,
+ * not two. `certExpiryLevel` and `summarize` are pure and already take
+ * `{ expiresAt }[]`, so merging is nearly free.
+ *
+ * A filing with no expiry (a DMF has none) buckets as `unknown`, never `ok`.
+ */
 export async function getSellerCompliance(orgId: string) {
-  const certs = await prisma.certification.findMany({
-    where: { orgId },
-    orderBy: [{ expiresAt: 'asc' }],
-    include: { site: { select: { name: true } } },
-  });
-  const rows = certs.map((c) => ({ ...c, level: certExpiryLevel(c.expiresAt) }));
-  return { rows, summary: summarize(certs), alerts: rows.filter((r) => needsAttention(r.level)) };
+  const [certs, filings] = await Promise.all([
+    prisma.certification.findMany({
+      where: { orgId },
+      orderBy: [{ expiresAt: 'asc' }],
+      include: { site: { select: { name: true } } },
+    }),
+    prisma.regulatoryFiling.findMany({
+      where: { orgId, status: { not: 'withdrawn' } },
+      orderBy: [{ expiresAt: 'asc' }],
+    }),
+  ]);
+
+  const certRows = certs.map((c) => ({
+    id: c.id,
+    kind: 'certification' as const,
+    name: c.name,
+    reference: c.number,
+    authority: c.issuingAuthority ?? c.verifiedVia,
+    siteName: c.site?.name ?? null,
+    status: c.status,
+    expiresAt: c.expiresAt,
+    level: certExpiryLevel(c.expiresAt),
+  }));
+
+  const filingRows = filings.map((f) => ({
+    id: f.id,
+    kind: 'filing' as const,
+    name: f.filingType,
+    reference: f.filingNumber,
+    authority: f.authority,
+    siteName: null,
+    status: f.status,
+    expiresAt: f.expiresAt,
+    level: certExpiryLevel(f.expiresAt),
+  }));
+
+  // Soonest first, with the no-expiry rows last: they need attention least and
+  // would otherwise sort to the top as nulls.
+  const rows = [...certRows, ...filingRows].sort(
+    (a, b) => (a.expiresAt?.getTime() ?? Infinity) - (b.expiresAt?.getTime() ?? Infinity),
+  );
+
+  return {
+    rows,
+    summary: summarize(rows),
+    alerts: rows.filter((r) => needsAttention(r.level)),
+  };
 }
 
 /**

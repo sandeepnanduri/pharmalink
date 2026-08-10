@@ -3,6 +3,7 @@ import { forecast, monthKey, type ForecastResult, type RawObservation } from '@/
 import { analyseDrivers, type DriverInsight, type DriverSeries } from '@/lib/drivers';
 import { supplyRisk, type RiskEvent, type SupplyRisk } from '@/lib/supply-risk';
 import { hsForCas } from '@/lib/market-data';
+import { compareSuppliers, partitionObservations, summariseEvidence, type Evidence, type SupplierComparison } from '@/lib/price-evidence';
 
 /**
  * Assembles the prediction engine's inputs from the database.
@@ -33,6 +34,14 @@ export interface MoleculeIntelligence {
   suppliers: { name: string; share: number }[];
   /** The HS heading customs data was read from, and how specific it is. */
   hs: { code: string; description: string; specificity: string } | null;
+  /**
+   * What the forecast rests on. Two molecules can show the same p50 when one
+   * rests on eleven escrow-confirmed transactions and the other on a single
+   * catalogue list price, and the page should be able to say which.
+   */
+  evidence: Evidence;
+  /** Named suppliers' latest prices against the market median. */
+  supplierPrices: SupplierComparison[];
 }
 
 /** Monthly driver series (FX etc.) shaped for the correlation module. */
@@ -102,13 +111,30 @@ export async function getMoleculeIntelligence(cas: string, horizon = 3): Promise
   ]);
   if (observations.length === 0) return null;
 
-  const raw: RawObservation[] = observations.map((o) => ({
+  const evidence = summariseEvidence(observations);
+  // A curator flagged these; the forecast must not use them, and the page says
+  // so rather than dropping them silently.
+  const { used } = partitionObservations(observations);
+
+  const raw: RawObservation[] = used.map((o) => ({
     observedAt: o.observedAt,
     unitPriceUsdKg: o.unitPriceUsdKg,
     quantityKg: o.quantityKg,
+    // `weight` is authoritative and was derived from the confidence label once,
+    // at write time. Re-deriving it here would be a second place for the two to
+    // disagree.
     weight: o.weight,
   }));
   const result = forecast(raw, { horizon });
+
+  const supplierNames = new Map(
+    (
+      await prisma.organization.findMany({
+        where: { id: { in: [...new Set(used.map((o) => o.supplierOrgId).filter((v): v is string => !!v))] } },
+        select: { id: true, name: true },
+      })
+    ).map((o) => [o.id, o.name]),
+  );
 
   const riskEvents: RiskEvent[] = events.map((e) => ({
     eventType: e.eventType as RiskEvent['eventType'],
@@ -126,7 +152,9 @@ export async function getMoleculeIntelligence(cas: string, horizon = 3): Promise
     // useless — it would look like an explanation.
     drivers: result.status === 'ok' ? analyseDrivers(result.history, drivers) : [],
     risk: supplyRisk({ suppliers, events: riskEvents, volatilityPct: result.volatilityPct, asOf: new Date() }),
-    provenance: toProvenance(observations),
+    provenance: toProvenance(used),
+    evidence,
+    supplierPrices: compareSuppliers(observations, supplierNames),
     events: events.map((e) => ({
       subject: e.subject,
       company: e.company,

@@ -17,6 +17,7 @@
  */
 
 import { DOSE_FORMS, EXCIPIENT_FUNCTIONS, SEGMENTS, THERAPEUTIC_AREAS } from './taxonomy';
+import { INCOTERMS as INCOTERM_CODES } from './vocab';
 
 export type Backing = 'verified' | 'declared' | 'derived';
 export type FilterKind = 'multi' | 'single' | 'range' | 'toggle';
@@ -69,7 +70,15 @@ export const FILINGS: FilterOption[] = [
 
 export const PHARMACOPOEIA: FilterOption[] = ['USP', 'BP', 'Ph.Eur', 'IP', 'JP'].map((p) => opt(p, p));
 
-export const INCOTERMS: FilterOption[] = ['EXW', 'FCA', 'FOB', 'CIF', 'CFR', 'DAP', 'DDP'].map((i) => opt(i, i));
+/**
+ * All ten Incoterms 2020 rules, from the single vocabulary in `vocab.ts`.
+ *
+ * This list previously held seven. CPT, CIP and DPU are legal values a curated
+ * supplier record can carry, so a listing offering them could be stored but
+ * never filtered for — the rail silently under-reported who could ship on those
+ * terms.
+ */
+export const INCOTERMS: FilterOption[] = INCOTERM_CODES.map((i) => opt(i, i));
 
 export const COLD_CHAIN: FilterOption[] = [
   opt('ambient', 'Ambient (15–25 °C)'),
