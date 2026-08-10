@@ -74,6 +74,7 @@ function staffGroups(ctx: NavContext): NavGroup[] {
         { href: '/admin/news', labelKey: 'news', icon: 'book' },
         { href: '/admin/market-data', labelKey: 'marketData', icon: 'chart' },
         { href: '/admin/imports', labelKey: 'dataImport', icon: 'upload' },
+        { href: '/admin/data-quality', labelKey: 'dataQuality', icon: 'chart' },
       ]),
     },
     {

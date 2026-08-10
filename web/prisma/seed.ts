@@ -1080,6 +1080,20 @@ async function main() {
       },
     });
 
+    // Curation provenance on the two suppliers that carry curated detail, so
+    // the data-quality page has all three freshness buckets to show rather than
+    // nine identical "never verified" rows. The dates are the ones that make
+    // the buckets differ: Sun inside 90 days, Huahai past the template's
+    // six-month "outdated" line, everyone else genuinely never checked.
+    await prisma.organization.update({
+      where: { id: sun!.id },
+      data: { sourceUrl: 'https://sunpharma.com/api', dataSourceName: 'Company website', curatedBy: 'seed', lastVerifiedAt: daysFromNow(-20) },
+    });
+    await prisma.organization.update({
+      where: { id: huahai!.id },
+      data: { sourceUrl: 'https://www.huahaipharm.com', dataSourceName: 'Company website', curatedBy: 'seed', lastVerifiedAt: daysFromNow(-210) },
+    });
+
     // Three filings covering the three expiry shapes the compliance register
     // has to tell apart: none at all, imminent, and already gone.
     await prisma.regulatoryFiling.createMany({
