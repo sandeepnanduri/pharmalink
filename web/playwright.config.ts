@@ -26,7 +26,12 @@ export default defineConfig({
     command: `node -e "require('fs').rmSync('.next',{recursive:true,force:true})" && npx prisma db push --skip-generate && npm run db:seed && npx next build && npx next start -p ${PORT}`,
     url: `http://localhost:${PORT}/en`,
     reuseExistingServer: false,
-    timeout: 300_000,
+    // Clean build alone is ~2m35s on a developer laptop, and the command also
+    // does a schema push, a full reseed and a cold start. At 300s the margin
+    // was thin enough that a slow machine failed here — and a blown budget
+    // surfaces as a webServer timeout, which reads as an unrelated flake rather
+    // than "the build got slower".
+    timeout: 600_000,
     // Tests get their OWN database file. Sharing dev.db meant the suite wiped
     // and mutated the very data someone was looking at in `npm run dev` — a
     // moderation test would hold a listing and it would vanish from their
