@@ -4,10 +4,12 @@ import { prisma } from '@/lib/db';
 import { currentUser } from '@/lib/session';
 import { landingFor } from '@/lib/rbac';
 import { getMarketActivity, getLatestListings, getLatestNews } from '@/lib/activity';
+import { getFeaturedContent } from '@/lib/content-queries';
+import { contentHref, isExternal } from '@/lib/content';
 import { MarketingHero } from '@/components/marketing-hero';
 import { MarketplaceSection, VerifySection } from '@/components/marketing/sections';
 import { Reveal } from '@/components/marketing/reveal';
-import { Ticker, Stats, TrackSection, FeaturesSection, HowSection, ListingsSection, SuppliersSection, NewsSection, CtaSection, MarketingFooter } from '@/components/marketing/rest';
+import { Ticker, Stats, TrackSection, FeaturesSection, HowSection, ListingsSection, SuppliersSection, NewsSection, SpotlightSection, CtaSection, MarketingFooter } from '@/components/marketing/rest';
 import '../marketing.css';
 import { monogram, monogramHue } from '@/lib/logo';
 
@@ -30,6 +32,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   const t = await getTranslations('home');
   const tc = await getTranslations('category');
+  // Content category labels live in their own namespace, shared with the
+  // /content index so a category never reads differently in two places.
+  const tContent = await getTranslations('content');
   const format = await getFormatter();
 
   // The hero pill states a supplier and a country count. The mockup carries
@@ -46,7 +51,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   ]);
   const countryTotal = countries.length;
 
-  const [suppliers, productCount, activity, listings, news] = await Promise.all([
+  const [suppliers, productCount, activity, listings, news, featured] = await Promise.all([
     prisma.organization.findMany({
       where: { status: 'verified', kind: { in: ['seller', 'both'] } },
       select: {
@@ -63,6 +68,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     getMarketActivity(7),
     getLatestListings(6),
     getLatestNews(locale, 4),
+    getFeaturedContent(locale, 3),
   ]);
 
   // Human, localised phrasing for each activity kind. The buyer is NEVER named:
@@ -125,6 +131,18 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     // server's timezone first and the browser's second, which is a hydration error.
     date: n.publishedAt ? format.dateTime(n.publishedAt, { dateStyle: 'medium' }) : '',
     href: `/news/${n.id}`,
+  }));
+
+  // Editorially featured content. Shaped here rather than in the component so
+  // the section stays presentational and the external-link rule lives in one
+  // place (`@/lib/content`), shared with the /content index.
+  const spotlightCards = featured.map((it) => ({
+    id: it.id,
+    title: it.title,
+    summary: it.summary,
+    label: tContent(`cat_${it.category}`),
+    href: contentHref(it),
+    external: isExternal(it),
   }));
 
   // The ticker mirrors the same live activity feed the old page listed, so it is
@@ -192,6 +210,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <ListingsSection t={t} listings={listingCards} />
         <HowSection t={t} />
         <SuppliersSection t={t} suppliers={supplierCards} />
+        <SpotlightSection t={t} items={spotlightCards} />
         <NewsSection t={t} news={newsCards} />
         <CtaSection t={t} />
         <MarketingFooter t={t} />
