@@ -1,0 +1,6 @@
+# Shell scripts run on Linux — the VM and the CI runner both. A CRLF checkout
+# on Windows produces `\r` line endings that /bin/sh reports as
+# "bad interpreter" or silently appends to the last argument of every line, and
+# deploy/oci/*.sh is copied to the VM verbatim. The Dockerfile already strips
+# them from docker-entrypoint.sh defensively; this stops them existing.
+*.sh text eol=lf
