@@ -142,6 +142,25 @@ export function confidenceWeight(raw: string | null | undefined, fallback = 0.3)
   return c ? CONFIDENCE_WEIGHT[c] : fallback;
 }
 
+/**
+ * The inverse: which bucket a weight the platform assigned itself falls in.
+ *
+ * Connector rows (`EVIDENCE_WEIGHT` in `market-data.ts`) get their weight from
+ * the source type, not from a curator's label, and those two tables do not line
+ * up exactly — an internal quote weighs 0.7, which is no bucket's value. Reading
+ * the label off the weight keeps the badge on screen describing the number the
+ * forecast actually used, instead of a second hand-typed opinion that can drift
+ * from it.
+ *
+ * Boundaries are the midpoints between the bucket values, so each weight lands
+ * in the bucket it is closest to.
+ */
+export function confidenceLabelForWeight(weight: number): DataConfidence {
+  if (weight >= 0.8) return 'HIGH';
+  if (weight >= 0.45) return 'MEDIUM';
+  return 'LOW';
+}
+
 // ---------------------------------------------------------------------------
 // Curation status
 // ---------------------------------------------------------------------------

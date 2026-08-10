@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { EVIDENCE_WEIGHT } from '@/lib/market-data';
+import { confidenceLabelForWeight } from '@/lib/vocab';
 
 /**
  * Mirrors platform quotes and closed deals into the price-observation table.
@@ -29,15 +30,23 @@ export interface MirrorCounts {
 export async function mirrorInternalPrices(prisma: PriceClient): Promise<MirrorCounts> {
   const [quotes, deals] = await Promise.all([
     prisma.quote.findMany({
-      select: { id: true, unitPrice: true, currency: true, createdAt: true, rfq: { select: { cas: true, productName: true, quantityKg: true } } },
+      select: {
+        id: true,
+        unitPrice: true,
+        currency: true,
+        createdAt: true,
+        incoterm: true,
+        sellerOrgId: true,
+        rfq: { select: { cas: true, productName: true, quantityKg: true, minPurity: true } },
+      },
     }),
     prisma.deal.findMany({
       select: {
         id: true,
         currency: true,
         createdAt: true,
-        quote: { select: { unitPrice: true } },
-        rfq: { select: { cas: true, productName: true, quantityKg: true } },
+        quote: { select: { unitPrice: true, incoterm: true, sellerOrgId: true } },
+        rfq: { select: { cas: true, productName: true, quantityKg: true, minPurity: true } },
       },
     }),
   ]);
@@ -47,13 +56,20 @@ export async function mirrorInternalPrices(prisma: PriceClient): Promise<MirrorC
 
   const write = async (
     ref: string,
-    row: { cas: string; productName: string; quantityKg: number },
+    row: { cas: string; productName: string; quantityKg: number; minPurity: string | null },
     price: number,
     currency: string,
     observedAt: Date,
     sourceType: 'internal_quote' | 'internal_deal',
     sourceName: string,
     weight: number,
+    /**
+     * Facts the quote already carries. Attributing an observation to the
+     * supplier who made it is what lets the analytics page say "this supplier
+     * against the market" — and a quote is the one price source where we know
+     * the supplier for certain.
+     */
+    extra: { supplierOrgId: string | null; incoterm: string | null },
   ) => {
     // Non-USD rows are skipped, never converted: a 2024 quote translated at
     // today's rate is a number nobody ever transacted at.
@@ -76,13 +92,22 @@ export async function mirrorInternalPrices(prisma: PriceClient): Promise<MirrorC
       sourceUrl: null,
       sourceRef: ref,
       weight,
+      supplierOrgId: extra.supplierOrgId,
+      incoterm: extra.incoterm,
+      // Read off the weight rather than typed alongside it, so the badge on
+      // screen can never disagree with the number the forecast used.
+      dataConfidence: confidenceLabelForWeight(weight),
+      purityGrade: row.minPurity,
     };
     await prisma.priceObservation.upsert({ where: { sourceRef: ref }, create: data, update: data });
     inserted++;
   };
 
   for (const q of quotes) {
-    await write(`internal-quote:${q.id}`, q.rfq, q.unitPrice, q.currency, q.createdAt, 'internal_quote', 'PharmaLink quote', EVIDENCE_WEIGHT.internal_quote);
+    await write(`internal-quote:${q.id}`, q.rfq, q.unitPrice, q.currency, q.createdAt, 'internal_quote', 'PharmaLink quote', EVIDENCE_WEIGHT.internal_quote, {
+      supplierOrgId: q.sellerOrgId,
+      incoterm: q.incoterm,
+    });
   }
   for (const d of deals) {
     await write(
@@ -94,6 +119,7 @@ export async function mirrorInternalPrices(prisma: PriceClient): Promise<MirrorC
       'internal_deal',
       'PharmaLink closed deal',
       EVIDENCE_WEIGHT.internal_deal,
+      { supplierOrgId: d.quote.sellerOrgId, incoterm: d.quote.incoterm },
     );
   }
 

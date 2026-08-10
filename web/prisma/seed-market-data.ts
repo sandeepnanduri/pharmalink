@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { forecast, monthStart } from '../src/lib/forecast';
+import { confidenceLabelForWeight } from '../src/lib/vocab';
 import {
   HS_BY_CAS,
   comtradeRef,
@@ -81,6 +82,11 @@ export async function seedMarketData(prisma: PrismaClient): Promise<Record<strin
             sourceUrl: docsUrl,
             sourceRef: `${comtradeRef(row)}:${m.cas}`,
             weight: customsWeight(m.specificity),
+            // Derived from the weight, never typed beside it — see
+            // `confidenceLabelForWeight`. A group-level HS line is genuinely
+            // weaker evidence than a narrow one and the badge says so.
+            dataConfidence: confidenceLabelForWeight(customsWeight(m.specificity)),
+            originCountry: row.reporterName,
           },
         });
         counts.prices++;

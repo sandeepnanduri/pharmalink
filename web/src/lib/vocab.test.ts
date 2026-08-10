@@ -1,20 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  CONFIDENCE_WEIGHT,
-  INCOTERMS,
-  confidenceWeight,
-  joinMulti,
-  outcomeLevel,
-  parseCurationStatus,
-  parseDataConfidence,
-  parseEmaOutcome,
-  parseFdaOutcome,
-  parseFilingStatus,
-  parseIncoterm,
-  parseIncoterms,
-  parseTriBool,
-  splitMulti,
-} from './vocab';
+import { CONFIDENCE_WEIGHT, DATA_CONFIDENCES, INCOTERMS, confidenceLabelForWeight, confidenceWeight, joinMulti, outcomeLevel, parseCurationStatus, parseDataConfidence, parseEmaOutcome, parseFdaOutcome, parseFilingStatus, parseIncoterm, parseIncoterms, parseTriBool, splitMulti } from './vocab';
 
 describe('splitMulti', () => {
   it('splits the semicolon form the template writes', () => {
@@ -205,5 +190,24 @@ describe('parseTriBool', () => {
     expect(parseTriBool('—')).toBeNull();
     expect(parseTriBool(null)).toBeNull();
     expect(parseTriBool('probably')).toBeNull();
+  });
+});
+
+describe('confidenceLabelForWeight', () => {
+  it('labels every connector weight, including the ones no bucket matches exactly', () => {
+    // EVIDENCE_WEIGHT (market-data.ts) is set by source type and does not line
+    // up with CONFIDENCE_WEIGHT. Each weight must still land somewhere sensible.
+    expect(confidenceLabelForWeight(1)).toBe('HIGH'); // internal deal
+    expect(confidenceLabelForWeight(0.8)).toBe('HIGH'); // tender
+    expect(confidenceLabelForWeight(0.7)).toBe('MEDIUM'); // internal quote
+    expect(confidenceLabelForWeight(0.5)).toBe('MEDIUM'); // narrow customs
+    expect(confidenceLabelForWeight(0.3)).toBe('LOW'); // listing
+    expect(confidenceLabelForWeight(0.25)).toBe('LOW'); // group-level customs
+  });
+
+  it('round-trips the labels through their own weights', () => {
+    // If this ever fails, a badge is describing a different number than the one
+    // the forecast used.
+    for (const c of DATA_CONFIDENCES) expect(confidenceLabelForWeight(CONFIDENCE_WEIGHT[c])).toBe(c);
   });
 });
