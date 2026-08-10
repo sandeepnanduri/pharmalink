@@ -11,6 +11,18 @@ import { ConfidenceBadge, RiskBadge } from '@/components/forecast-badges';
 export const dynamic = 'force-dynamic';
 
 /**
+ * Confidence buckets in descending order of how much the maths trusts them.
+ * `unstated` is its own bucket rather than folded into LOW: not knowing how
+ * good a number is differs from knowing it is a list price.
+ */
+const CONFIDENCE_KEYS = [
+  ['HIGH', 'badge-verified'],
+  ['MEDIUM', 'badge-pending'],
+  ['LOW', 'badge-neutral'],
+  ['unstated', 'badge-neutral'],
+] as const;
+
+/**
  * Per-molecule prediction detail: the chart, why the model was chosen, what
  * correlates with the price, the supply-side risk, and where every number came
  * from.
@@ -236,6 +248,144 @@ export default async function MoleculeForecastPage({ params }: { params: Promise
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      {/* What the forecast rests on */}
+      <section className="mb-8" data-testid="evidence">
+        <h2 className="mb-1 text-base font-bold">{t('evidenceTitle')}</h2>
+        <p className="mb-3 max-w-3xl text-xs text-muted">{t('evidenceNote')}</p>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="card">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t('evidenceUsed')}</p>
+            <p className="mt-1 font-mono text-xl font-bold tabular-nums" data-testid="evidence-used">
+              {intel.evidence.used}
+            </p>
+          </div>
+          <div className="card">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t('evidenceExcluded')}</p>
+            <p className="mt-1 font-mono text-xl font-bold tabular-nums" data-testid="evidence-excluded">
+              {intel.evidence.excluded.count}
+            </p>
+          </div>
+          <div className="card">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t('evidenceWeight')}</p>
+            <p className="mt-1 font-mono text-xl font-bold tabular-nums">{intel.evidence.meanWeight.toFixed(2)}</p>
+            <p className="mt-1 text-[11px] text-muted">{t('evidenceWeightHint')}</p>
+          </div>
+        </div>
+
+        <div className="card mt-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t('evidenceMix')}</p>
+          <div className="mt-2 flex flex-wrap gap-2" data-testid="confidence-mix">
+            {CONFIDENCE_KEYS.map(([key, badge]) =>
+              intel.evidence.confidence[key] > 0 ? (
+                <span key={key} className={badge}>
+                  {t(`conf_${key === 'unstated' ? 'unstated' : key.toLowerCase()}`)} · {intel.evidence.confidence[key]}
+                </span>
+              ) : null,
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {(
+            [
+              ['evidenceOrigins', intel.evidence.origins],
+              ['evidenceIncoterms', intel.evidence.incoterms],
+              ['evidencePurity', intel.evidence.purityGrades],
+            ] as const
+          ).map(([label, rows]) => (
+            <div key={label} className="card">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t(label)}</p>
+              {rows.length === 0 ? (
+                <p className="mt-2 text-xs text-muted">{t('evidenceNoBreakdown')}</p>
+              ) : (
+                <ul className="mt-2 space-y-1">
+                  {rows.map((r) => (
+                    <li key={r.label} className="flex items-baseline justify-between gap-3 text-xs">
+                      <span className="min-w-0 truncate">{r.label}</span>
+                      <span className="font-mono tabular-nums text-muted">{r.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {intel.evidence.excluded.count > 0 && (
+          <div className="card mt-3">
+            <p className="text-xs text-muted">{t('evidenceExcludedNote')}</p>
+            <ul className="mt-2 space-y-1">
+              {intel.evidence.excluded.reasons.map((r) => (
+                <li key={r.label} className="flex items-baseline justify-between gap-3 text-xs">
+                  <span className="min-w-0">{r.label}</span>
+                  <span className="font-mono tabular-nums text-muted">{r.count}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+
+      {/* Supplier vs market */}
+      <section className="mb-8" data-testid="supplier-prices">
+        <h2 className="mb-1 text-base font-bold">{t('supplierPricesTitle')}</h2>
+        <p className="mb-3 max-w-3xl text-xs text-muted">{t('supplierPricesNote')}</p>
+        {intel.supplierPrices.length === 0 ? (
+          <div className="card py-6 text-center text-sm text-muted">{t('noSupplierPrices')}</div>
+        ) : (
+          <div className="overflow-x-auto rounded-card border border-line bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="th">{t('supplier')}</th>
+                  <th className="th">{t('latestPrice')}</th>
+                  <th className="th">{t('benchmark')}</th>
+                  <th className="th">{t('vsMarket')}</th>
+                  <th className="th">{t('observations')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {intel.supplierPrices.map((s) => (
+                  <tr key={s.orgId} data-testid="supplier-price-row">
+                    <td className="td font-semibold">{s.name}</td>
+                    <td className="td font-mono tabular-nums">
+                      ${s.latestUsdKg.toFixed(2)}
+                      <span className="ml-2 text-[11px] font-normal text-muted">
+                        {format.dateTime(s.observedAt, { dateStyle: 'medium' })}
+                      </span>
+                    </td>
+                    <td className="td">
+                      {s.benchmarkUsdKg === null ? (
+                        <span className="text-xs text-muted">{t('noBenchmark')}</span>
+                      ) : (
+                        <>
+                          <span className="font-mono tabular-nums">${s.benchmarkUsdKg.toFixed(2)}</span>
+                          <span className="ml-2 text-[11px] text-muted">
+                            {s.windowMonths === 0 ? t('windowSameMonth') : t('windowMonths', { n: s.windowMonths ?? 0 })}
+                          </span>
+                        </>
+                      )}
+                    </td>
+                    <td className="td">
+                      {s.vsMarketPct === null ? (
+                        <span className="text-muted">—</span>
+                      ) : (
+                        <span className={s.vsMarketPct > 0 ? 'badge-rejected' : s.vsMarketPct < 0 ? 'badge-verified' : 'badge-neutral'}>
+                          {s.vsMarketPct > 0 ? '+' : ''}
+                          {s.vsMarketPct.toFixed(1)}%
+                        </span>
+                      )}
+                    </td>
+                    <td className="td font-mono tabular-nums text-muted">{s.observations}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
