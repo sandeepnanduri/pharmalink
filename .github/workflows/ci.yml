@@ -58,7 +58,12 @@ jobs:
     name: End-to-end (reports, does not block)
     runs-on: ubuntu-24.04
     continue-on-error: true
-    timeout-minutes: 30
+    # The suite itself is ~10 minutes; the rest is npm ci, a browser download
+    # and the production build Playwright's webServer does before the first
+    # spec. A two-core shared runner is a good deal slower than a laptop at all
+    # four, and a job killed by this limit reports as "cancelled", which reads
+    # like someone pressed a button.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 

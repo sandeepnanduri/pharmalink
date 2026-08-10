@@ -45,6 +45,16 @@ export default defineConfig({
       // "current-user not found". Test env must never inherit deploy env.
       AUTH_URL: `http://localhost:${PORT}`,
       NEXTAUTH_URL: `http://localhost:${PORT}`,
+      // Not a secret: it signs sessions for a throwaway database on localhost.
+      //
+      // It is here because the suite must not depend on `.env`, which is
+      // gitignored. Locally that file supplied AUTH_SECRET and everything
+      // passed; in CI there is no such file, so Auth.js threw MissingSecret on
+      // every sign-in, every logged-in test failed, and the run buried the
+      // cause under a job timeout. A fixture that only works on the machine
+      // that wrote it is not a fixture.
+      AUTH_SECRET: 'e2e-only-fixture-secret-not-used-anywhere-else',
+      AUTH_TRUST_HOST: 'true',
     },
   },
 });

@@ -73,6 +73,20 @@ trap cleanup EXIT
 
 if healthy; then
   echo "healthy on $NEW_IMAGE"
+
+  # Record which image is live, so a later `docker compose up -d` run by hand
+  # brings up THIS one. Without it the .env value wins and the stack silently
+  # reverts to whatever was pinned there before -- a rollback nobody asked for,
+  # triggered by a command that looks like a no-op.
+  #
+  # This is the one line of .env the deploy owns. Secrets in that file are
+  # never read or written here.
+  if [ -f .env ] && grep -q '^APP_IMAGE=' .env; then
+    sed -i "s|^APP_IMAGE=.*|APP_IMAGE=$NEW_IMAGE|" .env
+  else
+    echo "APP_IMAGE=$NEW_IMAGE" >> .env
+  fi
+
   # Keep recent images so a rollback has something to roll back to; drop the
   # rest, because a 50 GB boot volume fills quickly at one image per push.
   docker image prune -af --filter 'until=168h' >/dev/null 2>&1 || true

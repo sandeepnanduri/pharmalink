@@ -48,11 +48,63 @@ env:
   REMOTE_DIR: ${{ vars.REMOTE_DIR || 'pharmalink/deploy/oci' }}
 
 jobs:
+  # Refuse to start rather than half-succeed.
+  #
+  # Written after the first run did exactly what this prevents: SITE_URL was
+  # unset, so the build arg went through as the empty string -- which OVERRIDES
+  # the Dockerfile's default rather than falling back to it -- and a perfectly
+  # green build pushed an image whose browser bundle had no site URL in it. The
+  # deploy then failed on a missing SSH key with `ssh-keyscan` complaining about
+  # an empty hostname, which points at the wrong thing entirely.
+  #
+  # Both are configuration that is absent, and the run should say so in those
+  # words before it spends four minutes building something unusable.
+  preflight:
+    name: Check configuration
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Required secrets and variables
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          SSH_HOST: ${{ secrets.OCI_SSH_HOST }}
+          SSH_USER: ${{ secrets.OCI_SSH_USER }}
+          SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.OCI_SSH_KNOWN_HOSTS }}
+        run: |
+          set -uo pipefail
+          missing=()
+          [ -n "$SITE_URL" ] || missing+=("variable SITE_URL — baked into the browser bundle at build time; an empty value ships a broken image")
+          [ -n "$SSH_HOST" ] || missing+=("secret OCI_SSH_HOST")
+          [ -n "$SSH_USER" ] || missing+=("secret OCI_SSH_USER")
+          [ -n "$SSH_KEY" ]  || missing+=("secret OCI_SSH_KEY")
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            {
+              echo "### Deploy not configured"
+              echo
+              echo "Set these under **Settings → Secrets and variables → Actions**, then re-run:"
+              echo
+              for m in "${missing[@]}"; do echo "- $m"; done
+              echo
+              echo "See \`.github/workflows/README.md\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            for m in "${missing[@]}"; do echo "::error::missing $m"; done
+            exit 1
+          fi
+
+          case "$SITE_URL" in
+            https://*) ;;
+            *) echo "::warning::SITE_URL is not https — Auth.js callbacks and Caddy expect a public https origin" ;;
+          esac
+          [ -n "$KNOWN_HOSTS" ] || echo "::warning::OCI_SSH_KNOWN_HOSTS is not set; the deploy will trust the VM's host key on first sight"
+          echo "configuration present; deploying to $SITE_URL"
+
   # The deploy gate. Same checks as CI, repeated here on purpose: CI's result
   # belongs to a commit, and a push to develop can be a merge whose combined
   # tree nobody has run these against.
   verify:
     name: Verify
+    needs: preflight
     runs-on: ubuntu-24.04
     defaults:
       run:
