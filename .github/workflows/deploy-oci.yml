@@ -1,0 +1,198 @@
+# Build on every push to develop, ship to the OCI Always Free VM.
+#
+# ## Why the image is built here and not on the VM
+#
+# The Always Free AMD shape is 1 OCPU / 1 GB. It runs Next.js comfortably and
+# cannot compile it — that is the whole reason `docker-compose.prebuilt.yml`
+# exists. So the runner builds, pushes to GHCR, and the VM only pulls.
+#
+# ## Architecture
+#
+# The image must match the VM. `vars.DEPLOY_PLATFORM` selects it and also
+# selects the runner, so the build is native and no QEMU emulation is involved:
+#
+#   linux/amd64  (default)  VM.Standard.E2.1.Micro  — the AMD Always Free shape
+#   linux/arm64             VM.Standard.A1.Flex     — the ARM Always Free shape
+#
+# arm64 runners are free for public repositories, which this is.
+#
+# ## What must exist before the first run
+#
+# Secrets  OCI_SSH_HOST, OCI_SSH_USER, OCI_SSH_KEY
+#          OCI_SSH_KNOWN_HOSTS (optional but recommended — see the deploy job)
+# Variables  SITE_URL (e.g. https://pharmaconnectb2b.duckdns.org)
+#            DEPLOY_PLATFORM, REMOTE_DIR (both optional, defaults below)
+#
+# The VM keeps its own `.env` beside the compose file holding AUTH_SECRET,
+# AUTH_URL, SITE_ADDRESS and any SSO credentials. This workflow never writes it:
+# rotating a production secret should not be a side effect of a code push.
+
+name: Deploy to OCI
+
+on:
+  push:
+    branches: [develop]
+  # Redeploy the current develop without a code change — after editing the VM's
+  # .env, or to roll forward again after a manual rollback.
+  workflow_dispatch:
+
+# Never two deploys at once against one VM, and never cancel one midway: a
+# half-applied `docker compose up` is worse than a queued deploy.
+concurrency:
+  group: deploy-oci
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  PLATFORM: ${{ vars.DEPLOY_PLATFORM || 'linux/amd64' }}
+  REMOTE_DIR: ${{ vars.REMOTE_DIR || 'pharmalink/deploy/oci' }}
+
+jobs:
+  # The deploy gate. Same checks as CI, repeated here on purpose: CI's result
+  # belongs to a commit, and a push to develop can be a merge whose combined
+  # tree nobody has run these against.
+  verify:
+    name: Verify
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  build:
+    name: Build and push image
+    needs: verify
+    runs-on: ${{ vars.DEPLOY_PLATFORM == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.ref.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compose the image reference
+        id: ref
+        run: |
+          # Immutable tag. `latest` is also pushed for humans, but the deploy
+          # always names the SHA so a redeploy of an old commit is exact and a
+          # rollback is a tag away.
+          repo="${IMAGE,,}"
+          echo "image=$repo:${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "latest=$repo:latest" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: web
+          file: web/Dockerfile
+          platforms: ${{ env.PLATFORM }}
+          push: true
+          tags: |
+            ${{ steps.ref.outputs.image }}
+            ${{ steps.ref.outputs.latest }}
+          build-args: |
+            NEXT_PUBLIC_SITE_URL=${{ vars.SITE_URL }}
+            SEED=false
+          # NEXT_PUBLIC_SITE_URL is inlined into the browser bundle at build
+          # time, so it is a build arg and not a runtime variable. SEED=false
+          # because this image serves real accounts: the schema is created on a
+          # fresh volume, the demo rows are not.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Pull and restart on the VM
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    environment:
+      name: production
+      url: ${{ vars.SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Open an SSH channel to the VM
+        env:
+          KEY: ${{ secrets.OCI_SSH_KEY }}
+          HOST: ${{ secrets.OCI_SSH_HOST }}
+          KNOWN_HOSTS: ${{ secrets.OCI_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if [ -n "$KNOWN_HOSTS" ]; then
+            printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            # Trust-on-first-use. Weaker than a pinned key: an on-path attacker
+            # could impersonate the VM and would receive the registry token this
+            # job pipes over the channel. Set OCI_SSH_KNOWN_HOSTS to close that
+            # gap — `ssh-keyscan <host>` on a machine you trust produces it.
+            echo "::warning::OCI_SSH_KNOWN_HOSTS is not set; trusting the host key on first sight"
+            ssh-keyscan -T 20 "$HOST" > ~/.ssh/known_hosts 2>/dev/null
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      # The VM's copy of the stack definition should match the commit being
+      # deployed, or a change to the compose file or the proxy config would
+      # never take effect.
+      - name: Sync the stack definition
+        env:
+          HOST: ${{ secrets.OCI_SSH_HOST }}
+          USER: ${{ secrets.OCI_SSH_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_deploy "$USER@$HOST" "mkdir -p '$REMOTE_DIR'"
+          scp -i ~/.ssh/id_deploy \
+            web/deploy/oci/docker-compose.prebuilt.yml \
+            web/deploy/oci/Caddyfile \
+            "$USER@$HOST:$REMOTE_DIR/"
+
+      - name: Deploy, verify health, roll back if it does not come up
+        env:
+          HOST: ${{ secrets.OCI_SSH_HOST }}
+          USER: ${{ secrets.OCI_SSH_USER }}
+          NEW_IMAGE: ${{ needs.build.outputs.image }}
+          # Job-scoped: it expires when this run ends, so nothing long-lived is
+          # left on the VM. Piped over stdin rather than passed as an argument,
+          # which would put it in the VM's process list.
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | ssh -i ~/.ssh/id_deploy "$USER@$HOST"             "NEW_IMAGE='$NEW_IMAGE' ACTOR='$ACTOR' bash '$REMOTE_DIR/remote-deploy.sh'"
+
+      - name: Confirm the public URL is serving
+        if: vars.SITE_URL != ''
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 12); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${{ vars.SITE_URL }}/api/health" || true)"
+            if [ "$code" = "200" ]; then echo "public health check OK"; exit 0; fi
+            sleep 5
+          done
+          # The container is healthy on the VM or the previous step would have
+          # failed, so this is the proxy, DNS or the security list — not the app.
+          echo "::error::${{ vars.SITE_URL }}/api/health did not return 200"
+          exit 1
