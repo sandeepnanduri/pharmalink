@@ -82,6 +82,18 @@ export const MARKET_SOURCES: readonly MarketSource[] = [
     docsUrl: 'https://frankfurter.dev/',
   },
   {
+    id: 'openfda-drugsfda',
+    name: 'openFDA approved drug applications',
+    host: 'api.fda.gov',
+    kind: 'supplier',
+    status: 'live',
+    licence: 'CC0 public domain',
+    requiresKey: false,
+    yields:
+      'Distinct ANDA/NDA sponsors per molecule → the US finished-dose supply base and its HHI. NOT API makers — see fda-dmf for that.',
+    docsUrl: 'https://open.fda.gov/apis/drug/drugsfda/',
+  },
+  {
     id: 'fda-dmf',
     name: 'FDA Drug Master File list',
     host: 'www.fda.gov',
@@ -91,6 +103,42 @@ export const MARKET_SOURCES: readonly MarketSource[] = [
     requiresKey: false,
     yields: 'Quarterly spreadsheet of Type II DMF holders → who is qualified to supply each API in the US',
     docsUrl: 'https://www.fda.gov/drugs/forms-submission-requirements/drug-master-files-dmfs',
+  },
+  {
+    id: 'chemical-weekly',
+    name: 'Chemical Weekly (India) PriceTrack',
+    host: null,
+    kind: 'price',
+    status: 'manual',
+    licence: 'Paid subscription — archive is real but every price value is behind a login',
+    requiresKey: true,
+    yields:
+      'Weekly Indian domestic chemical prices for Mumbai, Chennai and Hyderabad, continuously since Feb 2002 — the deepest price history found anywhere, if licensed',
+    docsUrl: 'https://www.chemicalweekly.com/pricetrack',
+  },
+  {
+    id: 'chemanalyst',
+    name: 'ChemAnalyst pricing data',
+    host: null,
+    kind: 'price',
+    status: 'blocked',
+    licence: 'Proprietary — terms forbid reusing prices on another site without written consent',
+    requiresKey: true,
+    yields:
+      'Quarterly regional USD/MT averages for ~1,090 chemicals including most of HS_BY_CAS at molecule level. Technically readable, contractually not. Licence it.',
+    docsUrl: 'https://www.chemanalyst.com/Pricing/Pricingoverview',
+  },
+  {
+    id: 'chemical-marketplaces',
+    name: 'Echemi / Guidechem / ChemNet / Lookchem',
+    host: null,
+    kind: 'supplier',
+    status: 'blocked',
+    licence: 'Proprietary — robots.txt disallows the price and supplier paths specifically',
+    requiresKey: true,
+    yields:
+      'Chinese-marketplace supplier listings and quoted prices. Each one disallows exactly the endpoints of interest, or serves an anti-bot challenge.',
+    docsUrl: 'https://www.echemi.com/',
   },
   {
     id: 'edqm-cep',

@@ -1241,6 +1241,55 @@ model SupplyEvent {
   @@index([eventType])
 }
 
+/// A firm approved to supply a molecule, as published by a public regulator.
+///
+/// Deliberately NOT `RegulatoryFiling`. That model is `orgId`-scoped: it records
+/// a filing held by an organisation that exists on this platform. A public
+/// register lists hundreds of firms that have never heard of PharmaLink, and
+/// writing them there would mean fabricating an Organization row for each — the
+/// directory would then be unable to tell a real member from an artefact of an
+/// ingest. This is market data, keyed by CAS, exactly like PriceObservation and
+/// SupplyEvent.
+///
+/// `basis` is the load-bearing field. `finished_dose` means the holder is
+/// approved to market the finished product, which is NOT the same claim as
+/// making the active ingredient — the ANDA holder for ibuprofen tablets usually
+/// buys the ibuprofen. Only the FDA Type II DMF list answers the API question,
+/// and it is a manual import (see DATA-SOURCES.md), so nothing here may be
+/// promoted to `api_manufacturer` by inference.
+model MarketSupplier {
+  id  String @id @default(cuid())
+  cas String
+
+  /// Display spelling, as first published upstream.
+  holderName String
+  /// Legal-form-stripped key used to group spellings of one firm. Grouping only;
+  /// never shown, because it is not what a buyer recognises.
+  holderKey  String
+
+  /// finished_dose | api_manufacturer
+  basis String @default("finished_dose")
+  /// Approved, non-discontinued applications this holder holds for the molecule.
+  /// The share input to HHI — a count of approvals, never a volume.
+  approvals Int @default(1)
+
+  /// The name actually queried upstream. Differs from the INN often enough to be
+  /// worth storing: openFDA has no `paracetamol`, only `acetaminophen`.
+  queriedAs String?
+  /// ISO-3166 alpha-2 of the regulator's jurisdiction.
+  region    String @default("US")
+
+  sourceName String
+  sourceUrl  String?
+  /// Upstream natural key — unique, so re-ingesting a register is idempotent.
+  sourceRef  String  @unique
+
+  ingestedAt DateTime @default(now())
+
+  @@index([cas, basis])
+  @@index([holderKey])
+}
+
 /// A forecast exactly as it was issued, kept immutably so the platform can show
 /// how its past predictions actually turned out. A forecast with no scoreboard
 /// is marketing, not analytics.
