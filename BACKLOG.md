@@ -26,6 +26,7 @@
 | A3 | Team of **5–6**: 2 full-stack eng, 1 designer, 1 PM/QA, 1–2 ops/verification. | ☐ Confirm |
 | A4 | MVP is a **responsive web app**; native mobile is roadmap. | ☐ Confirm |
 | A5 | Platform **fees waived** during MVP (free listing, free RFQs). | ☐ Confirm |
+| A6 | **Partner/agent payouts are acquisition spend, never a cut of trade value.** Model A (subscription reseller margin) and Model B (fixed per-deal bounty) are A1-safe; a GMV-percentage success fee (Model C) requires a deliberate, separately-confirmed reversal of A1 — see **EPIC N7**. | ☐ Confirm |
 
 ---
 
@@ -156,6 +157,7 @@ AI matching & scoring · price intelligence & forecasts · blockchain vault · i
 | R38 | **Razorpay — subscription collection only** ⚠️ | Automates the settlement leg of **R8**, which currently issues invoices in-app and collects off-platform by bank transfer. **Scoped to subscription revenue. Does NOT touch trade value.** Using Razorpay Route/escrow for GMV would reverse **A1** and re-open **R9** — see the boundary note in EPIC N3 before starting. | Must |
 | R39 | **Data ingestion platform** | Graduates the market-data connectors from manual-only to scheduled, governed and resumable: scheduler w/ jitter, per-source backoff, staleness SLOs, a machine-checked source-licence register, and file-import pipelines for the sources with no API. Supersedes HARDENING-PLAN 4.2. Full breakdown in **EPIC N4**. | Must |
 | R40 | **Anti-scraping & bot defence** | Closes the still-open rate-limiting gap (HARDENING-PLAN 1.2, pentest-flagged 2026-07-18) and adds tiered exposure, bot classification and enumeration detection. **Directly in tension with F1.3/F1.4** — the public SEO catalog is the organic-growth engine. Full breakdown in **EPIC N6**. | Must |
+| R42 | **Sourcing Partner channel** | Onboards procurement intermediaries (indenting agents, trading companies, sourcing/regulatory consultants) as a first-class `partner` org kind with a day-to-day portfolio console, immutable introduction-record protection, and delegated quote/RFQ drafting (principal always accepts). Monetised as subscription reseller margin (Model A) + fixed per-deal bounty (Model B) — **no escrow, no cut of trade value**, per **A1/A6**. Full breakdown in **EPIC N7**; business case and reconciled screen spec in `PARTNER-PROGRAM.md`. | Must |
 
 ## Phase 2 — Good-to-Have
 
@@ -175,7 +177,7 @@ AI matching & scoring · price intelligence & forecasts · blockchain vault · i
 | R17 | **Compliance intelligence feeds** | FDA warning letters/import alerts, EudraGMDP, recalls → "supplier flagged" + RFQ exclusion filters. | Must |
 | R18 | **Blockchain document verification** | interim: signed hash registry + public verify page (90% value/10% cost); Hyperledger later. | Must (differentiator) |
 | R19 | **Native mobile apps (buyer-first)** | push + biometric; PWA bridges in P2. | Must |
-| R20 | **Logistics & Incoterm support** | freight-partner quotes, tracking ingestion, cold-chain flags, BL/AWB digitisation. (Gap G7) | Must |
+| R20 | **Logistics & Incoterm support** | freight-partner quotes, tracking ingestion, cold-chain flags, BL/AWB digitisation. (Gap G7) Partner-facing angle (curated forwarder directory, reuses this same `Shipment` model): `PARTNER-ECOSYSTEM.md` §3–4. | Must |
 | R21 | **Denied-party & sanctions screening** | OFAC/EU/UN screening for cross-border. (Gap G9) | Must |
 | R22 | Supplier qualification questionnaires & audit-report library | makes PharmaLink part of buyers' QMS. (Gap G4) | Must (enterprise) |
 | R23 | Re-qualification & periodic review scheduling | cycle-based re-qual + reminders. (Gap G6) | Must |
@@ -197,7 +199,7 @@ AI matching & scoring · price intelligence & forecasts · blockchain vault · i
 |----|---------|-------|------|
 | R34 | Discovery hub — multi-category expansion | nutraceuticals, cosmetics, agro, formulations + vertical certs (COSMOS/ECOCERT/Halal/Kosher/REACH/EPA). | Good |
 | R35 | FDA/EMA observer blockchain nodes | 3-node consensus w/ regulator observers — regulatory-partnership play. | Good |
-| R36 | Trade financing & insurance | invoice financing/credit, cargo insurance upsell. | Good |
+| R36 | Trade financing & insurance | invoice financing/credit, cargo insurance upsell. Partner-facing angle (finance the verified `PartnerPayout`/GMV record via TReDS or a licensed NBFC — never PharmaLink lending directly): `PARTNER-ECOSYSTEM.md` §3, §5. | Good |
 | R37 | White-label / enterprise portals | Enterprise seller tier. | Good |
 
 ---
@@ -423,6 +425,49 @@ Whatever policy we set here, we should be willing to read back in that document.
 
 ---
 
+## EPIC N7 — Sourcing Partner channel → R42
+
+> ### ⚠️ Boundary note — read before scheduling
+>
+> `PharmaLink_Agent_Framework.docx` (Product Management Office, **approved June
+> 2026**) specifies this same role — a "Procurement Agent" — but as a
+> blockchain-logged, Hyperledger-verified **escrow**: PharmaLink holds supplier
+> payment + agent commission and auto-releases both on CoA confirmation. **That
+> is a reversal of A1**, which was confirmed the following month (2026-07-17)
+> and is enforced in code by **N3.6**. It also duplicates work: `PARTNER-PROGRAM.md`
+> (2026-08-19) independently designed the same role — same archetypes
+> (indenting agent, trading company, sourcing/regulatory consultant), same
+> anti-bypass problem — and reached a **non-escrow** answer: a `partner` org
+> kind, an immutable introduction record instead of held funds, and staged
+> monetisation (Model A subscription-reseller margin now, Model B fixed bounty
+> at Phase 2, Model C true success-fee only if A1 is deliberately reopened).
+>
+> **This epic builds the `PARTNER-PROGRAM.md` design.** The screen inventory
+> and personas below are reconciled from `PharmaLink_Agent_Framework.docx` —
+> its UX research is good and reusable — but every mechanic that assumed
+> PharmaLink holds or routes trade value has been re-plumbed onto existing,
+> A1-safe infrastructure (`AuditLog`, `Invoice`/R8, `plans.ts`,
+> `contact-visibility.ts`). If the product office's intent is genuinely to ship
+> the escrowed-commission version as approved, that requires re-confirming A1
+> itself, not scheduling this epic — see **N7.10**.
+
+| ID | Story | Acceptance criteria | Size | Phase |
+|----|-------|---------------------|------|-------|
+| N7.1 | As the platform, a **partner org** is a first-class kind alongside buyer/seller. | `Organization.kind` += `partner`, `User.role` += `partner`; new `Partner` (code, status, rate-card version, tax registration, payout details), `PartnerRepresentation` (partnerId, orgId, scopes, consentAt, revokedAt), `PartnerAttribution` (orgId → partnerId, sealedAt, source, expiresAt). No new auth system — reuses existing org/session model. | M | P1 |
+| N7.2 | As a new partner, I **onboard** through a guided wizard. | Type (indentor / trading co. / sourcing consultant / regulatory consultant) → identity (PAN/GST/passport) → specialisation → existing supplier/buyer network → 2 references → rate-card + anti-bribery declaration + platform T&C. Reuses F2's document-upload + review-queue pattern; a represented org still lands `draft` and queues for ops verification exactly like a direct applicant (F2.5 unchanged) — a partner introduction is a **weak signal**, same precedent as `associations.ts`. | M | P1 |
+| N7.3 | As a buyer or supplier, I can see a partner's **verification tier**. | Three tiers (Registered → Qualified → Specialist) machine-checked against identity docs, completed-mandate count, 12-month dispute history, and (Tier 3) E&O insurance ≥ $500K; badge shown on the public profile and gates featured placement in partner search. | M | P1 |
+| N7.4 | As a partner, I have **one console** over everyone I represent. | Portfolio dashboard: cert-expiry (reuses the R4 alert engine), open RFQs, quotes pending, deals closed, response rate, GMV represented (**informational only** — never held or routed), earnings-to-date. This is the "day-to-day" surface. | L | P1 |
+| N7.5 | As a partner, my **introduction is protected** even if the buyer and supplier later deal direct. | Immutable, timestamped `partner → buyerOrg → supplierOrg → molecule` record written to `AuditLog` at first RFQ claim — the anti-bypass artefact partners are recruited on, replacing `Agent_Framework.docx`'s blockchain-timestamp mechanic with the existing audit infra. | S | P1 |
+| N7.6 | As a partner, I can **act for** a principal without binding them. | Draft a quote for a supplier principal, or post/compare an RFQ for a buyer principal (F4.1/F4.3/F4.4 reused). **Accepting a Deal (F4.6) always requires the principal**, enforced server-side, never the partner — matches PARTNER-PROGRAM.md §2's explicit boundary. | M | P1 |
+| N7.7 | As a buyer, I can **find and hire a verified partner**. | Public partner profile (F1.4 pattern — represented-org **count**, not identities, per live consent scope) plus buyer-side search filterable by category/geo/GMP-coverage/tier. Ranking follows the same non-AI relevance rule F1.5/N5 already commit to — no opaque scoring bolted on for partners. | M | P1 |
+| N7.8 | As a supplier, I **authorise and monitor** the partners representing me. | Grant/revoke `PartnerRepresentation` scopes; share price tiers (`ProductPriceTier`); see partner-generated vs. direct GMV split. | M | P1 |
+| N7.9 | As a partner, I **earn** through the platform, not from held trade funds. | Model A reseller-margin ledger (27.5% of Growth/Enterprise subs sold, 24 months) posts against a new `PartnerPayout` model, mirroring the existing `Invoice`/R8 pattern, GST/TDS per the N3.4 template. Payout flow is **PharmaLink → partner only**. Growth-scheme addendum (activation/streak/breadth/referral bonuses, voucher redemption, NBFC rate-slab lever — all fixed-amount/count-triggered, same A1 boundary): `PARTNER-INCENTIVES.md`. | M | P1 |
+| N7.10 | As the platform, the **partner-payout / trade-value boundary is enforced in code**. | An N3.6-sibling guard rejects any `PartnerPayout` line that references `Deal.totalValue`; covered by a failing test. The moment a payout is priced off GMV or a partner takes title, that's Model C — a deliberate, separately-confirmed A1 reversal (see boundary note above), not a feature added to this epic. | S | P1 |
+| N7.11 | As the platform, I pay a **fixed bounty** for a verified first deal (Phase 2). | Non-percentage payment ($150 first deal on a new buyer↔supplier pair, $75 thereafter) via `PartnerPayout`; independence screen (shared director/GST/address), ops sample-audit against a PI/BL, clawback clause, per-partner quarterly cap, 12-month attribution expiry. | L | P2 |
+| N7.12 | As ops, **prohibited partner behaviour is auto-detected**, not discovered later. | Quote from an unverified supplier is blocked at submission (registry cross-check); declared commission vs. R7 price-benchmark flags an undeclared markup >15%; every delegated action and mandate-data access writes to `AuditLog` (F0.7/F7.2) so RFQ-data leakage to a competitor is provable. | M | P2 |
+
+---
+
 # PART C — KEY RISKS (carry into sprint planning)
 
 | Risk | Mitigation |
@@ -433,6 +478,7 @@ Whatever policy we set here, we should be willing to read back in that document.
 | Regulatory/legal exposure | Marketplace-of-record legal review pre-launch; restrict MVP to non-controlled APIs/excipients; jurisdiction gating; facilitator T&Cs. |
 | Overbuilding the demo (AI/blockchain/escrow early) | Scope discipline: MVP spine only; roadmap communicates vision without building it. |
 | **A1 erodes through a "small" payments feature** (R38) | Razorpay is scoped to subscription collection only. N3.6 enforces the trade/subscription boundary in code with a failing test, so reversing A1 becomes a deliberate act rather than a drift. Confirm subscription-vs-GMV intent before scheduling. |
+| **A pre-A1 approved doc reintroduces escrow** (R42) | `PharmaLink_Agent_Framework.docx` was approved June 2026, one month *before* A1 (2026-07-17) existed, and specifies blockchain-escrowed agent commission. It was never reconciled against A1. N7.10 gives the partner-payout path the same code-level guard as N3.6. Treat the doc's UX/persona research as reusable, its money mechanics as superseded — unless the product office deliberately reopens A1. |
 | **Controlled-substance mis-classification** (R15) | "Controlled" is (molecule × jurisdiction × quantity × date), not a boolean. Launch deny-by-default: unclassified = controlled until an operator says otherwise. A wrong "permitted" is a criminal-liability event, not a UX defect. Legal review (PART D.3) gates this epic. |
 | **Public catalog is our own scraping target** (R40) | F1.3/F1.4 are deliberately public; perfect indexing and perfect protection are mutually exclusive. N6.2 forces an explicit per-field exposure decision so what leaks is what we chose to publish. |
 | **Sourcing chatbot quietly becomes an AI ranker** (R41) | A bot that returns suppliers *is* ranking them, which contradicts F1.5 and the MVP trust principle. N5.2 constrains the model to emitting a query object, with an architectural test forbidding post-retrieval reordering. If N5.2 is descoped, the epic should be stopped, not shipped without it. |

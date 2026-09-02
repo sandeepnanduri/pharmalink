@@ -21,7 +21,7 @@ datasource db {
 // Identity & access (F0.2, F0.3)
 // --------------------------------------------------------------------------
 
-/// role: "buyer" | "seller" | "both" | "admin"
+/// role: "buyer" | "seller" | "both" | "admin" | "partner"
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -105,7 +105,7 @@ model VerificationToken {
 // Organizations & verification (F2, F3, F6.1)
 // --------------------------------------------------------------------------
 
-/// kind: "buyer" | "seller" | "both"
+/// kind: "buyer" | "seller" | "both" | "partner"
 /// status: "draft" | "pending" | "verified" | "rejected"
 model Organization {
   id        String  @id @default(cuid())
@@ -172,6 +172,16 @@ model Organization {
   invoices       Invoice[]
   apiKeys        ApiKey[]
   webhooks       Webhook[]
+
+  // --- Sourcing Partner channel (EPIC N7) ---
+  // A `partner`-kind org has one Partner record; any org (buyer/seller) can be
+  // represented by partners, be attributed to one, and be the buyer/supplier
+  // side of one or more Introductions. See lib/partner.ts.
+  partner                  Partner?
+  representationsGranted   PartnerRepresentation[]
+  attribution              PartnerAttribution?
+  introductionsAsBuyer     Introduction[]          @relation("IntroducedBuyer")
+  introductionsAsSupplier  Introduction[]          @relation("IntroducedSupplier")
 
   reviewsReceived   Review[]           @relation("SupplierReviews")
   reviewsWritten    Review[]           @relation("AuthorReviews")
@@ -757,6 +767,12 @@ model Rfq {
   notes           String?
   status          String       @default("draft")
 
+  /// Set when a Sourcing Partner drafted this RFQ for the buyer (EPIC N7).
+  /// buyerOrgId above is always the PRINCIPAL's org, never the partner's —
+  /// this field is provenance only, never an ownership/authorization check.
+  draftedByPartnerId String?
+  draftedByPartner   Partner? @relation(fields: [draftedByPartnerId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -768,6 +784,7 @@ model Rfq {
 
   @@index([buyerOrgId])
   @@index([status])
+  @@index([draftedByPartnerId])
 }
 
 /// The rule-based broadcast list (F4.2). A supplier can decline (no-bid) so the
@@ -803,6 +820,12 @@ model Quote {
   notes        String?
   status       String       @default("submitted")
 
+  /// Set when a Sourcing Partner drafted this quote for the supplier (EPIC
+  /// N7). sellerOrgId above is always the PRINCIPAL's org, never the
+  /// partner's — this field is provenance only, never an authorization check.
+  draftedByPartnerId String?
+  draftedByPartner   Partner? @relation(fields: [draftedByPartnerId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -813,6 +836,7 @@ model Quote {
   @@unique([rfqId, sellerOrgId])
   @@index([sellerOrgId])
   @@index([status])
+  @@index([draftedByPartnerId])
 }
 
 /// Quote acceptance produces an immutable deal record + PDF trail (F4.6)
@@ -924,7 +948,145 @@ model Invoice {
   issuedAt    DateTime     @default(now())
   paidAt      DateTime?
 
+  partnerPayouts PartnerPayout[]
+
   @@index([orgId])
+  @@index([status])
+}
+
+// --------------------------------------------------------------------------
+// Sourcing Partner channel (EPIC N7 → BACKLOG.md, business case in
+// PARTNER-PROGRAM.md).
+//
+// A `partner`-kind Organization represents a procurement intermediary
+// (indenting agent, trading company, sourcing/regulatory consultant) who
+// drafts RFQs/quotes on behalf of a represented buyer or supplier — but never
+// accepts one; that stays the principal's act alone (see acceptQuoteAction in
+// lib/actions.ts, which this channel deliberately does not touch).
+//
+// A1 boundary, enforced structurally, not just by policy: PartnerPayout has
+// NO field derived from Deal/Quote/trade value. A partner is paid by
+// PharmaLink directly — a share of subscription revenue it brought in
+// (Model A, the only kind written by P1 code) or, from Phase 2 (N7.11), a
+// fixed non-percentage bounty. Never a cut of GMV. See lib/partner.ts.
+// --------------------------------------------------------------------------
+
+/// status: "pending" | "active" | "suspended"
+/// tier: "registered" | "qualified" | "specialist"
+/// archetype: "indentor" | "trading_company" | "sourcing_consultant" | "regulatory_consultant"
+model Partner {
+  id              String       @id @default(cuid())
+  orgId           String       @unique
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  code            String       @unique // invite/attribution code
+  archetype       String
+  status          String       @default("pending")
+  tier            String       @default("registered")
+  rateCardVersion String       @default("2026-08")
+  taxRegistration String? // GSTIN
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  representations PartnerRepresentation[]
+  attributions    PartnerAttribution[]
+  payouts         PartnerPayout[]
+  introductions   Introduction[]
+  draftedRfqs     Rfq[]
+  draftedQuotes   Quote[]
+
+  @@index([status])
+}
+
+/// A live, revocable consent from a represented org letting a partner act for
+/// it within named scopes. Revoke/re-grant toggles the same row rather than
+/// creating a new one, so history (consentByUserId, revokedAt) is never lost.
+///
+/// scopes: comma-separated — "rfq_draft" | "quote_draft" | "document_upload" | "price_tier_manage"
+model PartnerRepresentation {
+  id              String       @id @default(cuid())
+  partnerId       String
+  partner         Partner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  orgId           String
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  scopes          String
+  consentAt       DateTime     @default(now())
+  consentByUserId String
+  revokedAt       DateTime?
+  revokedByUserId String?
+
+  @@unique([partnerId, orgId])
+  @@index([orgId])
+}
+
+/// The anti-bypass artefact partners are recruited on: an immutable record
+/// that partner P introduced buyer B to supplier S for molecule M. Created
+/// once (lib/partner-actions.ts's recordIntroductionIfNew), never updated —
+/// first write wins on the unique constraint below, so a later attempt by the
+/// same or a different partner silently no-ops rather than overwriting it.
+model Introduction {
+  id            String       @id @default(cuid())
+  partnerId     String
+  partner       Partner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  buyerOrgId    String
+  buyerOrg      Organization @relation("IntroducedBuyer", fields: [buyerOrgId], references: [id], onDelete: Cascade)
+  supplierOrgId String
+  supplierOrg   Organization @relation("IntroducedSupplier", fields: [supplierOrgId], references: [id], onDelete: Cascade)
+  cas           String
+  /// The RFQ this introduction arose from, if any. Deliberately NOT a foreign
+  /// key: this record must outlive the RFQ it references — it's the partner's
+  /// evidence of the introduction, not a detail of the RFQ itself.
+  rfqId         String?
+  createdAt     DateTime     @default(now())
+
+  @@unique([buyerOrgId, supplierOrgId, cas])
+  @@index([partnerId])
+}
+
+/// Seals which partner brought a given org to the platform, for Model A
+/// margin-sharing. First invite wins (orgId is unique — one sealed
+/// attribution per org, ever); no retroactive claims. expiresAt is
+/// sealedAt + 24 months, the Model A window (PARTNER-PROGRAM.md §3).
+///
+/// source: "invite_link" | "manual_ops"
+model PartnerAttribution {
+  id        String       @id @default(cuid())
+  orgId     String       @unique
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  partnerId String
+  partner   Partner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  source    String
+  sealedAt  DateTime     @default(now())
+  expiresAt DateTime
+
+  @@index([partnerId])
+}
+
+/// A payout PharmaLink owes a partner — PharmaLink → partner only, never
+/// funded by or derived from buyer/seller trade value (A1). Deliberately has
+/// NO dealId/quoteId/totalValue field; see lib/partner.ts and
+/// lib/partner.test.ts for the guard this absence enforces.
+///
+/// kind: "model_a_margin" in P1. "model_b_bounty" is added by N7.11 (P2) —
+/// no P1 code path may write it.
+/// status: "accrued" | "confirmed" | "paid" | "void"
+model PartnerPayout {
+  id              String   @id @default(cuid())
+  number          String   @unique // PPO-2026-0001
+  partnerId       String
+  partner         Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  kind            String
+  sourceOrgId     String // the subscribing org whose invoice generated this line
+  sourceInvoiceId String?
+  sourceInvoice   Invoice? @relation(fields: [sourceInvoiceId], references: [id])
+  amount          Float
+  currency        String   @default("USD")
+  periodStart     DateTime
+  periodEnd       DateTime
+  status          String   @default("accrued")
+  createdAt       DateTime @default(now())
+
+  @@index([partnerId])
   @@index([status])
 }
 

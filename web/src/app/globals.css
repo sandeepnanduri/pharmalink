@@ -54,6 +54,11 @@
   .btn-accent {
     @apply btn bg-accent text-white hover:bg-accent-dark;
   }
+  /* Sourcing Partner surfaces (EPIC N7) use violet as their primary action
+     color, distinguishing them from buyer/seller's teal at a glance. */
+  .btn-violet {
+    @apply btn bg-violet text-white hover:bg-violet-deep;
+  }
   .input {
     @apply w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-pale;
   }
@@ -77,6 +82,13 @@
   }
   .badge-neutral {
     @apply badge bg-slate-100 text-slate2;
+  }
+  /* Sourcing Partner surfaces (EPIC N7): tier badges, "acting for" markers,
+     mandate-in-progress pills — violet distinguishes these from the
+     verified/pending/rejected vocabulary above, which stays reserved for
+     ops verification status. */
+  .badge-violet {
+    @apply badge bg-violet-pale text-violet-deep;
   }
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-[11px] font-semibold text-slate2;

@@ -21,6 +21,9 @@ import { routing } from '@/i18n/routing';
 import { isAtLimit, parsePlan, ENTITLEMENTS } from '@/lib/plans';
 import { matchSuppliers, type MatchableSeller } from '@/lib/matching';
 import { parseSites, parseCredentials, validateOnboarding } from '@/lib/onboarding';
+import { resolveActingOrgId } from '@/lib/partner-queries';
+import { recordIntroductionIfNew } from '@/lib/partner-actions';
+import { computePartnerPayoutAmount, isAttributionActive, MODEL_A_MARGIN_RATE } from '@/lib/partner';
 import {
   categoryFromProductType,
   parseColdChain,
@@ -205,7 +208,7 @@ const SignupSchema = z
     confirm: z.string(),
     company: z.string().min(2),
     country: z.string().min(2),
-    role: z.enum(['buyer', 'seller', 'both']),
+    role: z.enum(['buyer', 'seller', 'both', 'partner']),
     terms: z.string().optional(),
     marketing: z.string().optional(),
   })
@@ -259,7 +262,7 @@ const AccountSetupSchema = z
     phone: z.string().max(40).optional(),
     company: z.string().min(2),
     country: z.string().min(2),
-    role: z.enum(['buyer', 'seller', 'both']),
+    role: z.enum(['buyer', 'seller', 'both', 'partner']),
     terms: z.string().optional(),
   })
   .refine((d) => d.terms === 'on', { message: 'mustAcceptTerms', path: ['terms'] });
@@ -533,12 +536,36 @@ export async function findMatches(cas: string, requiredCerts: string[], preferre
 export async function createRfqAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await currentUser();
   if (!user?.orgId) return { error: 'unauthorized' };
-  if (!can(user.principal, 'rfq:create')) return { error: 'unverified' };
+
+  // A Sourcing Partner may draft this RFQ for a represented buyer (EPIC N7).
+  // `targetOrgId` is the PRINCIPAL's org from here on — never user.orgId —
+  // so the quota, self-dealing and broadcast checks below all charge/protect
+  // the principal, exactly as if they'd posted it themselves. Absent
+  // actingForOrgId, this block is a no-op and behavior is unchanged.
+  const actingForOrgId = String(formData.get('actingForOrgId') ?? '').trim() || null;
+  let targetOrgId = user.orgId;
+  let draftedByPartnerId: string | null = null;
+  if (actingForOrgId && actingForOrgId !== user.orgId) {
+    if (!can(user.principal, 'partner:draft')) return { error: 'unauthorized' };
+    const resolved = await resolveActingOrgId(user.orgId, actingForOrgId, 'rfq_draft');
+    if (!resolved) return { error: 'unauthorized' };
+    targetOrgId = resolved.targetOrgId;
+    draftedByPartnerId = resolved.partnerId;
+  } else if (!can(user.principal, 'rfq:create')) {
+    return { error: 'unverified' };
+  }
 
   // Subscription quota, enforced server-side (a UI-only limit is not a limit).
-  const org = await prisma.organization.findUnique({ where: { id: user.orgId }, select: { plan: true } });
+  const org = await prisma.organization.findUnique({ where: { id: targetOrgId }, select: { plan: true, status: true } });
+  // For a direct post this is already guaranteed by can(...,'rfq:create') above
+  // (REQUIRES_VERIFIED). For a partner acting on a principal's behalf it is
+  // NOT — canActFor only checks the representation grant, never the
+  // principal's own ops-verification status — so it must be re-asserted here,
+  // or an unverified org could broadcast a real RFQ to verified suppliers
+  // simply by granting a verified partner representation over itself.
+  if (org?.status !== 'verified') return { error: 'unverified' };
   const usedThisMonth = await prisma.rfq.count({
-    where: { buyerOrgId: user.orgId, createdAt: { gte: monthStart() } },
+    where: { buyerOrgId: targetOrgId, createdAt: { gte: monthStart() } },
   });
   if (isAtLimit(org?.plan, 'rfqsPerMonth', usedThisMonth)) return { error: 'planLimitRfqs' };
 
@@ -558,14 +585,14 @@ export async function createRfqAction(_prev: ActionState, formData: FormData): P
     .getAll('suppliers')
     .map(String)
     .filter(Boolean)
-    .filter((id) => matchedIds.has(id) && id !== user.orgId);
+    .filter((id) => matchedIds.has(id) && id !== targetOrgId);
   if (supplierIds.length === 0) return { error: 'noMatches' };
 
   const count = await prisma.rfq.count();
   const rfq = await prisma.rfq.create({
     data: {
       reference: await nextRef('RFQ', count),
-      buyerOrgId: user.orgId,
+      buyerOrgId: targetOrgId,
       productName,
       cas,
       quantityKg,
@@ -579,12 +606,18 @@ export async function createRfqAction(_prev: ActionState, formData: FormData): P
       sampleRequested: formData.get('sampleRequested') === 'on',
       notes: String(formData.get('notes') ?? '') || null,
       status: 'open',
+      draftedByPartnerId,
       broadcasts: { create: supplierIds.map((orgId) => ({ orgId })) },
     },
   });
 
   await audit('rfq.posted', 'Rfq', rfq.id, user.id);
-  await dispatchEvent('rfq.posted', { rfqId: rfq.id, reference: rfq.reference, cas, quantityKg, requiredCerts: certs }, { orgId: user.orgId });
+  if (draftedByPartnerId) {
+    for (const orgId of supplierIds) {
+      await recordIntroductionIfNew(draftedByPartnerId, targetOrgId, orgId, cas, user.id, rfq.id);
+    }
+  }
+  await dispatchEvent('rfq.posted', { rfqId: rfq.id, reference: rfq.reference, cas, quantityKg, requiredCerts: certs }, { orgId: targetOrgId });
   for (const orgId of supplierIds) {
     await notifyOrg(orgId, 'rfq.matched', `New RFQ: ${productName}`, {
       body: `${quantityKg} kg · CAS ${cas}`,
@@ -601,23 +634,48 @@ export async function createRfqAction(_prev: ActionState, formData: FormData): P
 export async function submitQuoteAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await currentUser();
   if (!user?.orgId) return { error: 'unauthorized' };
-  if (!can(user.principal, 'quote:create')) return { error: 'unverified' };
+
+  // A Sourcing Partner may draft this quote for a represented supplier (EPIC
+  // N7). targetOrgId is the PRINCIPAL's org from here on — never user.orgId.
+  // Absent actingForOrgId, this block is a no-op and behavior is unchanged.
+  const actingForOrgId = String(formData.get('actingForOrgId') ?? '').trim() || null;
+  let targetOrgId = user.orgId;
+  let draftedByPartnerId: string | null = null;
+  if (actingForOrgId && actingForOrgId !== user.orgId) {
+    if (!can(user.principal, 'partner:draft')) return { error: 'unauthorized' };
+    const resolved = await resolveActingOrgId(user.orgId, actingForOrgId, 'quote_draft');
+    if (!resolved) return { error: 'unauthorized' };
+    targetOrgId = resolved.targetOrgId;
+    draftedByPartnerId = resolved.partnerId;
+  } else if (!can(user.principal, 'quote:create')) {
+    return { error: 'unverified' };
+  }
+
+  // Same re-assertion createRfqAction makes, for the same reason: for a
+  // direct submission this is already guaranteed by can(...,'quote:create')
+  // above; for a partner acting on a principal's behalf it is not — canActFor
+  // never checks the principal's own ops-verification status, only the
+  // representation grant.
+  if (actingForOrgId) {
+    const actingOrg = await prisma.organization.findUnique({ where: { id: targetOrgId }, select: { status: true } });
+    if (actingOrg?.status !== 'verified') return { error: 'unverified' };
+  }
 
   const rfqId = String(formData.get('rfqId') ?? '');
   const rfq = await prisma.rfq.findUnique({
     where: { id: rfqId },
-    select: { id: true, status: true, requiredBy: true, buyerOrgId: true, broadcasts: true },
+    select: { id: true, status: true, requiredBy: true, buyerOrgId: true, cas: true, broadcasts: true },
   });
   if (!rfq) return { error: 'notFound' };
   // Cannot quote an RFQ that is awarded, cancelled, or expired (required-by passed).
   if (!canReceiveQuotes(rfq)) return { error: 'rfqClosed' };
   // No self-dealing: an org may not quote on its own RFQ.
-  if (rfq.buyerOrgId === user.orgId) return { error: 'unauthorized' };
+  if (rfq.buyerOrgId === targetOrgId) return { error: 'unauthorized' };
   // Only a supplier the RFQ was broadcast to may quote.
-  const broadcast = rfq.broadcasts.find((b) => b.orgId === user.orgId);
+  const broadcast = rfq.broadcasts.find((b) => b.orgId === targetOrgId);
   if (!broadcast) return { error: 'unauthorized' };
   if (broadcast.declinedAt) return { error: 'alreadyDeclined' };
-  if (await prisma.quote.findUnique({ where: { rfqId_sellerOrgId: { rfqId, sellerOrgId: user.orgId } } })) {
+  if (await prisma.quote.findUnique({ where: { rfqId_sellerOrgId: { rfqId, sellerOrgId: targetOrgId } } })) {
     return { error: 'alreadyQuoted' };
   }
 
@@ -627,7 +685,7 @@ export async function submitQuoteAction(_prev: ActionState, formData: FormData):
   const quote = await prisma.quote.create({
     data: {
       rfqId,
-      sellerOrgId: user.orgId,
+      sellerOrgId: targetOrgId,
       unitPrice,
       currency: String(formData.get('currency') ?? 'USD'),
       moqKg: Number(formData.get('moqKg') ?? 1) || 1,
@@ -636,11 +694,15 @@ export async function submitQuoteAction(_prev: ActionState, formData: FormData):
       paymentTerms: String(formData.get('paymentTerms') ?? '').trim() || '—',
       validUntil: new Date(String(formData.get('validUntil') ?? Date.now() + 12096e5)),
       notes: String(formData.get('notes') ?? '') || null,
+      draftedByPartnerId,
     },
   });
 
   await prisma.rfq.update({ where: { id: rfqId }, data: { status: 'quoted' } });
   await audit('quote.submitted', 'Quote', quote.id, user.id);
+  if (draftedByPartnerId) {
+    await recordIntroductionIfNew(draftedByPartnerId, rfq.buyerOrgId, targetOrgId, rfq.cas, user.id, rfqId);
+  }
 
   const full = await prisma.rfq.findUnique({ where: { id: rfqId }, select: { buyerOrgId: true, productName: true, reference: true } });
   if (full) {
@@ -688,6 +750,10 @@ export async function acceptQuoteAction(formData: FormData): Promise<void> {
     where: { id: quoteId },
     include: { rfq: true, sellerOrg: { select: { name: true, country: true } } },
   });
+  // PARTNER BOUNDARY — a partner NEVER accepts a quote. Do not add an
+  // actingForOrgId branch here. See PARTNER-PROGRAM.md §2, BACKLOG N7.6/N7.10,
+  // and the pinned regression test in lib/actions.partner-boundary.test.ts
+  // before touching this line.
   if (!quote || quote.rfq.buyerOrgId !== user.orgId) return; // only the owning buyer
   // No self-dealing: refuse to award a quote from the buyer's own org.
   if (quote.sellerOrgId === quote.rfq.buyerOrgId) return;
@@ -815,7 +881,7 @@ export async function changePlanAction(formData: FormData): Promise<void> {
   const price = ENTITLEMENTS[next].priceUsd;
   if (price && price > 0) {
     const count = await prisma.invoice.count();
-    await prisma.invoice.create({
+    const invoice = await prisma.invoice.create({
       data: {
         number: `INV-${now.getFullYear()}-${String(count + 1).padStart(4, '0')}`,
         orgId: user.orgId,
@@ -828,6 +894,29 @@ export async function changePlanAction(formData: FormData): Promise<void> {
         status: 'issued',
       },
     });
+
+    // Sourcing Partner Model A (EPIC N7, PARTNER-PROGRAM.md §3): if this org
+    // was brought in by a partner and that attribution's 24-month window is
+    // still open, the partner earns a share of THIS subscription revenue —
+    // never a cut of trade value (A1). See lib/partner.ts's N7.10 guard:
+    // computePartnerPayoutAmount takes only an invoice amount and a margin
+    // rate, nothing Deal/Quote-shaped.
+    const attribution = await prisma.partnerAttribution.findUnique({ where: { orgId: user.orgId } });
+    if (isAttributionActive(attribution, now)) {
+      const payoutCount = await prisma.partnerPayout.count();
+      await prisma.partnerPayout.create({
+        data: {
+          number: `PPO-${now.getFullYear()}-${String(payoutCount + 1).padStart(4, '0')}`,
+          partnerId: attribution!.partnerId,
+          kind: 'model_a_margin',
+          sourceOrgId: user.orgId,
+          sourceInvoiceId: invoice.id,
+          amount: computePartnerPayoutAmount({ kind: 'model_a_margin', sourceInvoiceAmount: price, marginRate: MODEL_A_MARGIN_RATE }),
+          periodStart: now,
+          periodEnd,
+        },
+      });
+    }
   }
 
   await audit(`plan.changed.${next}`, 'Organization', user.orgId, user.id);

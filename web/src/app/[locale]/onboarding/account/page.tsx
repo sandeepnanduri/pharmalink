@@ -28,7 +28,8 @@ export default async function AccountSetupPage({
   const t = await getTranslations('accountSetup');
   // Role chosen on the signup page and carried through the OAuth round-trip.
   const requested = (await searchParams).role;
-  const initialRole = requested === 'seller' || requested === 'both' ? requested : 'buyer';
+  const initialRole =
+    requested === 'seller' || requested === 'both' || requested === 'partner' ? requested : 'buyer';
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-12">

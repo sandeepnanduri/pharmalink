@@ -18,12 +18,14 @@
  *   admin         — application admin: everything, including creating staff users
  *   verifier      — verification officer: approves/rejects buyers & suppliers ONLY
  *   product_admin — catalog moderator: holds/unpublishes listings ONLY
+ *   partner       — Sourcing Partner (EPIC N7): drafts RFQs/quotes for a
+ *                   represented buyer or supplier, never accepts one itself
  *
  * Staff roles are deliberately narrow: the person clearing GMP certificates has
  * no business creating other admins, and the catalog moderator has no business
  * verifying companies.
  */
-export const ROLES = ['buyer', 'seller', 'both', 'admin', 'verifier', 'product_admin'] as const;
+export const ROLES = ['buyer', 'seller', 'both', 'admin', 'verifier', 'product_admin', 'partner'] as const;
 export type Role = (typeof ROLES)[number];
 
 /** Roles belonging to PharmaLink staff rather than a trading organization. */
@@ -46,6 +48,9 @@ export const PERMISSIONS = [
   'admin:verify', // approve/reject orgs + docs      (admin, verifier)
   'admin:moderate', // hold/unpublish any listing     (admin, product_admin)
   'admin:users', // create staff, assign roles      (admin ONLY)
+  // draft an RFQ/quote for a represented org (partner, verified) — NEVER
+  // includes quote:accept; a partner accepts nothing (EPIC N7 boundary).
+  'partner:draft',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -78,6 +83,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: ['catalog:read', 'admin:verify', 'admin:moderate', 'admin:users'],
   verifier: ['catalog:read', 'admin:verify'],
   product_admin: ['catalog:read', 'admin:moderate'],
+  partner: ['catalog:read', 'partner:draft'],
 };
 
 /** Permissions that additionally require an ops-verified organization. */
@@ -86,6 +92,7 @@ const REQUIRES_VERIFIED: ReadonlySet<Permission> = new Set<Permission>([
   'quote:create',
   'quote:accept',
   'product:manage',
+  'partner:draft',
 ]);
 
 export function isVerified(principal: Principal): boolean {
@@ -159,6 +166,8 @@ export function homeFor(role: Role): string {
     case 'buyer':
     case 'both':
       return '/buyer';
+    case 'partner':
+      return '/partner';
     case 'product_admin':
       return '/admin/products';
     case 'admin':

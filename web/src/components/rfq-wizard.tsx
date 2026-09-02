@@ -17,8 +17,22 @@ export interface RfqInitial {
   supplier: string;
 }
 
-export function RfqWizard({ locale, initial }: { locale: string; initial?: RfqInitial | null }) {
+export function RfqWizard({
+  locale,
+  initial,
+  actingForOrgId,
+  actingForOrgName,
+}: {
+  locale: string;
+  initial?: RfqInitial | null;
+  /** Set only when a Sourcing Partner (EPIC N7) is drafting this RFQ for a
+   *  represented buyer — absent, this component behaves byte-identically to
+   *  a buyer drafting their own RFQ. */
+  actingForOrgId?: string;
+  actingForOrgName?: string;
+}) {
   const t = useTranslations('rfq');
+  const tp = useTranslations('partnerMandate');
   const router = useRouter();
   const [step, setStep] = useState(1);
   // Pre-filled when the buyer came from a product page — they should never have
@@ -30,7 +44,7 @@ export function RfqWizard({ locale, initial }: { locale: string; initial?: RfqIn
 
   const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, fd) => {
     const res = await createRfqAction(prev, fd);
-    if (res.ok && res.id) router.push(`/buyer/rfqs/${res.id}`);
+    if (res.ok && res.id) router.push(actingForOrgId ? '/partner/mandates' : `/buyer/rfqs/${res.id}`);
     return res;
   }, {});
 
@@ -52,6 +66,21 @@ export function RfqWizard({ locale, initial }: { locale: string; initial?: RfqIn
   return (
     <form action={action}>
       <input type="hidden" name="locale" value={locale} />
+      {actingForOrgId && <input type="hidden" name="actingForOrgId" value={actingForOrgId} />}
+
+      {actingForOrgId && (
+        <div className="mb-5 flex items-center gap-3 rounded-panel border-[1.5px] border-violet bg-violet-pale px-4 py-3" data-testid="acting-for-banner">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-violet-deep">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21c1.6-4 4.4-6 8-6s6.4 2 8 6" strokeLinecap="round" />
+          </svg>
+          <p className="text-sm">
+            <span className="font-bold uppercase tracking-wide text-violet-deep">{tp('actingFor')}</span>{' '}
+            <span className="font-bold text-txt">{actingForOrgName}</span>
+            <span className="ml-1.5 text-xs font-normal text-slate2">— {tp('notYourTransaction')}</span>
+          </p>
+        </div>
+      )}
 
       <ol className="mb-7 flex items-center">
         {steps.map((label, i) => {

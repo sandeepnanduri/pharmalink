@@ -23,7 +23,7 @@ export function SsoButtons({
   googleReady: boolean;
   samlReady: boolean;
   /** Role picked on the signup page, carried through OAuth so setup needn't re-ask. */
-  intendedRole?: 'buyer' | 'seller' | 'both';
+  intendedRole?: 'buyer' | 'seller' | 'both' | 'partner';
 }) {
   const t = useTranslations('auth');
   const locale = useLocale();
