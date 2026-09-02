@@ -3,6 +3,11 @@ import { signOut } from '@/auth';
 import { currentUser } from '@/lib/session';
 import { prisma } from '@/lib/db';
 import { can, isPlatformRole, canBuy, canSell } from '@/lib/rbac';
+
+/** True for the Sourcing Partner role (EPIC N7) — never buys or sells directly. */
+function isPartner(role: string): boolean {
+  return role === 'partner';
+}
 import { consoleKey, navGroups } from '@/lib/app-nav';
 import { AppShell } from '@/components/app-shell';
 import { SiteHeader } from '@/components/site-header';
@@ -45,9 +50,20 @@ export async function SignedInShell({ children }: { children: React.ReactNode })
   const groups = navGroups({ role: user.role, principal: user.principal, pendingVerifications });
   const name = user.name ?? user.email;
 
-  // Search goes to the list this role actually searches: staff moderate the
-  // catalogue, buyers browse it, and a supplier searches their own listings.
-  const searchHref = staff ? '/en/admin/products' : canSell(user.role) && !canBuy(user.role) ? '/en/seller/products' : '/en/catalog';
+  // Which surface this role sees: staff moderate the catalogue, a partner
+  // works their own mandate pipeline, a seller-only org searches its own
+  // listings, and everyone else browses the buyer catalogue.
+  const surface = staff
+    ? 'ops'
+    : isPartner(user.role)
+      ? 'partner'
+      : canSell(user.role) && !canBuy(user.role)
+        ? 'supplier'
+        : 'buyer';
+  const searchHref = { ops: '/en/admin/products', partner: '/en/partner/mandates', supplier: '/en/seller/products', buyer: '/en/catalog' }[
+    surface
+  ];
+  const searchPlaceholderKey = { ops: 'searchOps', partner: 'searchMandates', supplier: 'searchCatalog', buyer: 'searchCatalog' }[surface];
 
   return (
     <>
@@ -58,10 +74,11 @@ export async function SignedInShell({ children }: { children: React.ReactNode })
           initial: (name[0] ?? '?').toUpperCase(),
           roleLabel: t(`role_${user.role}`),
         }}
-        badge={t(`badge_${staff ? 'ops' : canSell(user.role) && !canBuy(user.role) ? 'supplier' : 'buyer'}`)}
+        badge={t(`badge_${surface}`)}
+        accent={surface === 'partner' ? 'violet' : 'teal'}
         consoleLabel={t(consoleKey(user.role))}
         searchHref={searchHref}
-        searchPlaceholder={t(staff ? 'searchOps' : 'searchCatalog')}
+        searchPlaceholder={t(searchPlaceholderKey)}
         searchLabel={t('searchLabel')}
         bell={<NotificationBell />}
         localeSwitcher={<LocaleSwitcher />}

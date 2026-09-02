@@ -8,7 +8,7 @@ import { ButtonContent } from './spinner';
 import { SsoButtons } from './sso-buttons';
 import { ConsentLabel } from './consent-label';
 
-type Role = 'buyer' | 'seller' | 'both';
+type Role = 'buyer' | 'seller' | 'both' | 'partner';
 
 export function SignupForm({ googleReady, samlReady }: { googleReady: boolean; samlReady: boolean }) {
   const t = useTranslations('auth');
@@ -25,7 +25,7 @@ export function SignupForm({ googleReady, samlReady }: { googleReady: boolean; s
   const [country, setCountry] = useState('India');
   const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, fd) => {
     const res = await signupAction(prev, fd);
-    if (res.ok) router.push(role === 'seller' ? '/onboarding/seller' : '/onboarding/buyer');
+    if (res.ok) router.push(role === 'seller' ? '/onboarding/seller' : role === 'partner' ? '/onboarding/partner' : '/onboarding/buyer');
     return res;
   }, {});
 
@@ -33,6 +33,7 @@ export function SignupForm({ googleReady, samlReady }: { googleReady: boolean; s
     { key: 'buyer', title: t('roleBuyer'), desc: t('roleBuyerDesc'), icon: '🛒' },
     { key: 'seller', title: t('roleSeller'), desc: t('roleSellerDesc'), icon: '🏭' },
     { key: 'both', title: t('roleBoth'), desc: t('roleBothDesc'), icon: '🔁' },
+    { key: 'partner', title: t('rolePartner'), desc: t('rolePartnerDesc'), icon: '🤝' },
   ];
 
   return (
@@ -44,7 +45,7 @@ export function SignupForm({ googleReady, samlReady }: { googleReady: boolean; s
           email). Sitting below them, it was skipped and setup asked again. */}
       <fieldset className="mt-6">
         <legend className="label">{t('iAmA')}</legend>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {roles.map((r) => (
             <button
               type="button"

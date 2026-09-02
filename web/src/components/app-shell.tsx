@@ -142,7 +142,32 @@ export interface ShellUser {
   roleLabel: string;
 }
 
-function NavLink({ item, onNavigate }: { item: NavGroup['items'][number]; onNavigate?: () => void }) {
+/** The Sourcing Partner role (EPIC N7) gets its own accent so its shell never
+ *  reads as buyer/seller's product — every OTHER partner surface already
+ *  uses violet; the shell chrome (nav highlight, wordmark badge chip) is the
+ *  one piece present on every partner screen, so it has to match too. */
+export type ShellAccent = 'teal' | 'violet';
+
+const ACCENT_ACTIVE_NAV: Record<ShellAccent, string> = {
+  teal: 'bg-gradient-to-r from-teal/[0.16] to-teal/[0.05] text-white before:absolute before:-left-3.5 before:bottom-[20%] before:top-[20%] before:w-[3px] before:rounded-r-[3px] before:bg-teal before:content-[""]',
+  violet:
+    'bg-gradient-to-r from-violet/[0.16] to-violet/[0.05] text-white before:absolute before:-left-3.5 before:bottom-[20%] before:top-[20%] before:w-[3px] before:rounded-r-[3px] before:bg-violet before:content-[""]',
+};
+const ACCENT_COUNT_PILL: Record<ShellAccent, string> = { teal: 'bg-teal text-ink', violet: 'bg-violet text-white' };
+const ACCENT_BADGE_CHIP: Record<ShellAccent, string> = {
+  teal: 'border-teal/40 text-teal-bright',
+  violet: 'border-violet/40 text-violet',
+};
+
+function NavLink({
+  item,
+  accent,
+  onNavigate,
+}: {
+  item: NavGroup['items'][number];
+  accent: ShellAccent;
+  onNavigate?: () => void;
+}) {
   const t = useTranslations('nav');
   const path = useAppPath();
   const active = isActive(item.href, path);
@@ -161,15 +186,13 @@ function NavLink({ item, onNavigate }: { item: NavGroup['items'][number]; onNavi
       aria-current={active ? 'page' : undefined}
       data-testid={`nav-${item.href.replace(/\W+/g, '-').replace(/^-|-$/g, '') || 'root'}`}
       className={`relative flex items-center gap-3 rounded-control px-2.5 py-2.5 text-[13.5px] font-medium transition ${
-        active
-          ? 'bg-gradient-to-r from-teal/[0.16] to-teal/[0.05] text-white before:absolute before:-left-3.5 before:bottom-[20%] before:top-[20%] before:w-[3px] before:rounded-r-[3px] before:bg-teal before:content-[""]'
-          : 'text-txt-inv2 hover:bg-white/5 hover:text-white'
+        active ? ACCENT_ACTIVE_NAV[accent] : 'text-txt-inv2 hover:bg-white/5 hover:text-white'
       }`}
     >
       <Icon name={item.icon} />
       <span className="truncate">{t(item.labelKey)}</span>
       {item.count ? (
-        <span className="ml-auto rounded-pill bg-teal px-1.5 py-0.5 font-mono text-[10.5px] font-bold text-ink">{item.count}</span>
+        <span className={`ml-auto rounded-pill px-1.5 py-0.5 font-mono text-[10.5px] font-bold ${ACCENT_COUNT_PILL[accent]}`}>{item.count}</span>
       ) : null}
     </Link>
   );
@@ -179,12 +202,14 @@ function Sidebar({
   groups,
   user,
   badge,
+  accent,
   signOut,
   onNavigate,
 }: {
   groups: NavGroup[];
   user: ShellUser;
   badge: string;
+  accent: ShellAccent;
   signOut: React.ReactNode;
   onNavigate?: () => void;
 }) {
@@ -197,7 +222,9 @@ function Sidebar({
         <span>
           Pharma<em className="not-italic text-teal">Link</em>
         </span>
-        <span className="ml-auto rounded-md border border-teal/40 px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold uppercase tracking-widest text-teal-bright">
+        <span
+          className={`ml-auto rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold uppercase tracking-widest ${ACCENT_BADGE_CHIP[accent]}`}
+        >
           {badge}
         </span>
       </Link>
@@ -208,7 +235,7 @@ function Sidebar({
             <div className="mb-1.5 px-2.5 text-[10px] font-bold uppercase tracking-[1.8px] text-txt-inv2/70">{t(group.labelKey)}</div>
             <div className="space-y-0.5">
               {group.items.map((item) => (
-                <NavLink key={item.href} item={item} onNavigate={onNavigate} />
+                <NavLink key={item.href} item={item} accent={accent} onNavigate={onNavigate} />
               ))}
             </div>
           </div>
@@ -237,6 +264,7 @@ export function AppShell({
   groups,
   user,
   badge,
+  accent = 'teal',
   consoleLabel,
   searchHref,
   searchPlaceholder,
@@ -248,8 +276,12 @@ export function AppShell({
 }: {
   groups: NavGroup[];
   user: ShellUser;
-  /** The short tag beside the wordmark: OPS, BUYER, SUPPLIER. */
+  /** The short tag beside the wordmark: OPS, BUYER, SUPPLIER, PARTNER. */
   badge: string;
+  /** Nav highlight + wordmark badge color. Defaults to teal (buyer/seller);
+   *  a Sourcing Partner shell passes 'violet' so its chrome never reads as
+   *  the buyer/seller product. */
+  accent?: ShellAccent;
   consoleLabel: string;
   /** Where the global search posts — the list this role actually searches. */
   searchHref: string;
@@ -277,7 +309,7 @@ export function AppShell({
           stays put rather than leaving a pale strip where the rail ends. */}
       <div className="hidden bg-ink lg:block">
         <aside className="sticky top-0 h-screen">
-          <Sidebar groups={groups} user={user} badge={badge} signOut={signOut} />
+          <Sidebar groups={groups} user={user} badge={badge} accent={accent} signOut={signOut} />
         </aside>
       </div>
 
@@ -286,7 +318,7 @@ export function AppShell({
         <>
           <button type="button" aria-label={t('menu')} className="fixed inset-0 z-40 bg-ink/60 lg:hidden" onClick={() => setDrawer(false)} />
           <div className="fixed inset-y-0 left-0 z-50 w-64 lg:hidden">
-            <Sidebar groups={groups} user={user} badge={badge} signOut={signOut} onNavigate={() => setDrawer(false)} />
+            <Sidebar groups={groups} user={user} badge={badge} accent={accent} signOut={signOut} onNavigate={() => setDrawer(false)} />
           </div>
         </>
       )}
