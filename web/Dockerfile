@@ -26,6 +26,20 @@ FROM base AS deps
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# --- migrator: isolated Prisma CLI install for the runtime entrypoint ------
+# A separate, from-scratch `npm install` — not a copy from `deps` — so this
+# pulls in exactly the CLI's own dependency closure via npm's real resolver.
+# Hand-picking node_modules/prisma + node_modules/@prisma alone is NOT
+# enough: the CLI's own deps (@prisma/config, effect, c12, ...) live outside
+# both of those paths and are easy to under-copy one at a time as each
+# missing one surfaces at runtime — this was tested and hit exactly that
+# failure before landing on a real `npm install`. Version pinned to match
+# package-lock.json's @prisma/client resolution, so the CLI that migrates the
+# database is never a different version than the client the app runs.
+FROM base AS migrator
+WORKDIR /migrator
+RUN npm install prisma@6.19.3 --no-save --omit=dev
+
 # --- builder: compile the app and bake the template database ---------------
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
@@ -54,7 +68,23 @@ FROM base AS runner
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 # The app talks to SQLite on the mounted volume; documents are stored beside it.
 ENV DATABASE_URL="file:/data/pharmalink.db" UPLOAD_DIR="/data/uploads"
-# Standalone bundle (traced server + minimal node_modules).
+# The Prisma CLI's own isolated install — needed at runtime ONLY so the
+# entrypoint can `db push` an EXISTING database up to the image's schema on
+# every boot (see docker-entrypoint.sh). This deliberately gives up the "no
+# Prisma CLI at runtime" slimness the original design chose: without it, a
+# schema change (new table, new column) ships in the image but is silently
+# never applied to the persistent volume, which breaks the app against real
+# data the moment new code queries a column that was never added to disk.
+#
+# Copied FIRST, so the more specific, POST-generate `.prisma`/`@prisma/client`
+# copies from `builder` below always win on any overlapping path — a
+# generated-client copy from the wrong stage is a broken Prisma client at
+# runtime, not a build error, so the order here is load-bearing.
+COPY --from=migrator --chown=node:node /migrator/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/prisma/schema.prisma ./prisma/schema.prisma
+# Standalone bundle (traced server + minimal node_modules) — its own
+# node_modules subset lands on top of the migrator's, which is what should
+# win for the app's own runtime packages (next, react, ...).
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/public ./public

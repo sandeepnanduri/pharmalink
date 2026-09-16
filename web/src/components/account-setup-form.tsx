@@ -7,7 +7,7 @@ import { completeSsoAccountAction, type ActionState } from '@/lib/actions';
 import { ButtonContent } from './spinner';
 import { ConsentLabel } from './consent-label';
 
-type RoleKey = 'buyer' | 'seller' | 'both';
+type RoleKey = 'buyer' | 'seller' | 'both' | 'partner';
 
 /**
  * Collects what SSO cannot supply: whether the user buys or sells, their real
@@ -50,7 +50,7 @@ export function AccountSetupForm({
     async (prev, fd) => {
       fd.set('role', role);
       const res = await completeSsoAccountAction(prev, fd);
-      if (res.ok) router.push(role === 'seller' ? '/onboarding/seller' : '/onboarding/buyer');
+      if (res.ok) router.push(role === 'seller' ? '/onboarding/seller' : role === 'partner' ? '/onboarding/partner' : '/onboarding/buyer');
       return res;
     },
     {},
@@ -60,13 +60,14 @@ export function AccountSetupForm({
     { key: 'buyer', title: ts('roleBuyer'), desc: ts('roleBuyerDesc'), icon: '🛒' },
     { key: 'seller', title: ts('roleSeller'), desc: ts('roleSellerDesc'), icon: '🏭' },
     { key: 'both', title: ts('roleBoth'), desc: ts('roleBothDesc'), icon: '🔁' },
+    { key: 'partner', title: ts('rolePartner'), desc: ts('rolePartnerDesc'), icon: '🤝' },
   ];
 
   return (
     <form action={action} className="mt-6 space-y-5" noValidate>
       <fieldset>
         <legend className="label">{ts('iAmA')}</legend>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {roles.map((r) => (
             <button
               type="button"

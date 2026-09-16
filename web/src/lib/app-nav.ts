@@ -1,6 +1,11 @@
 import { canBuy, canSell, isPlatformRole, type Permission, type Principal, type Role } from '@/lib/rbac';
 import { can } from '@/lib/rbac';
 
+/** True for the Sourcing Partner role (EPIC N7) — never buys or sells directly. */
+function isPartner(role: Role): boolean {
+  return role === 'partner';
+}
+
 /**
  * The signed-in navigation, for every role, in one place.
  *
@@ -100,6 +105,7 @@ function tradingGroups(ctx: NavContext): NavGroup[] {
         { href: '/buyer', labelKey: 'dashboard', icon: 'dashboard' },
         { href: '/buyer/rfqs', labelKey: 'rfqs', icon: 'rfq' },
         { href: '/buyer/saved', labelKey: 'saved', icon: 'bookmark' },
+        { href: '/partners', labelKey: 'sourcingPartners', icon: 'users' },
       ],
     });
   }
@@ -131,6 +137,7 @@ function tradingGroups(ctx: NavContext): NavGroup[] {
     labelKey: 'groupAccount',
     items: [
       { href: '/account', labelKey: 'account', icon: 'account' },
+      { href: '/account/partners', labelKey: 'partners', icon: 'users' },
       { href: '/billing', labelKey: 'billing', icon: 'billing' },
     ],
   });
@@ -138,8 +145,34 @@ function tradingGroups(ctx: NavContext): NavGroup[] {
   return groups;
 }
 
+/**
+ * A Sourcing Partner (EPIC N7): drafts RFQs/quotes for a represented buyer or
+ * supplier, never accepts one, never trades on its own account — so it gets
+ * its own workspace rather than falling into tradingGroups' buy/sell split.
+ */
+function partnerGroups(): NavGroup[] {
+  return [
+    {
+      labelKey: 'groupPartnerWorkspace',
+      items: [
+        { href: '/partner', labelKey: 'partnerDashboard', icon: 'dashboard' },
+        { href: '/partner/mandates', labelKey: 'partnerMandates', icon: 'rfq' },
+        { href: '/partner/network', labelKey: 'partnerNetwork', icon: 'users' },
+      ],
+    },
+    {
+      labelKey: 'groupPartnerEarnings',
+      items: [{ href: '/partner/earnings', labelKey: 'partnerEarnings', icon: 'billing' }],
+    },
+    {
+      labelKey: 'groupAccount',
+      items: [{ href: '/account', labelKey: 'account', icon: 'account' }],
+    },
+  ];
+}
+
 export function navGroups(ctx: NavContext): NavGroup[] {
-  const groups = isPlatformRole(ctx.role) ? staffGroups(ctx) : tradingGroups(ctx);
+  const groups = isPlatformRole(ctx.role) ? staffGroups(ctx) : isPartner(ctx.role) ? partnerGroups() : tradingGroups(ctx);
   // An empty group would render a section heading over nothing.
   return groups.filter((g) => g.items.length > 0);
 }
@@ -147,5 +180,6 @@ export function navGroups(ctx: NavContext): NavGroup[] {
 /** What the breadcrumb calls this workspace. */
 export function consoleKey(role: Role): string {
   if (isPlatformRole(role)) return 'consoleOps';
+  if (isPartner(role)) return 'consolePartner';
   return canSell(role) && !canBuy(role) ? 'consoleSupplier' : 'consoleBuyer';
 }

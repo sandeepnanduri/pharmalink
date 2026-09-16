@@ -18,7 +18,7 @@ export async function VerificationBanner({
   const t = await getTranslations('verificationBanner');
   if (status === 'verified' || role === 'admin') return null;
 
-  const href = role === 'seller' ? '/onboarding/seller' : '/onboarding/buyer';
+  const href = role === 'seller' ? '/onboarding/seller' : role === 'partner' ? '/onboarding/partner' : '/onboarding/buyer';
 
   const map = {
     draft: { title: t('draftTitle'), body: t('draftBody'), cls: 'border-brand-mid bg-brand-pale text-indigo-900', cta: true },

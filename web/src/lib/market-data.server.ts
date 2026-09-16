@@ -4,6 +4,12 @@ import { withRun, type IngestSummary } from './ingest-run.server';
 import { assertSafeUrl } from '@/lib/net-guard.server';
 import { mirrorInternalPrices } from '@/lib/market-data-internal';
 import {
+  canonicalSponsor,
+  supplierBaseFrom,
+  usGenericName,
+  type DrugsFdaApplication,
+} from '@/lib/supplier-base';
+import {
   ALLOWED_HOSTS,
   HS_BY_CAS,
   comtradeRef,
@@ -323,6 +329,83 @@ export async function ingestFx(months = 24): Promise<IngestSummary> {
  * have: a deal is a price that was actually agreed. The mapping itself lives in
  * `market-data-internal.ts` so the Prisma seed can reuse it verbatim.
  */
+// ---------------------------------------------------------------------------
+// Supplier base — who is approved to make each molecule
+// ---------------------------------------------------------------------------
+
+/**
+ * openFDA answers "nothing matched your search" with **404 and an error body**,
+ * not with an empty result set. A molecule nobody has US approval for is a real,
+ * informative answer — `concentrationOf` grades it `unknown` — so it must not
+ * abort the whole run the way a genuine transport failure should.
+ */
+async function fetchJsonOrNotFound<T>(url: string): Promise<T | null> {
+  try {
+    return await fetchJson<T>(url);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('returned 404')) return null;
+    throw err;
+  }
+}
+
+/**
+ * Rebuild the US finished-dose supply base for every molecule in `HS_BY_CAS`.
+ *
+ * Rows are replaced per molecule rather than merged: a holder who has left the
+ * register must disappear, and an upsert-only pass would keep them forever.
+ * `sourceRef` stays unique so a partial re-run is still idempotent.
+ */
+export async function ingestSupplierBase(): Promise<IngestSummary> {
+  return withRun('openfda-drugsfda', async () => {
+    const source = sourceById('openfda-drugsfda');
+    let fetched = 0;
+    let inserted = 0;
+    let skipped = 0;
+
+    for (const molecule of HS_BY_CAS) {
+      const queriedAs = usGenericName(molecule.cas);
+      if (!queriedAs) {
+        // An unmapped molecule would query openFDA under its INN and quietly
+        // return nothing, which is indistinguishable from "no approvals".
+        skipped++;
+        continue;
+      }
+
+      const url = `https://api.fda.gov/drug/drugsfda.json?search=openfda.generic_name:"${encodeURIComponent(queriedAs)}"&limit=1000`;
+      const body = await fetchJsonOrNotFound<OpenFdaResponse<DrugsFdaApplication>>(url);
+      await sleep(THROTTLE_MS);
+
+      if (body?.error && body.error.code !== 'NOT_FOUND') throw new Error(`openFDA: ${body.error.message}`);
+      const apps = body?.results ?? [];
+      fetched += apps.length;
+
+      const base = supplierBaseFrom(molecule.cas, queriedAs, apps);
+
+      await prisma.marketSupplier.deleteMany({ where: { cas: molecule.cas, basis: 'finished_dose', region: 'US' } });
+      for (const holder of base.holders) {
+        const holderKey = canonicalSponsor(holder.name);
+        await prisma.marketSupplier.create({
+          data: {
+            cas: molecule.cas,
+            holderName: holder.name,
+            holderKey,
+            basis: 'finished_dose',
+            approvals: holder.approvals,
+            queriedAs,
+            region: 'US',
+            sourceName: source?.name ?? 'openFDA approved drug applications',
+            sourceUrl: source?.docsUrl ?? null,
+            sourceRef: `drugsfda:${molecule.cas}:${holderKey}`,
+          },
+        });
+        inserted++;
+      }
+    }
+
+    return { fetched, inserted, skipped };
+  });
+}
+
 export async function ingestInternal(): Promise<IngestSummary> {
   return withRun('internal', async () => mirrorInternalPrices(prisma));
 }
@@ -331,7 +414,14 @@ export async function ingestInternal(): Promise<IngestSummary> {
 // Orchestration
 // ---------------------------------------------------------------------------
 
-export const INGESTIBLE = ['internal', 'comtrade', 'openfda-shortages', 'openfda-enforcement', 'frankfurter-fx'] as const;
+export const INGESTIBLE = [
+  'internal',
+  'comtrade',
+  'openfda-shortages',
+  'openfda-enforcement',
+  'openfda-drugsfda',
+  'frankfurter-fx',
+] as const;
 export type IngestibleSource = (typeof INGESTIBLE)[number];
 
 export function isIngestible(value: string): value is IngestibleSource {
@@ -348,6 +438,8 @@ export async function runIngest(source: IngestibleSource): Promise<IngestSummary
       return ingestShortages();
     case 'openfda-enforcement':
       return ingestRecalls();
+    case 'openfda-drugsfda':
+      return ingestSupplierBase();
     case 'frankfurter-fx':
       return ingestFx();
   }

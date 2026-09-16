@@ -10,6 +10,7 @@ import {
   parseRole,
   canBuy,
   canSell,
+  homeFor,
   type Principal,
 } from './rbac';
 
@@ -157,6 +158,32 @@ describe('effectivePermissions', () => {
     expect(perms.has('catalog:read')).toBe(true);
     expect(perms.has('rfq:create')).toBe(false);
     expect(perms.has('quote:accept')).toBe(false);
+  });
+});
+
+describe('sourcing partner role (EPIC N7)', () => {
+  const verifiedPartner: Principal = { role: 'partner', orgStatus: 'verified' };
+  const pendingPartner: Principal = { role: 'partner', orgStatus: 'pending' };
+
+  it('lets a verified partner draft, blocks an unverified one — same gate every trading role gets', () => {
+    expect(can(verifiedPartner, 'partner:draft')).toBe(true);
+    expect(can(pendingPartner, 'partner:draft')).toBe(false);
+    expect(denialReason(pendingPartner, 'partner:draft')).toBe('unverified');
+  });
+
+  it('a partner can never accept a quote, post an RFQ as itself, or quote directly — it only drafts for a principal', () => {
+    expect(can(verifiedPartner, 'quote:accept')).toBe(false);
+    expect(can(verifiedPartner, 'rfq:create')).toBe(false);
+    expect(can(verifiedPartner, 'quote:create')).toBe(false);
+  });
+
+  it('is a trading role, not platform staff', () => {
+    expect(isPlatformRole('partner')).toBe(false);
+    expect(isStaff(verifiedPartner)).toBe(false);
+  });
+
+  it('has its own landing page', () => {
+    expect(homeFor('partner')).toBe('/partner');
   });
 });
 
