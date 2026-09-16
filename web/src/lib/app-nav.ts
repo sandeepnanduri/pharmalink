@@ -155,6 +155,12 @@ function partnerGroups(): NavGroup[] {
     {
       labelKey: 'groupPartnerWorkspace',
       items: [
+        // Every other signed-in role keeps this link (tradingGroups' buyer
+        // branch has it first too) — a partner lost it entirely when their
+        // own sidebar replaced the public nav, with no equivalent added
+        // back. Browsing the catalog is how a partner finds a supplier
+        // worth pitching for representation in the first place.
+        { href: '/catalog', labelKey: 'marketplace', icon: 'search' },
         { href: '/partner', labelKey: 'partnerDashboard', icon: 'dashboard' },
         { href: '/partner/mandates', labelKey: 'partnerMandates', icon: 'rfq' },
         { href: '/partner/network', labelKey: 'partnerNetwork', icon: 'users' },

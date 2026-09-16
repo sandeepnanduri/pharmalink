@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/session';
 import { getPartnerNetwork } from '@/lib/partner-queries';
 import { hasScope } from '@/lib/partner';
 import { PartnerDocumentUploadSection } from '@/components/partner-document-upload-section';
+import { EcosystemServicesSection } from '@/components/ecosystem-services-section';
 
 // orgKind is 'buyer' | 'seller' | 'both' | 'partner' — 'seller' and 'partner'
 // both bucket with "supplier's agent" here (matching getPartnerNetwork's own
@@ -95,6 +96,7 @@ export default async function PartnerNetworkPage({ params }: { params: Promise<{
       )}
 
       <PartnerDocumentUploadSection eligible={uploadEligible} />
+      <EcosystemServicesSection />
     </div>
   );
 }
