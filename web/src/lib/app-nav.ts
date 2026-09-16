@@ -162,7 +162,10 @@ function partnerGroups(): NavGroup[] {
     },
     {
       labelKey: 'groupPartnerEarnings',
-      items: [{ href: '/partner/earnings', labelKey: 'partnerEarnings', icon: 'billing' }],
+      items: [
+        { href: '/partner/earnings', labelKey: 'partnerEarnings', icon: 'billing' },
+        { href: '/partner/rewards', labelKey: 'partnerRewards', icon: 'chart' },
+      ],
     },
     {
       labelKey: 'groupAccount',

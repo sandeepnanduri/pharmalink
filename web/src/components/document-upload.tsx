@@ -18,7 +18,7 @@ interface Uploaded {
  * and nested forms are invalid HTML — the browser silently drops the inner one,
  * so a nested submit would hit the outer form and never upload.
  */
-export function DocumentUpload({ kind = 'gmp_cert' }: { kind?: string }) {
+export function DocumentUpload({ kind = 'gmp_cert', actingForOrgId }: { kind?: string; actingForOrgId?: string }) {
   const t = useTranslations('onboarding');
   const inputRef = useRef<HTMLInputElement>(null);
   const [done, setDone] = useState<Uploaded[]>([]);
@@ -36,6 +36,7 @@ export function DocumentUpload({ kind = 'gmp_cert' }: { kind?: string }) {
     const fd = new FormData();
     fd.set('file', file);
     fd.set('kind', kind);
+    if (actingForOrgId) fd.set('actingForOrgId', actingForOrgId);
 
     setPending(true);
     try {

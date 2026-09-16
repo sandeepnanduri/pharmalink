@@ -486,6 +486,13 @@ model Document {
   reviewedById  String?
   reviewedAt    DateTime?
 
+  /// Set when a Sourcing Partner uploaded this on behalf of `orgId` (EPIC N7,
+  /// document_upload scope). Same shape and same caveat as Rfq/Quote's
+  /// draftedByPartnerId — this field is provenance only, never an
+  /// ownership/authorization check; `orgId` above is still the sole owner.
+  uploadedByPartnerId String?
+  uploadedByPartner   Partner? @relation(fields: [uploadedByPartnerId], references: [id])
+
   createdAt DateTime @default(now())
 
   @@index([orgId])
@@ -494,6 +501,7 @@ model Document {
   @@index([rfqId])
   @@index([quoteId])
   @@index([messageId])
+  @@index([uploadedByPartnerId])
 }
 
 /// In-app notification centre (BACKLOG F5.1). Email/WhatsApp fan-out reads the
@@ -988,12 +996,13 @@ model Partner {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  representations PartnerRepresentation[]
-  attributions    PartnerAttribution[]
-  payouts         PartnerPayout[]
-  introductions   Introduction[]
-  draftedRfqs     Rfq[]
-  draftedQuotes   Quote[]
+  representations   PartnerRepresentation[]
+  attributions      PartnerAttribution[]
+  payouts           PartnerPayout[]
+  introductions     Introduction[]
+  draftedRfqs       Rfq[]
+  draftedQuotes     Quote[]
+  uploadedDocuments Document[]
 
   @@index([status])
 }

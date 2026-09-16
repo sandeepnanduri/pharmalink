@@ -43,6 +43,11 @@ const KINDS: Record<string, NotificationKindMeta> = {
   'shipment.overdue': { group: 'action', icon: 'truck', weight: 88 },
 
   // --- progress on something already in motion ------------------------------
+  // A Sourcing Partner drafted this on the principal's behalf (EPIC N7 follow-
+  // up) — nothing breaks if it's ignored (the RFQ/quote is already live), but
+  // the principal should still see their own name was used without them.
+  'rfq.draftedByPartner': { group: 'update', icon: 'quote', weight: 45 },
+  'quote.draftedByPartner': { group: 'update', icon: 'quote', weight: 45 },
   'quote.accepted': { group: 'update', icon: 'check', weight: 50 },
   'quote.declined': { group: 'update', icon: 'quote', weight: 30 },
   // Nothing left to do about it, so it stays quiet — but it must still be seen,

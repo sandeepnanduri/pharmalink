@@ -17,7 +17,7 @@ describe('kind classification', () => {
   });
 
   it('keeps routine progress out of the action group', () => {
-    for (const k of ['shipment.updated', 'shipment.delivered', 'quote.declined', 'review.received']) {
+    for (const k of ['shipment.updated', 'shipment.delivered', 'quote.declined', 'review.received', 'rfq.draftedByPartner', 'quote.draftedByPartner']) {
       expect(kindMeta(k).group, k).toBe('update');
     }
   });

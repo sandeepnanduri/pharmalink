@@ -93,8 +93,16 @@ export function isAttributionActive(
 // policy.
 // ---------------------------------------------------------------------------
 
-/** 'model_b_bounty' is added by N7.11 (P2) — no P1 code path may write it. */
-export const PARTNER_PAYOUT_KINDS = ['model_a_margin'] as const;
+/**
+ * 'model_b_bounty' is added by N7.11 (P2) — no P1 code path may write it.
+ * The four `*_bonus` kinds are PARTNER-INCENTIVES.md §3's rewards ladder
+ * (activation/streak/breadth/referral) — the kind strings a future payout
+ * write-path will use, added ahead of that write-path existing so the type
+ * is ready. Nothing creates a PartnerPayout with one of these kinds yet;
+ * getPartnerIncentives (partner-queries.ts) only READS the milestones they
+ * describe, via INCENTIVE_MILESTONES below.
+ */
+export const PARTNER_PAYOUT_KINDS = ['model_a_margin', 'activation_bonus', 'streak_bonus', 'breadth_bonus', 'referral_bonus'] as const;
 export type PartnerPayoutKind = (typeof PARTNER_PAYOUT_KINDS)[number];
 
 /** 27.5% of the subscription price, for 24 months from attribution — PARTNER-PROGRAM.md §3, Model A. */
@@ -114,4 +122,36 @@ export interface PartnerPayoutInput {
 
 export function computePartnerPayoutAmount(input: PartnerPayoutInput): number {
   return Math.round(input.sourceInvoiceAmount * input.marginRate * 100) / 100;
+}
+
+// ---------------------------------------------------------------------------
+// Rewards ladder (PARTNER-INCENTIVES.md §3) — read-only eligibility/progress,
+// no payout write-path yet (see PARTNER_PAYOUT_KINDS' comment above). Every
+// amount here is a fixed constant, never derived from a deal/quote/GMV
+// figure — same A1 shape as Model A, just with nothing to compute since the
+// reward doesn't scale with anything.
+// ---------------------------------------------------------------------------
+
+export const ACTIVATION_WINDOW_DAYS = 14;
+export const STREAK_WINDOW_DAYS = 90;
+export const STREAK_TARGET = 5;
+export const BREADTH_TIERS = [3, 6, 10] as const;
+export const REFERRAL_TARGET = 1;
+
+/** USD, PARTNER-INCENTIVES.md §3's published amounts. */
+export const INCENTIVE_REWARD_USD: Record<'activation_bonus' | 'streak_bonus' | 'breadth_bonus' | 'referral_bonus', number> = {
+  activation_bonus: 100,
+  streak_bonus: 150,
+  breadth_bonus: 100, // per tier crossed
+  referral_bonus: 75,
+};
+
+/** Whether `b` falls within `days` of `a` — the Activation milestone's 14-day window. */
+export function withinDays(a: Date, b: Date, days: number): boolean {
+  return Math.abs(b.getTime() - a.getTime()) <= days * 24 * 60 * 60 * 1000;
+}
+
+/** How many of BREADTH_TIERS a given represented-org count has reached. */
+export function breadthTiersReached(count: number): number {
+  return BREADTH_TIERS.filter((t) => count >= t).length;
 }

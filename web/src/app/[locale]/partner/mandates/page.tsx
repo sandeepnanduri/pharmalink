@@ -75,10 +75,12 @@ export default async function MandatesPage({ params }: { params: Promise<{ local
               </thead>
               <tbody>
                 {portfolio.mandates.map((m) => (
-                  <tr key={`${m.kind}-${m.id}`} data-testid="mandate-row">
+                  <tr key={`${m.kind}-${m.id}`} data-testid="mandate-row" className="hover:bg-mist">
                     <td className="td font-semibold">
-                      {m.productName}
-                      <p className="mt-0.5 font-mono text-[10.5px] font-normal text-muted">CAS {m.cas}</p>
+                      <Link href={`/partner/mandates/${m.id}`} className="block">
+                        {m.productName}
+                        <p className="mt-0.5 font-mono text-[10.5px] font-normal text-muted">CAS {m.cas}</p>
+                      </Link>
                     </td>
                     <td className="td">{m.principalOrgName}</td>
                     <td className="td">
@@ -86,7 +88,11 @@ export default async function MandatesPage({ params }: { params: Promise<{ local
                         {t(m.bucket)}
                       </span>
                     </td>
-                    <td className="td font-mono text-xs">{m.reference}</td>
+                    <td className="td font-mono text-xs">
+                      <Link href={`/partner/mandates/${m.id}`} className="hover:underline">
+                        {m.reference}
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

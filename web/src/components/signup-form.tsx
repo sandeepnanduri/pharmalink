@@ -10,7 +10,7 @@ import { ConsentLabel } from './consent-label';
 
 type Role = 'buyer' | 'seller' | 'both' | 'partner';
 
-export function SignupForm({ googleReady, samlReady }: { googleReady: boolean; samlReady: boolean }) {
+export function SignupForm({ googleReady, samlReady, partnerCode }: { googleReady: boolean; samlReady: boolean; partnerCode?: string }) {
   const t = useTranslations('auth');
   const locale = useLocale();
   const router = useRouter();
@@ -39,6 +39,12 @@ export function SignupForm({ googleReady, samlReady }: { googleReady: boolean; s
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-12">
       <h1 className="text-2xl font-extrabold sm:text-3xl">{t('signUpTitle')}</h1>
+
+      {partnerCode && (
+        <p className="mt-2 text-xs font-semibold text-violet" data-testid="signup-invited-by-partner">
+          {t('invitedByPartner')}
+        </p>
+      )}
 
       {/* Role first: the choice has to be made BEFORE the SSO buttons, because
           it is carried through the OAuth round-trip (Google returns only an
@@ -74,6 +80,7 @@ export function SignupForm({ googleReady, samlReady }: { googleReady: boolean; s
       <form action={action} className="mt-5 space-y-5" noValidate>
         <input type="hidden" name="locale" value={locale} />
         <input type="hidden" name="role" value={role} />
+        {partnerCode && <input type="hidden" name="partnerCode" value={partnerCode} />}
 
         <div className="card space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
