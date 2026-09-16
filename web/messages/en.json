@@ -70,6 +70,7 @@
     "partnerMandates": "Mandates",
     "partnerNetwork": "Network",
     "partnerEarnings": "Earnings",
+    "partnerRewards": "Rewards",
     "partners": "Manage partners",
     "sourcingPartners": "Find a partner",
     "searchLabel": "Search",
@@ -389,6 +390,7 @@
   "auth": {
     "signInTitle": "Sign in to PharmaLink",
     "signUpTitle": "Create your account",
+    "invitedByPartner": "You were invited by a PharmaLink Sourcing Partner.",
     "email": "Work email",
     "password": "Password",
     "confirmPassword": "Confirm password",
@@ -675,7 +677,10 @@
     "colReference": "Reference",
     "sourcing": "Sourcing",
     "quoted": "Quoted",
-    "awarded": "Awarded"
+    "awarded": "Awarded",
+    "readOnlyNote": "You can see this, but only the org you represent can accept or award it.",
+    "unitPrice": "Unit price",
+    "validUntil": "Valid until"
   },
   "partnerHub": {
     "title": "Sourcing partners",
@@ -717,7 +722,10 @@
     "representingSupplier": "Representing as supplier's agent",
     "representingBoth": "Representing as buyer & supplier's agent",
     "naForBuyer": "— n/a for buyers",
-    "noActivityYet": "No activity yet"
+    "noActivityYet": "No activity yet",
+    "uploadTitle": "Upload a document",
+    "uploadHint": "Only orgs that granted you document-upload scope appear here.",
+    "uploadOrgLabel": "For"
   },
   "partnerProfile": {
     "archetype_indentor": "Indenting agent",
@@ -763,7 +771,35 @@
     "status_accrued": "Accrued",
     "status_confirmed": "Confirmed",
     "status_paid": "Paid",
-    "status_void": "Void"
+    "status_void": "Void",
+    "viewInvoice": "View invoice",
+    "invoiceTitle": "Partner payout invoice",
+    "issuer": "Issued by",
+    "payee": "Payable to",
+    "commissionSource": "Commission source",
+    "commissionFrom": "{org}'s subscription — invoice {number}",
+    "period": "Billing period",
+    "invoiceFooter": "This statement documents a subscription-revenue share paid directly by PharmaLink to the partner named above. It is not a trade invoice, carries no buyer or supplier payment, and PharmaLink never takes a cut of deal or quote value."
+  },
+  "partnerRewards": {
+    "title": "Rewards",
+    "subtitle": "Milestones you've earned, and what's still in progress.",
+    "boundaryNote": "Every reward here is a fixed amount, never a percentage of deal or GMV value. These are shown for visibility — settlement follows the same review PharmaLink already applies to every payout.",
+    "noPartnerRecord": "Your onboarding didn't finish — complete the partner wizard to unlock rewards.",
+    "earned": "Earned",
+    "rewardSuffix": "reward",
+    "activationTitle": "Activation",
+    "activationDesc": "Draft your first mandate and have it recorded as an introduction within 14 days of your own verification.",
+    "streakTitle": "Consistency",
+    "streakDesc": "Draft 5 mandates in a rolling 90-day window.",
+    "breadthTitle1": "Breadth — 3 orgs",
+    "breadthDesc1": "Hold a live representation over 3 distinct orgs.",
+    "breadthTitle2": "Breadth — 6 orgs",
+    "breadthDesc2": "Hold a live representation over 6 distinct orgs.",
+    "breadthTitle3": "Breadth — 10 orgs",
+    "breadthDesc3": "Hold a live representation over 10 distinct orgs.",
+    "referralTitle": "Advocacy",
+    "referralDesc": "Refer another Sourcing Partner who completes verification."
   },
   "buyerDash": {
     "welcome": "Welcome back, {name}",
@@ -811,7 +847,11 @@
     "certAlertLine": "{org}'s {name} needs attention",
     "certExpiryTitle": "Certificate expiry",
     "certExpiryEmpty": "No certificates expiring soon.",
-    "viewNetwork": "View your network"
+    "viewNetwork": "View your network",
+    "inviteTitle": "Your invite link",
+    "inviteHint": "Share this with a buyer or supplier who isn't on PharmaLink yet — when they sign up through it, you're sealed as the partner who brought them in.",
+    "inviteCopy": "Copy",
+    "inviteCopied": "Copied"
   },
   "products": {
     "title": "My products",

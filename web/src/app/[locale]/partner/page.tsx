@@ -5,6 +5,8 @@ import { VerificationBanner } from '@/components/verification-banner';
 import { StatCard } from '@/components/stat-card';
 import { getPortfolio } from '@/lib/partner-queries';
 import { Link } from '@/i18n/routing';
+import { InviteLinkCard } from '@/components/invite-link-card';
+import { absoluteUrl } from '@/lib/seo';
 
 // Renders per-user data (session, representations, payouts) — must never be
 // served from the static/full route cache.
@@ -98,6 +100,8 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ l
         </section>
 
         <div className="flex flex-col gap-5">
+          <InviteLinkCard link={`${absoluteUrl(locale, '/signup')}?ref=${portfolio.partner.code}`} />
+
           <section className="card">
             <h2 className="text-[13.5px] font-bold">{t('priorityTitle')}</h2>
             <p className="mb-3 mt-0.5 text-[11px] text-muted">{t('priorityHint')}</p>

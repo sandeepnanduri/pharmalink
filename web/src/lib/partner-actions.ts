@@ -17,7 +17,7 @@ import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { currentUser } from '@/lib/session';
-import { REPRESENTATION_SCOPES, type RepresentationScope } from '@/lib/partner';
+import { REPRESENTATION_SCOPES, MODEL_A_WINDOW_MONTHS, type RepresentationScope } from '@/lib/partner';
 import { generatePartnerCode } from '@/lib/partner-code.server';
 import { validatePartnerOnboarding } from '@/lib/partner-onboarding';
 
@@ -176,6 +176,46 @@ export async function recordIntroductionIfNew(
       data: { partnerId, buyerOrgId, supplierOrgId, cas, rfqId: rfqId ?? null },
     });
     await audit('partner.introduction', 'Introduction', introduction.id, actorId);
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return; // first-claim-wins
+    throw err;
+  }
+}
+
+/**
+ * Seals which partner brought `orgId` to the platform, for Model A revenue
+ * sharing (PARTNER-PROGRAM.md §3). Called from signupAction right after a
+ * new org is created, when the signup form carried a partner's invite code.
+ *
+ * `partnerCode` is attacker-controlled input from a public query param — an
+ * unknown/mistyped code must never block or error the signup, only skip
+ * attribution, so a lookup miss is a silent no-op, not an error.
+ *
+ * Write-once by construction, same first-claim-wins shape as
+ * recordIntroductionIfNew above: `PartnerAttribution.orgId` is `@unique`, so
+ * a second seal attempt (which cannot happen from signupAction, since an org
+ * signs up exactly once, but could in principle be called twice) hits P2002
+ * and is swallowed rather than overwriting the sealed partner. Never call
+ * `.update()` on a PartnerAttribution — there is deliberately no function in
+ * this module that does.
+ */
+export async function sealAttributionIfNew(
+  orgId: string,
+  partnerCode: string,
+  source: 'invite_link' | 'manual_ops',
+  actorId: string
+): Promise<void> {
+  const partner = await prisma.partner.findUnique({ where: { code: partnerCode }, select: { id: true } });
+  if (!partner) return; // unknown/mistyped code — never blocks signup
+
+  const now = new Date();
+  const expiresAt = new Date(now.getFullYear(), now.getMonth() + MODEL_A_WINDOW_MONTHS, now.getDate());
+
+  try {
+    const attribution = await prisma.partnerAttribution.create({
+      data: { orgId, partnerId: partner.id, source, sealedAt: now, expiresAt },
+    });
+    await audit('partner.attribution.sealed', 'PartnerAttribution', attribution.id, actorId, source);
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return; // first-claim-wins
     throw err;

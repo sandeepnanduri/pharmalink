@@ -22,7 +22,7 @@ import { isAtLimit, parsePlan, ENTITLEMENTS } from '@/lib/plans';
 import { matchSuppliers, type MatchableSeller } from '@/lib/matching';
 import { parseSites, parseCredentials, validateOnboarding } from '@/lib/onboarding';
 import { resolveActingOrgId } from '@/lib/partner-queries';
-import { recordIntroductionIfNew } from '@/lib/partner-actions';
+import { recordIntroductionIfNew, sealAttributionIfNew } from '@/lib/partner-actions';
 import { computePartnerPayoutAmount, isAttributionActive, MODEL_A_MARGIN_RATE } from '@/lib/partner';
 import {
   categoryFromProductType,
@@ -252,6 +252,14 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
   });
 
   await audit('user.registered', 'User', user.id, user.id);
+
+  // First-touch attribution: sealed at signup, not at final onboarding
+  // submission, so it still counts even if this org is slow to finish
+  // verification — see sealAttributionIfNew's own write-once guarantee.
+  // An empty/unknown code is a normal, silent no-op (see partnerCode below).
+  const partnerCode = String(formData.get('partnerCode') ?? '').trim();
+  if (partnerCode) await sealAttributionIfNew(org.id, partnerCode, 'invite_link', user.id);
+
   return { ok: true, id: user.id };
 }
 
@@ -624,6 +632,18 @@ export async function createRfqAction(_prev: ActionState, formData: FormData): P
       link: `/seller`,
     });
   }
+  // The principal's own team is never in the RFQ-drafting flow when a
+  // partner acts for them — without this they would only learn an RFQ went
+  // out under their name by noticing it themselves. Silent delegation is
+  // exactly the thing PARTNER-PROGRAM.md's "never surprise the principal"
+  // line rules out.
+  if (draftedByPartnerId) {
+    const partner = await prisma.partner.findUnique({ where: { id: draftedByPartnerId }, select: { org: { select: { name: true } } } });
+    await notifyOrg(targetOrgId, 'rfq.draftedByPartner', `Your partner posted an RFQ: ${productName}`, {
+      body: `${partner?.org.name ?? 'Your sourcing partner'} drafted this on your behalf — ${quantityKg} kg · CAS ${cas}`,
+      link: `/buyer/rfqs/${rfq.id}`,
+    });
+  }
   revalidatePath('/[locale]/buyer/rfqs', 'page');
   return { ok: true, id: rfq.id };
 }
@@ -711,6 +731,16 @@ export async function submitQuoteAction(_prev: ActionState, formData: FormData):
       link: `/buyer/rfqs/${rfqId}`,
     });
     await dispatchEvent('quote.received', { rfqId, reference: full.reference, quoteId: quote.id, unitPrice: quote.unitPrice, currency: quote.currency }, { orgId: full.buyerOrgId });
+  }
+  // Symmetric with the createRfqAction notice above — the represented
+  // SELLER's own team otherwise never learns their partner just quoted on
+  // their behalf until they happen to check the dashboard.
+  if (draftedByPartnerId && full) {
+    const partner = await prisma.partner.findUnique({ where: { id: draftedByPartnerId }, select: { org: { select: { name: true } } } });
+    await notifyOrg(targetOrgId, 'quote.draftedByPartner', `Your partner quoted on ${full.reference}`, {
+      body: `${partner?.org.name ?? 'Your sourcing partner'} submitted this on your behalf — ${quote.currency} ${quote.unitPrice}/kg`,
+      link: `/seller`,
+    });
   }
   revalidatePath('/[locale]/seller', 'page');
   return { ok: true, id: quote.id };

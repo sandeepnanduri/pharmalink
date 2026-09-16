@@ -7,10 +7,21 @@
  * precedent this follows).
  */
 import { prisma } from '@/lib/db';
-import { canActFor, type RepresentationScope } from '@/lib/partner';
+import {
+  canActFor,
+  hasScope,
+  withinDays,
+  ACTIVATION_WINDOW_DAYS,
+  STREAK_WINDOW_DAYS,
+  STREAK_TARGET,
+  BREADTH_TIERS,
+  REFERRAL_TARGET,
+  INCENTIVE_REWARD_USD,
+  type RepresentationScope,
+} from '@/lib/partner';
 import { certExpiryLevel, needsAttention } from '@/lib/compliance';
 import { effectiveRfqStatus, canReceiveQuotes } from '@/lib/rfq';
-import { hasScope } from '@/lib/partner';
+import { getQuoteComparison } from '@/lib/compare-queries';
 
 /** The live PartnerRepresentation row (if any) a partner org holds over a principal org. */
 export async function getActiveRepresentation(partnerOrgId: string, principalOrgId: string) {
@@ -158,6 +169,46 @@ export async function getPortfolio(partnerOrgId: string) {
     earningsToDate,
     certAlerts,
   };
+}
+
+/**
+ * The quote comparison for an RFQ this partner drafted — a READ-ONLY front
+ * door onto the same buyer-facing comparison, never a new copy of its logic.
+ *
+ * Ownership is `draftedByPartnerId === partner.id`, not org membership (a
+ * partner's own org is never the RFQ's buyerOrgId — see the PARTNER BOUNDARY
+ * comment above acceptQuoteAction in lib/actions.ts). Once ownership is
+ * confirmed, this delegates to the EXISTING, unmodified getQuoteComparison
+ * using the RFQ's own real buyerOrgId, so compare-queries.ts needs no partner
+ * awareness at all and the buyer-facing function is untouched.
+ */
+export async function getPartnerMandateComparison(partnerOrgId: string, rfqId: string) {
+  const partner = await prisma.partner.findUnique({ where: { orgId: partnerOrgId }, select: { id: true } });
+  if (!partner) return null;
+
+  const rfq = await prisma.rfq.findUnique({ where: { id: rfqId }, select: { buyerOrgId: true, draftedByPartnerId: true } });
+  if (!rfq || rfq.draftedByPartnerId !== partner.id) return null;
+
+  return getQuoteComparison(rfqId, rfq.buyerOrgId);
+}
+
+/**
+ * A single quote this partner drafted, for the read-only mandate detail
+ * page's quote branch. A supplier never sees competing quotes on the same
+ * RFQ (existing privacy boundary), so this is deliberately narrower than
+ * getPartnerMandateComparison — one quote's own detail, not a comparison.
+ */
+export async function getPartnerQuoteMandateDetail(partnerOrgId: string, quoteId: string) {
+  const partner = await prisma.partner.findUnique({ where: { orgId: partnerOrgId }, select: { id: true } });
+  if (!partner) return null;
+
+  const quote = await prisma.quote.findUnique({
+    where: { id: quoteId },
+    include: { rfq: { select: { reference: true, productName: true, cas: true, quantityKg: true, buyerOrg: { select: { name: true } } } } },
+  });
+  if (!quote || quote.draftedByPartnerId !== partner.id) return null;
+
+  return quote;
 }
 
 export interface ActiveRepresentation {
@@ -404,6 +455,116 @@ export async function getPartnerEarnings(partnerOrgId: string) {
   const accruedTotal = payouts.filter((p) => p.status === 'accrued' || p.status === 'confirmed').reduce((sum, p) => sum + p.amount, 0);
 
   return { partner, payouts, paidTotal, accruedTotal };
+}
+
+export interface IncentiveMilestone {
+  key: 'activation_bonus' | 'streak_bonus' | 'breadth_bonus' | 'referral_bonus';
+  /** Which breadth tier this object represents (1/2/3) — undefined for every other kind. */
+  tier?: number;
+  earned: boolean;
+  current: number;
+  target: number;
+  rewardUsd: number;
+}
+
+/**
+ * The rewards-ladder dashboard (PARTNER-INCENTIVES.md §3) — READ-ONLY
+ * eligibility/progress, never a payout write. Every figure this reads
+ * already exists: Organization.verifiedAt, Rfq/Quote.draftedByPartnerId,
+ * Introduction, PartnerRepresentation, PartnerAttribution. Nothing here
+ * creates a PartnerPayout — see PARTNER_PAYOUT_KINDS' comment in
+ * lib/partner.ts for why that's a deliberately separate, later decision.
+ */
+export async function getPartnerIncentives(partnerOrgId: string): Promise<IncentiveMilestone[] | null> {
+  const partner = await prisma.partner.findUnique({ where: { orgId: partnerOrgId }, include: { org: { select: { verifiedAt: true } } } });
+  if (!partner) return null;
+
+  const streakStart = new Date(Date.now() - STREAK_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+  const [firstIntroduction, firstRfq, firstQuote, streakRfqCount, streakQuoteCount, repCount, referredVerifiedPartners] = await Promise.all([
+    prisma.introduction.findFirst({ where: { partnerId: partner.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
+    prisma.rfq.findFirst({ where: { draftedByPartnerId: partner.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
+    prisma.quote.findFirst({ where: { draftedByPartnerId: partner.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
+    prisma.rfq.count({ where: { draftedByPartnerId: partner.id, createdAt: { gte: streakStart } } }),
+    prisma.quote.count({ where: { draftedByPartnerId: partner.id, createdAt: { gte: streakStart } } }),
+    prisma.partnerRepresentation.count({ where: { partnerId: partner.id, revokedAt: null } }),
+    prisma.partnerAttribution.count({ where: { partnerId: partner.id, org: { kind: 'partner', status: 'verified' } } }),
+  ]);
+
+  const milestones: IncentiveMilestone[] = [];
+
+  // Activation: first mandate + first Introduction, both within the window
+  // of the partner's OWN org verification — see ACTIVATION_WINDOW_DAYS.
+  const mandateDates = [firstRfq?.createdAt, firstQuote?.createdAt].filter((d): d is Date => !!d).sort((a, b) => a.getTime() - b.getTime());
+  const firstMandateAt = mandateDates[0] ?? null;
+  const activationEarned = !!(
+    partner.org.verifiedAt &&
+    firstIntroduction &&
+    firstMandateAt &&
+    withinDays(partner.org.verifiedAt, firstIntroduction.createdAt, ACTIVATION_WINDOW_DAYS) &&
+    withinDays(partner.org.verifiedAt, firstMandateAt, ACTIVATION_WINDOW_DAYS)
+  );
+  milestones.push({ key: 'activation_bonus', earned: activationEarned, current: activationEarned ? 1 : 0, target: 1, rewardUsd: INCENTIVE_REWARD_USD.activation_bonus });
+
+  // Streak: rolling window, not a fixed calendar quarter.
+  const streakCount = streakRfqCount + streakQuoteCount;
+  milestones.push({
+    key: 'streak_bonus',
+    earned: streakCount >= STREAK_TARGET,
+    current: Math.min(streakCount, STREAK_TARGET),
+    target: STREAK_TARGET,
+    rewardUsd: INCENTIVE_REWARD_USD.streak_bonus,
+  });
+
+  // Breadth: one object per published tier, each its own earned/progress state.
+  for (const [i, tier] of BREADTH_TIERS.entries()) {
+    milestones.push({
+      key: 'breadth_bonus',
+      tier: i + 1,
+      earned: repCount >= tier,
+      current: Math.min(repCount, tier),
+      target: tier,
+      rewardUsd: INCENTIVE_REWARD_USD.breadth_bonus,
+    });
+  }
+
+  // Referral: another PARTNER org, sealed to this partner via
+  // PartnerAttribution (the same invite-link mechanism any org uses), whose
+  // own org has since reached ops verification.
+  milestones.push({
+    key: 'referral_bonus',
+    earned: referredVerifiedPartners >= REFERRAL_TARGET,
+    current: Math.min(referredVerifiedPartners, REFERRAL_TARGET),
+    target: REFERRAL_TARGET,
+    rewardUsd: INCENTIVE_REWARD_USD.referral_bonus,
+  });
+
+  return milestones;
+}
+
+/**
+ * One PartnerPayout, dressed as a printable invoice (N7.9 follow-up: "a
+ * simple invoice system for the agents"). Ownership-scoped to the calling
+ * partner's own org — the caller must pass the SAME orgId that owns the
+ * payout's Partner row, exactly like every other partner-scoped read here.
+ *
+ * `sourceOrgId` is a plain string column, not a relation (see schema.prisma)
+ * — the represented org whose subscription generated this line is looked up
+ * separately rather than joined.
+ */
+export async function getPartnerPayoutInvoice(partnerOrgId: string, payoutId: string) {
+  const partner = await prisma.partner.findUnique({ where: { orgId: partnerOrgId }, include: { org: true } });
+  if (!partner) return null;
+
+  const payout = await prisma.partnerPayout.findUnique({
+    where: { id: payoutId },
+    include: { sourceInvoice: { select: { number: true } } },
+  });
+  if (!payout || payout.partnerId !== partner.id) return null;
+
+  const sourceOrg = await prisma.organization.findUnique({ where: { id: payout.sourceOrgId }, select: { name: true } });
+
+  return { partner, payout, sourceOrgName: sourceOrg?.name ?? null };
 }
 
 export interface PartnerSearchFilters {

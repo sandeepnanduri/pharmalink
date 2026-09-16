@@ -70,6 +70,7 @@
     "partnerMandates": "委托单",
     "partnerNetwork": "合作网络",
     "partnerEarnings": "收益",
+    "partnerRewards": "奖励",
     "partners": "管理合作伙伴",
     "sourcingPartners": "寻找合作伙伴",
     "searchLabel": "搜索",
@@ -389,6 +390,7 @@
   "auth": {
     "signInTitle": "登录 PharmaLink",
     "signUpTitle": "创建账户",
+    "invitedByPartner": "您是由一位 PharmaLink 寻源合作伙伴邀请加入的。",
     "email": "企业邮箱",
     "password": "密码",
     "confirmPassword": "确认密码",
@@ -675,7 +677,10 @@
     "colReference": "编号",
     "sourcing": "寻源中",
     "quoted": "已报价",
-    "awarded": "已授标"
+    "awarded": "已授标",
+    "readOnlyNote": "您可以查看，但只有您代理的机构才能接受或授标。",
+    "unitPrice": "单价",
+    "validUntil": "有效期至"
   },
   "partnerHub": {
     "title": "寻源合作伙伴",
@@ -717,7 +722,10 @@
     "representingSupplier": "代理供应商",
     "representingBoth": "同时代理买家与供应商",
     "naForBuyer": "— 买家无需此项",
-    "noActivityYet": "暂无活动"
+    "noActivityYet": "暂无活动",
+    "uploadTitle": "上传文件",
+    "uploadHint": "仅显示已授予您文件上传权限的机构。",
+    "uploadOrgLabel": "对象"
   },
   "partnerProfile": {
     "archetype_indentor": "代理商",
@@ -763,7 +771,35 @@
     "status_accrued": "已计提",
     "status_confirmed": "已确认",
     "status_paid": "已支付",
-    "status_void": "已作废"
+    "status_void": "已作废",
+    "viewInvoice": "查看发票",
+    "invoiceTitle": "合作伙伴收益发票",
+    "issuer": "开票方",
+    "payee": "收款方",
+    "commissionSource": "佣金来源",
+    "commissionFrom": "{org} 的订阅 — 发票 {number}",
+    "period": "计费周期",
+    "invoiceFooter": "本单据记录 PharmaLink 直接支付给上述合作伙伴的订阅收入分成，并非交易发票，不涉及任何买家或供应商款项，PharmaLink 也从不从交易或报价金额中抽成。"
+  },
+  "partnerRewards": {
+    "title": "奖励",
+    "subtitle": "您已获得的里程碑，以及正在进行中的项目。",
+    "boundaryNote": "此处每项奖励均为固定金额，绝非交易或代理交易额的百分比。展示仅供参考 — 结算仍遵循 PharmaLink 对所有收益已采用的同一审核流程。",
+    "noPartnerRecord": "您的入驻流程尚未完成 — 请完成合作伙伴入驻向导以解锁奖励页面。",
+    "earned": "已获得",
+    "rewardSuffix": "奖励",
+    "activationTitle": "激活奖励",
+    "activationDesc": "在您本人完成认证后的 14 天内起草首个委托单并留下引荐记录。",
+    "streakTitle": "持续活跃奖励",
+    "streakDesc": "在滚动 90 天窗口内起草 5 个委托单。",
+    "breadthTitle1": "覆盖广度 — 3 家机构",
+    "breadthDesc1": "对 3 家不同机构持有有效代理权限。",
+    "breadthTitle2": "覆盖广度 — 6 家机构",
+    "breadthDesc2": "对 6 家不同机构持有有效代理权限。",
+    "breadthTitle3": "覆盖广度 — 10 家机构",
+    "breadthDesc3": "对 10 家不同机构持有有效代理权限。",
+    "referralTitle": "推荐奖励",
+    "referralDesc": "推荐另一位寻源合作伙伴并完成认证。"
   },
   "buyerDash": {
     "welcome": "欢迎回来，{name}",
@@ -811,7 +847,11 @@
     "certAlertLine": "{org} 的 {name} 需要关注",
     "certExpiryTitle": "证书到期情况",
     "certExpiryEmpty": "近期没有即将到期的证书。",
-    "viewNetwork": "查看您的网络"
+    "viewNetwork": "查看您的网络",
+    "inviteTitle": "您的邀请链接",
+    "inviteHint": "分享给尚未加入 PharmaLink 的采购方或供应商 — 对方通过此链接注册后，您将被确定为引荐该企业的合作伙伴。",
+    "inviteCopy": "复制",
+    "inviteCopied": "已复制"
   },
   "products": {
     "title": "我的产品",

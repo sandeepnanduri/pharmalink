@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { currentUser } from '@/lib/session';
 import { store, sha256, storageKeyFor, safeFilename, validateUpload } from '@/lib/storage';
+import { resolveActingOrgId } from '@/lib/partner-queries';
 
 /**
  * Document upload (BACKLOG F2.3).
@@ -18,6 +19,21 @@ export async function POST(request: Request) {
   if (!user?.orgId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const form = await request.formData();
+
+  // A Sourcing Partner may upload this for a represented org (EPIC N7,
+  // document_upload scope). targetOrgId is the PRINCIPAL's org from here on
+  // — never user.orgId. Absent actingForOrgId, this block is a no-op and
+  // behavior is unchanged from before delegation existed.
+  const actingForOrgId = String(form.get('actingForOrgId') ?? '').trim() || null;
+  let targetOrgId = user.orgId;
+  let uploadedByPartnerId: string | null = null;
+  if (actingForOrgId && actingForOrgId !== user.orgId) {
+    const resolved = await resolveActingOrgId(user.orgId, actingForOrgId, 'document_upload');
+    if (!resolved) return NextResponse.json({ error: 'unauthorized' }, { status: 403 });
+    targetOrgId = resolved.targetOrgId;
+    uploadedByPartnerId = resolved.partnerId;
+  }
+
   const file = form.get('file');
   if (!(file instanceof File)) return NextResponse.json({ error: 'uploadEmpty' }, { status: 400 });
 
@@ -38,7 +54,7 @@ export async function POST(request: Request) {
       where: { id: rfqId },
       select: { buyerOrgId: true, broadcasts: { select: { orgId: true } } },
     });
-    const party = rfq && (rfq.buyerOrgId === user.orgId || rfq.broadcasts.some((b) => b.orgId === user.orgId));
+    const party = rfq && (rfq.buyerOrgId === targetOrgId || rfq.broadcasts.some((b) => b.orgId === targetOrgId));
     if (!party) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
   if (quoteId) {
@@ -46,7 +62,7 @@ export async function POST(request: Request) {
       where: { id: quoteId },
       select: { sellerOrgId: true, rfq: { select: { buyerOrgId: true } } },
     });
-    const party = quote && (quote.sellerOrgId === user.orgId || quote.rfq.buyerOrgId === user.orgId);
+    const party = quote && (quote.sellerOrgId === targetOrgId || quote.rfq.buyerOrgId === targetOrgId);
     if (!party) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
@@ -55,17 +71,17 @@ export async function POST(request: Request) {
 
   // Identical bytes already on file for this org? Reuse instead of duplicating.
   const existing = await prisma.document.findFirst({
-    where: { orgId: user.orgId, sha256: digest },
+    where: { orgId: targetOrgId, sha256: digest },
     select: { id: true, filename: true, sha256: true },
   });
   if (existing) return NextResponse.json(existing);
 
-  const key = storageKeyFor(user.orgId, check.ext);
+  const key = storageKeyFor(targetOrgId, check.ext);
   await store.put(key, bytes);
 
   const doc = await prisma.document.create({
     data: {
-      orgId: user.orgId,
+      orgId: targetOrgId,
       kind: String(form.get('kind') ?? 'gmp_cert'),
       filename: safeFilename(file.name),
       mimeType: file.type,
@@ -75,6 +91,7 @@ export async function POST(request: Request) {
       status: 'pending',
       rfqId,
       quoteId,
+      uploadedByPartnerId,
     },
     select: { id: true, filename: true, sha256: true },
   });

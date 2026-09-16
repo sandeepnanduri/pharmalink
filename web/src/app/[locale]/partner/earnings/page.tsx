@@ -2,6 +2,7 @@ import { getFormatter, getTranslations, setRequestLocale } from 'next-intl/serve
 import { requireRole } from '@/lib/session';
 import { getPartnerEarnings } from '@/lib/partner-queries';
 import { StatCard } from '@/components/stat-card';
+import { Link } from '@/i18n/routing';
 
 // Renders per-user data (session, payouts) — must never be served from the
 // static/full route cache.
@@ -68,6 +69,7 @@ export default async function PartnerEarningsPage({ params }: { params: Promise<
                     <th className="th">{t('colAmount')}</th>
                     <th className="th">{t('colStatus')}</th>
                     <th className="th">{t('colDate')}</th>
+                    <th className="th" />
                   </tr>
                 </thead>
                 <tbody>
@@ -82,6 +84,11 @@ export default async function PartnerEarningsPage({ params }: { params: Promise<
                         <span className={STATUS_BADGE[p.status] ?? 'badge-neutral'}>{t(`status_${p.status}`)}</span>
                       </td>
                       <td className="td text-xs text-slate2">{format.dateTime(p.createdAt, { dateStyle: 'medium' })}</td>
+                      <td className="td text-right">
+                        <Link href={`/partner/earnings/${p.id}/print`} className="text-xs font-semibold text-violet hover:underline" data-testid={`view-invoice-${p.id}`}>
+                          {t('viewInvoice')}
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

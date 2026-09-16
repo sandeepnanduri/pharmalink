@@ -26,6 +26,14 @@ function stripLineComments(src: string): string {
   return src.replace(/\/\/.*$/gm, '');
 }
 
+/** Same idea as stripLineComments, but also strips `/* ... *\/` block
+ *  comments — needed for files (like a page's own JSDoc header) that
+ *  document the same forbidden identifiers in a block comment rather than a
+ *  line comment. */
+function stripComments(src: string): string {
+  return stripLineComments(src).replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
 describe('partner boundary (EPIC N7 — sibling guard to N3.6/A1)', () => {
   it('acceptQuoteAction never grows a partner/acting-for branch — a partner NEVER accepts a quote', () => {
     const code = stripLineComments(extractFunction(ACTIONS_SRC, 'acceptQuoteAction'));
@@ -75,6 +83,48 @@ describe('partner boundary (EPIC N7 — sibling guard to N3.6/A1)', () => {
     const body = extractFunction(ACTIONS_SRC, 'changePlanAction');
     expect(body).toContain('isAttributionActive');
     expect(body).toContain("kind: 'model_a_margin'");
+  });
+
+  // Regression pin for the "silent delegation" gap this follow-up phase
+  // closes: a principal org's own team must be notified when a partner
+  // drafts on their behalf, not left to discover it on their own.
+  it('createRfqAction notifies the PRINCIPAL org when a partner drafted the RFQ', () => {
+    const body = extractFunction(ACTIONS_SRC, 'createRfqAction');
+    expect(body).toMatch(/notifyOrg\(targetOrgId,\s*'rfq\.draftedByPartner'/);
+  });
+
+  it('submitQuoteAction notifies the PRINCIPAL org when a partner drafted the quote', () => {
+    const body = extractFunction(ACTIONS_SRC, 'submitQuoteAction');
+    expect(body).toMatch(/notifyOrg\(targetOrgId,\s*'quote\.draftedByPartner'/);
+  });
+});
+
+describe('mandate detail page (partner-facing, read-only by construction)', () => {
+  it('never imports acceptQuoteAction or ConfirmSubmit — a partner can view a mandate but never accept it', () => {
+    const src = stripComments(readFileSync(new URL('../app/[locale]/partner/mandates/[id]/page.tsx', import.meta.url), 'utf8'));
+    for (const forbidden of ['acceptQuoteAction', 'ConfirmSubmit']) {
+      expect(src).not.toContain(forbidden);
+    }
+  });
+});
+
+describe('sealAttributionIfNew (write-once, same shape as recordIntroductionIfNew)', () => {
+  it('never calls .update() on partnerAttribution — first-claim-wins, no retroactive reassignment', () => {
+    const src = readFileSync(new URL('./partner-actions.ts', import.meta.url), 'utf8');
+    const start = src.indexOf('export async function sealAttributionIfNew');
+    const next = src.indexOf('\nexport ', start + 1);
+    const body = src.slice(start, next === -1 ? undefined : next);
+    expect(body).not.toContain('partnerAttribution.update');
+    expect(body).toContain("err.code === 'P2002'");
+  });
+});
+
+describe('document upload delegation (EPIC N7 follow-up — wires up the document_upload scope)', () => {
+  it('the /api/documents route resolves delegation and writes targetOrgId, not user.orgId, as the Document owner', () => {
+    const src = readFileSync(new URL('../app/api/documents/route.ts', import.meta.url), 'utf8');
+    expect(src).toContain("resolveActingOrgId(user.orgId, actingForOrgId, 'document_upload')");
+    expect(src).toContain('orgId: targetOrgId');
+    expect(src).toContain('uploadedByPartnerId');
   });
 });
 
