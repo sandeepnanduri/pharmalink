@@ -725,7 +725,16 @@
     "noActivityYet": "No activity yet",
     "uploadTitle": "Upload a document",
     "uploadHint": "Only orgs that granted you document-upload scope appear here.",
-    "uploadOrgLabel": "For"
+    "uploadOrgLabel": "For",
+    "ecosystemTitle": "Service provider network",
+    "ecosystemHint": "Curated forwarders, trade-finance and lab-verification partners — not live yet.",
+    "ecosystemComingSoon": "Coming soon",
+    "ecosystemLogisticsTitle": "Logistics & freight",
+    "ecosystemLogisticsDesc": "A curated panel of pharma-experienced forwarders, with shipment status flowing straight into your mandates.",
+    "ecosystemFinanceTitle": "Trade finance",
+    "ecosystemFinanceDesc": "A preferential rate slab with a partner NBFC, underwritten against your own verified payout history.",
+    "ecosystemLabTitle": "Independent lab verification",
+    "ecosystemLabDesc": "Order third-party CoA/GMP verification on a supplier you can't visit yourself, from an accredited lab."
   },
   "partnerProfile": {
     "archetype_indentor": "Indenting agent",

@@ -725,7 +725,16 @@
     "noActivityYet": "暂无活动",
     "uploadTitle": "上传文件",
     "uploadHint": "仅显示已授予您文件上传权限的机构。",
-    "uploadOrgLabel": "对象"
+    "uploadOrgLabel": "对象",
+    "ecosystemTitle": "服务商网络",
+    "ecosystemHint": "精选货运代理、贸易融资与实验室验证合作方 — 尚未上线。",
+    "ecosystemComingSoon": "即将上线",
+    "ecosystemLogisticsTitle": "物流与货运",
+    "ecosystemLogisticsDesc": "精选具备医药行业经验的货运代理，货运状态将直接同步至您的委托单。",
+    "ecosystemFinanceTitle": "贸易融资",
+    "ecosystemFinanceDesc": "与合作 NBFC 协商的优惠利率区间，以您本人经核实的收益记录作为授信依据。",
+    "ecosystemLabTitle": "第三方实验室验证",
+    "ecosystemLabDesc": "针对您无法实地考察的供应商，委托具备资质的实验室独立验证 CoA / GMP。"
   },
   "partnerProfile": {
     "archetype_indentor": "代理商",
