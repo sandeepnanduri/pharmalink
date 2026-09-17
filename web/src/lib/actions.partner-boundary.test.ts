@@ -118,6 +118,13 @@ describe('mandate detail page (partner-facing, read-only by construction)', () =
   });
 });
 
+describe('/api/match preview (found live: a partner\'s RFQ wizard always showed zero matches)', () => {
+  it('allows either a direct buyer (rfq:create) or a drafting partner (partner:draft), not rfq:create alone', () => {
+    const src = readFileSync(new URL('../app/api/match/route.ts', import.meta.url), 'utf8');
+    expect(src).toMatch(/can\(user\.principal,\s*'rfq:create'\)\s*\|\|\s*can\(user\.principal,\s*'partner:draft'\)/);
+  });
+});
+
 describe('registerDealAction (deal registration — new, reuses recordIntroductionIfNew unmodified)', () => {
   it('requires a live representation on at least one side before sealing an Introduction', () => {
     const src = readFileSync(new URL('./partner-actions.ts', import.meta.url), 'utf8');
