@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/session';
 import { isPlatformRole } from '@/lib/rbac';
 import { Link } from '@/i18n/routing';
 import { ProfileForm, PasswordForm, CompanyForm, type CompanyValues } from '@/components/account-forms';
+import { whatsappEnabled } from '@/lib/whatsapp.server';
 
 // Per-user data — never cached.
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,8 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
       name: true,
       email: true,
       role: true,
+      phone: true,
+      whatsappOptIn: true,
       // Never send the hash to the client — only whether one exists.
       passwordHash: true,
       org: true,
@@ -69,7 +72,14 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
       </div>
 
       <div className="space-y-5">
-        <ProfileForm name={db.name ?? ''} email={db.email} role={roleLabel} />
+        <ProfileForm
+          name={db.name ?? ''}
+          email={db.email}
+          role={roleLabel}
+          phone={db.phone ?? ''}
+          whatsappOptIn={db.whatsappOptIn}
+          whatsappAvailable={whatsappEnabled()}
+        />
         <PasswordForm hasPassword={!!db.passwordHash} />
         {/* Staff have no organization — only trading accounts get this section. */}
         {values && org && <CompanyForm values={values} kind={org.kind} locked={org.status === 'verified'} />}

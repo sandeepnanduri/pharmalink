@@ -809,7 +809,15 @@
     "gmvStatementIntroductions": "Introductions sealed",
     "gmvStatementRepresented": "Orgs currently represented",
     "gmvStatementPayoutCount": "Payouts on record",
-    "gmvStatementFooter": "Generated from PharmaLink's own audit-logged transaction history. Every figure above is a count or a subscription-revenue-share total — never a percentage of deal or GMV value, consistent with PharmaLink's A1 boundary."
+    "gmvStatementFooter": "Generated from PharmaLink's own audit-logged transaction history. Every figure above is a count or a subscription-revenue-share total — never a percentage of deal or GMV value, consistent with PharmaLink's A1 boundary.",
+    "commissionLedgerTitle": "Your trade commission ledger",
+    "commissionLedgerHint": "What you've disclosed to buyers on your own deals — not money PharmaLink moves. Settlement is still directly between you and your principal, off-platform.",
+    "commissionLedgerThisMonth": "This month",
+    "commissionLedgerAllTime": "All time",
+    "colDeal": "Deal",
+    "colBuyer": "Buyer",
+    "colSupplier": "Supplier",
+    "colCommission": "Your commission"
   },
   "partnerRewards": {
     "title": "Rewards",
@@ -1117,6 +1125,8 @@
     "name": "Full name",
     "email": "Email",
     "role": "Role",
+    "phone": "Phone",
+    "whatsappOptIn": "Send me WhatsApp notifications at this number",
     "emailLocked": "Your email identifies your account and cannot be changed here.",
     "currentPassword": "Current password",
     "newPassword": "New password",

@@ -16,6 +16,7 @@ import { can, parseRole, isPlatformRole, ASSIGNABLE_STAFF_ROLES } from '@/lib/rb
 import { canReceiveQuotes, canBeAwarded, canBeCancelled, isQuoteValid } from '@/lib/rfq';
 import { generateApiKey, generateWebhookSecret, WEBHOOK_EVENTS } from '@/lib/integrations';
 import { dispatchEvent, isSafeWebhookUrl } from '@/lib/integrations.server';
+import { whatsappEnabled, sendWhatsAppTemplate } from '@/lib/whatsapp.server';
 import { API_SCOPES } from '@/lib/integrations.constants';
 import { routing } from '@/i18n/routing';
 import { isAtLimit, parsePlan, ENTITLEMENTS } from '@/lib/plans';
@@ -80,12 +81,23 @@ async function notifyOrg(
 ) {
   const users = await prisma.user.findMany({
     where: { orgId, active: true, deletedAt: null, ...(opts.exceptUserId ? { id: { not: opts.exceptUserId } } : {}) },
-    select: { id: true },
+    select: { id: true, phone: true, whatsappOptIn: true },
   });
   if (!users.length) return;
   await prisma.notification.createMany({
     data: users.map((u) => ({ userId: u.id, kind, title, body: opts.body ?? null, link: opts.link ?? null })),
   });
+
+  // Fire-and-forget: a WhatsApp delivery must never delay or fail the
+  // action that produced this notification. whatsappEnabled() makes this a
+  // true no-op until real credentials exist (see lib/whatsapp.server.ts).
+  if (whatsappEnabled()) {
+    for (const u of users) {
+      if (u.phone && u.whatsappOptIn) {
+        void sendWhatsAppTemplate(u.id, u.phone, kind, 'pharmalink_notification', [title, opts.body ?? '']).catch(() => undefined);
+      }
+    }
+  }
 }
 
 export async function markNotificationsReadAction(): Promise<void> {
@@ -109,9 +121,14 @@ export async function updateProfileAction(_prev: ActionState, formData: FormData
   const name = String(formData.get('name') ?? '').trim();
   if (name.length < 2) return { error: 'nameTooShort' };
 
+  const phone = String(formData.get('phone') ?? '').trim() || null;
+  // Opting in with no phone on file is meaningless — never persist true
+  // without a number to actually message.
+  const whatsappOptIn = formData.get('whatsappOptIn') === 'on' && !!phone;
+
   // Email is the account identity (and the SSO join key) — it is deliberately
   // not editable here. Changing it would silently re-point an SSO login.
-  await prisma.user.update({ where: { id: user.id }, data: { name } });
+  await prisma.user.update({ where: { id: user.id }, data: { name, phone, whatsappOptIn } });
   await audit('user.profile.updated', 'User', user.id, user.id);
   revalidatePath('/[locale]/account', 'page');
   revalidatePath('/', 'layout');

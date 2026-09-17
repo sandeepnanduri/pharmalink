@@ -809,7 +809,15 @@
     "gmvStatementIntroductions": "已确立的引荐数",
     "gmvStatementRepresented": "当前代理机构数",
     "gmvStatementPayoutCount": "收益记录笔数",
-    "gmvStatementFooter": "本结算单根据 PharmaLink 自身的审计日志交易记录生成。以上每项均为计数或订阅收入分成总额 — 绝非交易或代理交易额的百分比，符合 PharmaLink 的 A1 边界原则。"
+    "gmvStatementFooter": "本结算单根据 PharmaLink 自身的审计日志交易记录生成。以上每项均为计数或订阅收入分成总额 — 绝非交易或代理交易额的百分比，符合 PharmaLink 的 A1 边界原则。",
+    "commissionLedgerTitle": "您的交易佣金账本",
+    "commissionLedgerHint": "记录您在自己达成的交易中向买家披露的佣金 — 并非 PharmaLink 经手的款项。结算仍直接发生在您与委托方之间，线下完成。",
+    "commissionLedgerThisMonth": "本月",
+    "commissionLedgerAllTime": "累计",
+    "colDeal": "交易",
+    "colBuyer": "买家",
+    "colSupplier": "供应商",
+    "colCommission": "您的佣金"
   },
   "partnerRewards": {
     "title": "奖励",
@@ -1117,6 +1125,8 @@
     "name": "姓名",
     "email": "邮箱",
     "role": "角色",
+    "phone": "电话",
+    "whatsappOptIn": "通过该号码向我发送 WhatsApp 通知",
     "emailLocked": "邮箱是您的账户标识，无法在此修改。",
     "currentPassword": "当前密码",
     "newPassword": "新密码",

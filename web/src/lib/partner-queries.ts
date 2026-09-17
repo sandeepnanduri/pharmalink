@@ -520,6 +520,72 @@ export async function getPartnerGmvStatement(partnerOrgId: string) {
   };
 }
 
+export interface CommissionLedgerEntry {
+  dealId: string;
+  reference: string;
+  createdAt: Date;
+  productName: string;
+  cas: string;
+  buyerOrgName: string;
+  supplierOrgName: string;
+  quantityKg: number;
+  commissionPerKg: number;
+  totalCommission: number;
+  currency: string;
+}
+
+/**
+ * The in-app trade commission ledger — what have you actually earned from
+ * your own deals, tracked inside PharmaLink rather than only exportable.
+ * Only deals where THIS partner drafted the winning quote with a declared
+ * commission (declaredCommissionPerKg, added alongside the commission-
+ * disclosure work) can be computed here — a buyer-side partner-drafted RFQ
+ * has no on-platform price field, so their commission is a private
+ * arrangement with their own principal this ledger has no visibility into.
+ *
+ * Purely informational, same A1 discipline getPortfolio's gmvRepresented
+ * already keeps: PharmaLink never touches this money, never derives a
+ * payout from it. This is PharmaLink SHOWING the partner their own numbers,
+ * not paying them — settlement is still directly between the partner and
+ * their principal, off-platform.
+ */
+export async function getPartnerCommissionLedger(partnerOrgId: string) {
+  const partner = await prisma.partner.findUnique({ where: { orgId: partnerOrgId }, select: { id: true } });
+  if (!partner) return null;
+
+  const deals = await prisma.deal.findMany({
+    where: { quote: { draftedByPartnerId: partner.id, declaredCommissionPerKg: { not: null } } },
+    include: {
+      quote: { select: { declaredCommissionPerKg: true, currency: true, sellerOrg: { select: { name: true } } } },
+      rfq: { select: { productName: true, cas: true, quantityKg: true, buyerOrg: { select: { name: true } } } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const entries: CommissionLedgerEntry[] = deals.map((d) => {
+    const commissionPerKg = d.quote.declaredCommissionPerKg!; // filtered not-null above
+    return {
+      dealId: d.id,
+      reference: d.reference,
+      createdAt: d.createdAt,
+      productName: d.rfq.productName,
+      cas: d.rfq.cas,
+      buyerOrgName: d.rfq.buyerOrg.name,
+      supplierOrgName: d.quote.sellerOrg.name,
+      quantityKg: d.rfq.quantityKg,
+      commissionPerKg,
+      totalCommission: Math.round(d.rfq.quantityKg * commissionPerKg * 100) / 100,
+      currency: d.quote.currency,
+    };
+  });
+
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const totalAllTime = entries.reduce((sum, e) => sum + e.totalCommission, 0);
+  const totalThisMonth = entries.filter((e) => e.createdAt.getTime() >= monthStart.getTime()).reduce((sum, e) => sum + e.totalCommission, 0);
+
+  return { entries, totalAllTime, totalThisMonth };
+}
+
 export interface IncentiveMilestone {
   key: 'activation_bonus' | 'streak_bonus' | 'breadth_bonus' | 'referral_bonus';
   /** Which breadth tier this object represents (1/2/3) — undefined for every other kind. */

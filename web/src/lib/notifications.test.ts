@@ -39,6 +39,16 @@ describe('kind classification', () => {
     expect(emitted.length).toBeGreaterThan(0);
     expect([...new Set(emitted)].filter((k) => !KNOWN_KINDS.includes(k))).toEqual([]);
   });
+
+  // Regression pin: Meta requires explicit opt-in before messaging a number
+  // — notifyOrg's WhatsApp fan-out must never fire for a user who merely
+  // has a phone on file. Both conditions, not just the phone, must gate it.
+  it('notifyOrg only WhatsApp-sends to users who both have a phone AND opted in', () => {
+    const src = readFileSync(new URL('./actions.ts', import.meta.url), 'utf8');
+    const start = src.indexOf('async function notifyOrg');
+    const body = src.slice(start, src.indexOf('\n}', start));
+    expect(body).toMatch(/u\.phone\s*&&\s*u\.whatsappOptIn/);
+  });
 });
 
 describe('groupNotifications', () => {
