@@ -34,6 +34,10 @@ model User {
   /// Direct contact number. SSO gives us no phone, so account setup collects it —
   /// counterparties need a human to reach on a live RFQ.
   phone         String?
+  /// Explicit opt-in to receive WhatsApp notifications at `phone` — required
+  /// by Meta policy before messaging a number, never inferred from `phone`
+  /// merely being present. See lib/whatsapp.server.ts.
+  whatsappOptIn Boolean   @default(false)
   emailVerified DateTime?
   image         String?
   active        Boolean   @default(true)
@@ -51,12 +55,13 @@ model User {
   updatedAt   DateTime  @updatedAt
   lastLoginAt DateTime?
 
-  accounts      Account[]
-  sessions      Session[]
-  messages      Message[]
-  auditLogs     AuditLog[]
-  notifications Notification[]
-  dsarRequests  DsarRequest[]
+  accounts          Account[]
+  sessions          Session[]
+  messages          Message[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  dsarRequests      DsarRequest[]
+  whatsAppDeliveries WhatsAppDelivery[]
 
   @@index([orgId])
   @@index([role])
@@ -1175,6 +1180,25 @@ model WebhookDelivery {
   createdAt DateTime @default(now())
 
   @@index([webhookId])
+}
+
+/// WhatsApp integration audit trail — same shape/purpose as WebhookDelivery,
+/// for the platform's own WhatsApp Business API sends/receives rather than a
+/// partner-configured webhook. See lib/whatsapp.server.ts. `kind` mirrors a
+/// notification kind for outbound, or is 'inbound' for a received message.
+/// direction: "outbound" | "inbound"; status: "delivered" | "failed"
+model WhatsAppDelivery {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  direction String
+  status    String
+  error     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // --------------------------------------------------------------------------

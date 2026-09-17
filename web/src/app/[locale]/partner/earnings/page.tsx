@@ -1,6 +1,6 @@
 import { getFormatter, getTranslations, setRequestLocale } from 'next-intl/server';
 import { requireRole } from '@/lib/session';
-import { getPartnerEarnings } from '@/lib/partner-queries';
+import { getPartnerEarnings, getPartnerCommissionLedger } from '@/lib/partner-queries';
 import { StatCard } from '@/components/stat-card';
 import { Link } from '@/i18n/routing';
 
@@ -29,6 +29,7 @@ export default async function PartnerEarningsPage({ params }: { params: Promise<
   const format = await getFormatter();
 
   const earnings = user.orgId ? await getPartnerEarnings(user.orgId) : null;
+  const ledger = user.orgId ? await getPartnerCommissionLedger(user.orgId) : null;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
@@ -107,6 +108,57 @@ export default async function PartnerEarningsPage({ params }: { params: Promise<
                 </tbody>
               </table>
             </div>
+          )}
+
+          {ledger && ledger.entries.length > 0 && (
+            <section className="mt-10">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-lg font-bold">{t('commissionLedgerTitle')}</h2>
+                <div className="flex gap-4 text-xs text-slate2">
+                  <span>
+                    {t('commissionLedgerThisMonth')}: <span className="font-mono font-bold text-txt">${ledger.totalThisMonth.toFixed(2)}</span>
+                  </span>
+                  <span>
+                    {t('commissionLedgerAllTime')}: <span className="font-mono font-bold text-txt">${ledger.totalAllTime.toFixed(2)}</span>
+                  </span>
+                </div>
+              </div>
+              <p className="mb-3 text-xs text-muted">{t('commissionLedgerHint')}</p>
+              <div className="overflow-x-auto rounded-card border border-line bg-white">
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th className="th">{t('colDeal')}</th>
+                      <th className="th">{t('colBuyer')}</th>
+                      <th className="th">{t('colSupplier')}</th>
+                      <th className="th">{t('colCommission')}</th>
+                      <th className="th">{t('colDate')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ledger.entries.map((e) => (
+                      <tr key={e.dealId} data-testid="commission-ledger-row">
+                        <td className="td">
+                          <p className="font-semibold">{e.productName}</p>
+                          <p className="mt-0.5 font-mono text-[10.5px] text-muted">
+                            {e.reference} · CAS {e.cas}
+                          </p>
+                        </td>
+                        <td className="td text-xs">{e.buyerOrgName}</td>
+                        <td className="td text-xs">{e.supplierOrgName}</td>
+                        <td className="td font-mono font-semibold">
+                          {e.currency} {e.totalCommission.toFixed(2)}
+                          <span className="ml-1 font-sans text-[10.5px] font-normal text-muted">
+                            ({e.quantityKg} kg × {e.commissionPerKg.toFixed(2)}/kg)
+                          </span>
+                        </td>
+                        <td className="td text-xs text-slate2">{format.dateTime(e.createdAt, { dateStyle: 'medium' })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           )}
         </>
       )}

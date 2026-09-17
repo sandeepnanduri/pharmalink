@@ -30,7 +30,24 @@ function Feedback({ state, t }: { state: ActionState; t: (k: string) => string }
 }
 
 /** Personal details. Email is read-only — it is the account identity. */
-export function ProfileForm({ name, email, role }: { name: string; email: string; role: string }) {
+export function ProfileForm({
+  name,
+  email,
+  role,
+  phone,
+  whatsappOptIn,
+  whatsappAvailable,
+}: {
+  name: string;
+  email: string;
+  role: string;
+  phone: string;
+  whatsappOptIn: boolean;
+  /** Only true once WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID are set
+   *  server-side — the toggle doesn't appear as a live option before it can
+   *  actually do anything. See lib/whatsapp.server.ts's whatsappEnabled(). */
+  whatsappAvailable: boolean;
+}) {
   const t = useTranslations('account');
   const [state, action, pending] = useActionState<ActionState, FormData>(updateProfileAction, {});
 
@@ -52,7 +69,18 @@ export function ProfileForm({ name, email, role }: { name: string; email: string
           <label className="label" htmlFor="pf-role">{t('role')}</label>
           <input id="pf-role" value={role} readOnly disabled className="input bg-surface text-muted" />
         </div>
+        <div>
+          <label className="label" htmlFor="pf-phone">{t('phone')}</label>
+          <input id="pf-phone" name="phone" type="tel" defaultValue={phone} className="input" data-testid="profile-phone" />
+        </div>
       </div>
+
+      {whatsappAvailable && (
+        <label className="flex items-start gap-2 text-xs text-slate2">
+          <input type="checkbox" name="whatsappOptIn" defaultChecked={whatsappOptIn} className="mt-0.5 accent-brand" data-testid="profile-whatsapp-optin" />
+          <span>{t('whatsappOptIn')}</span>
+        </label>
+      )}
 
       <Feedback state={state} t={t} />
       <button type="submit" disabled={pending} className="btn-primary" data-testid="profile-save">
