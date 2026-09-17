@@ -57,6 +57,16 @@ describe('partner boundary (EPIC N7 — sibling guard to N3.6/A1)', () => {
     expect(body).toContain('sellerOrgId: targetOrgId');
   });
 
+  // Regression pin for the core trust mechanic PARTNER-PROGRAM.md §8 row 4
+  // designed and this follow-up phase finally builds: a partner-drafted
+  // quote must declare its own commission, never blend it silently into
+  // unitPrice.
+  it('submitQuoteAction requires a declared commission only in the delegated branch', () => {
+    const body = extractFunction(ACTIONS_SRC, 'submitQuoteAction');
+    expect(body).toContain('declaredCommissionPerKg');
+    expect(body).toContain("error: 'commissionRequired'");
+  });
+
   // Regression pin: canActFor/resolveActingOrgId only ever check the
   // PARTNER's representation grant — never the PRINCIPAL org's own
   // ops-verification status. Without an explicit re-check in the delegated
@@ -108,6 +118,18 @@ describe('mandate detail page (partner-facing, read-only by construction)', () =
   });
 });
 
+describe('registerDealAction (deal registration — new, reuses recordIntroductionIfNew unmodified)', () => {
+  it('requires a live representation on at least one side before sealing an Introduction', () => {
+    const src = readFileSync(new URL('./partner-actions.ts', import.meta.url), 'utf8');
+    const start = src.indexOf('export async function registerDealAction');
+    const next = src.indexOf('\nexport ', start + 1);
+    const body = src.slice(start, next === -1 ? undefined : next);
+    expect(body).toMatch(/canActFor\(buyerRep,\s*'rfq_draft'\)/);
+    expect(body).toMatch(/canActFor\(supplierRep,\s*'quote_draft'\)/);
+    expect(body).toContain('recordIntroductionIfNew(partner.id, buyerOrgId, supplierOrgId, cas, user.id)');
+  });
+});
+
 describe('sealAttributionIfNew (write-once, same shape as recordIntroductionIfNew)', () => {
   it('never calls .update() on partnerAttribution — first-claim-wins, no retroactive reassignment', () => {
     const src = readFileSync(new URL('./partner-actions.ts', import.meta.url), 'utf8');
@@ -116,6 +138,16 @@ describe('sealAttributionIfNew (write-once, same shape as recordIntroductionIfNe
     const body = src.slice(start, next === -1 ? undefined : next);
     expect(body).not.toContain('partnerAttribution.update');
     expect(body).toContain("err.code === 'P2002'");
+  });
+});
+
+describe('hidden-markup flag (N7.12 — reuses the existing market-benchmark math)', () => {
+  it('flags only a partner-drafted quote priced >15% above market with no declared commission', () => {
+    const src = readFileSync(new URL('./compare-queries.ts', import.meta.url), 'utf8');
+    expect(src).toContain('flaggedMarkup');
+    expect(src).toMatch(/draftedByPartnerId\s*!=\s*null/);
+    expect(src).toMatch(/vsMarketPct\s*>\s*15/);
+    expect(src).toContain('!q.declaredCommissionPerKg');
   });
 });
 

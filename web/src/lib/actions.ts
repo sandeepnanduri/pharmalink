@@ -702,6 +702,17 @@ export async function submitQuoteAction(_prev: ActionState, formData: FormData):
   const unitPrice = Number(formData.get('unitPrice') ?? 0);
   if (!unitPrice || unitPrice <= 0) return { error: 'error' };
 
+  // The core trust mechanic (PARTNER-PROGRAM.md §8 row 4): a partner-drafted
+  // quote must declare its own commission as a SEPARATE figure from
+  // unitPrice, never blended in silently. Required only in the delegated
+  // branch — a supplier quoting on its own account has no commission to
+  // declare, and the field stays null exactly like draftedByPartnerId does.
+  let declaredCommissionPerKg: number | null = null;
+  if (draftedByPartnerId) {
+    declaredCommissionPerKg = Number(formData.get('declaredCommissionPerKg') ?? NaN);
+    if (!Number.isFinite(declaredCommissionPerKg) || declaredCommissionPerKg < 0) return { error: 'commissionRequired' };
+  }
+
   const quote = await prisma.quote.create({
     data: {
       rfqId,
@@ -715,6 +726,7 @@ export async function submitQuoteAction(_prev: ActionState, formData: FormData):
       validUntil: new Date(String(formData.get('validUntil') ?? Date.now() + 12096e5)),
       notes: String(formData.get('notes') ?? '') || null,
       draftedByPartnerId,
+      declaredCommissionPerKg,
     },
   });
 

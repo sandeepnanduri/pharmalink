@@ -17,9 +17,10 @@ import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { currentUser } from '@/lib/session';
-import { REPRESENTATION_SCOPES, MODEL_A_WINDOW_MONTHS, type RepresentationScope } from '@/lib/partner';
+import { REPRESENTATION_SCOPES, MODEL_A_WINDOW_MONTHS, canActFor, type RepresentationScope } from '@/lib/partner';
 import { generatePartnerCode } from '@/lib/partner-code.server';
 import { validatePartnerOnboarding } from '@/lib/partner-onboarding';
+import { getActiveRepresentation } from '@/lib/partner-queries';
 
 async function audit(action: string, entity: string, entityId: string, actorId?: string, reason?: string) {
   await prisma.auditLog.create({ data: { action, entity, entityId, actorId: actorId ?? null, reason: reason ?? null } });
@@ -220,4 +221,43 @@ export async function sealAttributionIfNew(
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return; // first-claim-wins
     throw err;
   }
+}
+
+/**
+ * Deal registration — a partner claims a prospective buyer↔supplier↔molecule
+ * combination BEFORE drafting any RFQ/quote, the standard PRM "protect my
+ * lead" pattern. Reuses `recordIntroductionIfNew` exactly as-is (same
+ * write-once, first-claim-wins guarantee `Introduction.rfqId` already being
+ * nullable was built for) — `rfqId` is simply omitted here.
+ *
+ * Authorization is deliberately looser than the delegated-drafting actions:
+ * a partner registering a deal usually has representation over only ONE
+ * side (that's the whole point — locking in a lead on the side they
+ * already represent, for a counterparty they don't yet). Requiring a live
+ * representation with the matching scope on EITHER side, not both, mirrors
+ * exactly what createRfqAction/submitQuoteAction each individually require.
+ */
+export async function registerDealAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await currentUser();
+  if (!user?.orgId) return { error: 'unauthorized' };
+
+  const buyerOrgId = String(formData.get('buyerOrgId') ?? '').trim();
+  const supplierOrgId = String(formData.get('supplierOrgId') ?? '').trim();
+  const cas = String(formData.get('cas') ?? '').trim();
+  if (!buyerOrgId || !supplierOrgId || !cas) return { error: 'error' };
+  if (buyerOrgId === supplierOrgId) return { error: 'error' };
+
+  const partner = await prisma.partner.findUnique({ where: { orgId: user.orgId }, select: { id: true, status: true } });
+  if (!partner || partner.status === 'suspended') return { error: 'unauthorized' };
+
+  const [buyerRep, supplierRep] = await Promise.all([
+    getActiveRepresentation(user.orgId, buyerOrgId),
+    getActiveRepresentation(user.orgId, supplierOrgId),
+  ]);
+  const authorized = canActFor(buyerRep, 'rfq_draft') || canActFor(supplierRep, 'quote_draft');
+  if (!authorized) return { error: 'unauthorized' };
+
+  await recordIntroductionIfNew(partner.id, buyerOrgId, supplierOrgId, cas, user.id);
+  revalidatePath('/[locale]/partner/network', 'page');
+  return { ok: true };
 }

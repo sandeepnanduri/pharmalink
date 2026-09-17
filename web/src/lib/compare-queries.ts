@@ -47,6 +47,12 @@ export interface CompareQuote {
   status: string;
   match: MatchResult;
   vsMarketPct: number | null;
+  /** The partner's own declared commission, shown as a separate line item —
+   *  null on a non-partner-drafted quote. */
+  declaredCommissionPerKg: number | null;
+  /** N7.12: priced >15% above market with no declared commission — the
+   *  hidden-markup pattern. Always false for a non-partner-drafted quote. */
+  flaggedMarkup: boolean;
 }
 
 export interface CompareData {
@@ -127,6 +133,7 @@ export async function getQuoteComparison(rfqId: string, buyerOrgId: string): Pro
   const quotes: CompareQuote[] = rfq.quotes.map((q) => {
     const certs = q.sellerOrg.certifications.map((c) => c.name);
     const leadDays = leadTimeToDays(q.leadTime);
+    const vsMarketPct = marketMedian ? Math.round(((q.unitPrice - marketMedian) / marketMedian) * 1000) / 10 : null;
     return {
       id: q.id,
       supplier: q.sellerOrg.name,
@@ -143,7 +150,12 @@ export async function getQuoteComparison(rfqId: string, buyerOrgId: string): Pro
       documents: q._count.attachments,
       certs,
       status: q.status,
-      vsMarketPct: marketMedian ? Math.round(((q.unitPrice - marketMedian) / marketMedian) * 1000) / 10 : null,
+      vsMarketPct,
+      declaredCommissionPerKg: q.declaredCommissionPerKg,
+      // N7.12: only a partner-drafted quote can be "hidden markup" — a
+      // supplier pricing their own product high with no commission to
+      // disclose is just a price, not a disclosure failure.
+      flaggedMarkup: q.draftedByPartnerId != null && vsMarketPct != null && vsMarketPct > 15 && !q.declaredCommissionPerKg,
       match: matchScore({
         requiredCerts,
         heldCerts: certs,
@@ -189,6 +201,7 @@ export async function getQuoteComparison(rfqId: string, buyerOrgId: string): Pro
     row('price', 'Unit price', cell((q) => `${q.currency} ${q.unitPrice.toFixed(2)}/kg`), bestBy((q) => q.unitPrice, 'min'), true),
     row('total', `Total for ${rfq.quantityKg} kg`, cell((q) => `${q.currency} ${q.total.toLocaleString()}`), bestBy((q) => q.total, 'min'), true),
     row('vsMarket', 'vs market median', cell((q) => (q.vsMarketPct == null ? null : `${q.vsMarketPct > 0 ? '+' : ''}${q.vsMarketPct}%`)), bestBy((q) => q.vsMarketPct, 'min'), true),
+    row('commission', 'Partner commission (disclosed)', cell((q) => (q.declaredCommissionPerKg == null ? null : `${q.currency} ${q.declaredCommissionPerKg.toFixed(2)}/kg`))),
     row('match', 'Match score', cell((q) => (q.match.disqualified ? 'Not eligible' : q.match.score == null ? null : `${q.match.score}/100`)), bestBy((q) => q.match.score, 'max'), true),
     row('lead', 'Lead time', cell((q) => q.leadTime), bestBy((q) => leadTimeToDays(q.leadTime), 'min')),
     row('moq', 'Minimum order', cell((q) => `${q.moqKg} kg`), bestBy((q) => q.moqKg, 'min'), true),

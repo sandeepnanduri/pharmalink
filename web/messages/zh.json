@@ -651,7 +651,10 @@
     "submit": "发送报价",
     "submitted": "报价已发送",
     "alreadyQuoted": "您已对该询价单提交过报价。",
-    "notes": "备注"
+    "notes": "备注",
+    "commissionPerKg": "您的佣金（每千克）",
+    "commissionHint": "将作为独立于报价的单独项目展示给买家 — 绝不会被悄悄计入报价本身。",
+    "commissionRequired": "请填写每千克佣金后再提交该报价。"
   },
   "partnerMandate": {
     "actingFor": "代表",
@@ -734,7 +737,18 @@
     "ecosystemFinanceTitle": "贸易融资",
     "ecosystemFinanceDesc": "与合作 NBFC 协商的优惠利率区间，以您本人经核实的收益记录作为授信依据。",
     "ecosystemLabTitle": "第三方实验室验证",
-    "ecosystemLabDesc": "针对您无法实地考察的供应商，委托具备资质的实验室独立验证 CoA / GMP。"
+    "ecosystemLabDesc": "针对您无法实地考察的供应商，委托具备资质的实验室独立验证 CoA / GMP。",
+    "dealRegTitle": "登记商机",
+    "dealRegHint": "在起草任何单据之前，先锁定意向买家、供应商与分子 — 从您开始跟进的那一刻起就保护该商机，而不必等到委托单实际存在。",
+    "dealRegYourOrg": "您代理的机构",
+    "dealRegAsBuyer": "作为其买方代理",
+    "dealRegAsSupplier": "作为其供应商代理",
+    "dealRegCas": "CAS 号",
+    "dealRegSupplierLabel": "意向供应商",
+    "dealRegBuyerLabel": "意向买家",
+    "dealRegCounterpartyPlaceholder": "搜索已认证机构…",
+    "dealRegSubmit": "登记该商机",
+    "dealRegSuccess": "商机已登记"
   },
   "partnerProfile": {
     "archetype_indentor": "代理商",
@@ -788,7 +802,14 @@
     "commissionSource": "佣金来源",
     "commissionFrom": "{org} 的订阅 — 发票 {number}",
     "period": "计费周期",
-    "invoiceFooter": "本单据记录 PharmaLink 直接支付给上述合作伙伴的订阅收入分成，并非交易发票，不涉及任何买家或供应商款项，PharmaLink 也从不从交易或报价金额中抽成。"
+    "invoiceFooter": "本单据记录 PharmaLink 直接支付给上述合作伙伴的订阅收入分成，并非交易发票，不涉及任何买家或供应商款项，PharmaLink 也从不从交易或报价金额中抽成。",
+    "gmvStatementCta": "下载 GMV 结算单",
+    "ledgerExportCta": "导出用于记账（CSV）",
+    "gmvStatementTitle": "GMV 与收益结算单",
+    "gmvStatementIntroductions": "已确立的引荐数",
+    "gmvStatementRepresented": "当前代理机构数",
+    "gmvStatementPayoutCount": "收益记录笔数",
+    "gmvStatementFooter": "本结算单根据 PharmaLink 自身的审计日志交易记录生成。以上每项均为计数或订阅收入分成总额 — 绝非交易或代理交易额的百分比，符合 PharmaLink 的 A1 边界原则。"
   },
   "partnerRewards": {
     "title": "奖励",
@@ -837,6 +858,7 @@
     "noPartnerRecord": "您的入驻流程尚未完成 — 请完成合作伙伴入驻向导以解锁控制台。",
     "openMandates": "进行中的委托单",
     "quotesPending": "待处理报价",
+    "responseRate": "响应率",
     "dealsClosed": "本月已成交",
     "gmvRepresented": "代理交易额",
     "informationalOnly": "仅供参考",
@@ -854,6 +876,8 @@
     "priorityEmpty": "目前没有紧急事项。",
     "cert": "证书",
     "certAlertLine": "{org} 的 {name} 需要关注",
+    "staleMandate": "待跟进",
+    "staleMandateLine": "为 {org} 提交的 {name} 已超过一周没有响应",
     "certExpiryTitle": "证书到期情况",
     "certExpiryEmpty": "近期没有即将到期的证书。",
     "viewNetwork": "查看您的网络",
@@ -1895,7 +1919,9 @@
     "noData": "无数据",
     "disqualifiedNote": "缺少强制认证属于硬性门槛，无法用价格或交期弥补。",
     "coverageFull": "五个组成部分均有数据。",
-    "coveragePartial": "基于模型的 {pct}% 评分——{count} 个部分尚无数据。"
+    "coveragePartial": "基于模型的 {pct}% 评分——{count} 个部分尚无数据。",
+    "markupFlag": "⚠ 佣金未披露",
+    "markupFlagTitle": "报价高于市场中位数 15% 以上，且未申报合作伙伴佣金。"
   },
   "ops": {
     "console": "运营控制台",

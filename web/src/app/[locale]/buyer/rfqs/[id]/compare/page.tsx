@@ -85,6 +85,15 @@ export default async function CompareQuotesPage({ params }: { params: Promise<{ 
                   <div className="flex flex-col gap-1">
                     <span className="text-[13px] font-bold normal-case tracking-normal text-ink">{q.supplier}</span>
                     <span className="text-[11px] font-normal normal-case tracking-normal text-muted">{q.country ?? '—'}</span>
+                    {q.flaggedMarkup && (
+                      <span
+                        className="w-fit rounded-pill bg-danger-pale px-2 py-0.5 text-[10px] font-bold text-danger"
+                        data-testid={`markup-flag-${q.id}`}
+                        title={t('markupFlagTitle')}
+                      >
+                        {t('markupFlag')}
+                      </span>
+                    )}
                     {q.match.disqualified ? (
                       <span className="w-fit rounded-pill bg-danger-pale px-2 py-0.5 text-[10px] font-bold text-danger">{t('notEligible')}</span>
                     ) : (

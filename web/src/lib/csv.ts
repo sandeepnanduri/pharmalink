@@ -253,3 +253,40 @@ export function productsToCsv(products: ExportableProduct[]): string {
   }
   return lines.join('\n');
 }
+
+/** What `partnerLedgerToCsv` needs — a subset of `PartnerPayout`. */
+export type ExportablePayout = {
+  createdAt: Date;
+  number: string;
+  kind: string;
+  amount: number;
+  currency: string;
+  status: string;
+};
+
+const LEDGER_COLUMNS = ['Date', 'Reference', 'Type', 'Description', 'Amount', 'Currency', 'Status'] as const;
+
+/**
+ * A generic ledger CSV for a partner's `PartnerPayout` history — not a Tally/
+ * Zoho/QuickBooks-specific format (no single one exists; all three take
+ * column-mapped CSV on import), just a clean, clearly-labeled shape any of
+ * them can map. Reuses `csvCell`'s escaping as-is — same correctness the
+ * product export already relies on.
+ */
+export function partnerLedgerToCsv(payouts: ExportablePayout[]): string {
+  const lines = [LEDGER_COLUMNS.join(',')];
+  for (const p of payouts) {
+    lines.push(
+      [
+        csvCell(p.createdAt.toISOString().slice(0, 10)),
+        csvCell(p.number),
+        csvCell(p.kind),
+        csvCell(`PharmaLink partner payout — ${p.kind}`),
+        csvCell(p.amount.toFixed(2)),
+        csvCell(p.currency),
+        csvCell(p.status),
+      ].join(',')
+    );
+  }
+  return lines.join('\n');
+}

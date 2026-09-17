@@ -63,15 +63,33 @@ export function QuoteForm({
               <input type="hidden" name="rfqId" value={rfqId} />
               {actingForOrgId && <input type="hidden" name="actingForOrgId" value={actingForOrgId} />}
               {actingForOrgId && (
-                <div className="flex items-center gap-2.5 rounded-panel border-[1.5px] border-violet bg-violet-pale px-3.5 py-2.5" data-testid="acting-for-banner">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-violet-deep">
-                    <circle cx="12" cy="8" r="4" />
-                    <path d="M4 21c1.6-4 4.4-6 8-6s6.4 2 8 6" strokeLinecap="round" />
-                  </svg>
-                  <p className="text-xs">
-                    <span className="font-bold uppercase tracking-wide text-violet-deep">{tp('actingFor')}</span>{' '}
-                    <span className="font-bold text-txt">{actingForOrgName}</span>
-                  </p>
+                <div className="rounded-panel border-[1.5px] border-violet bg-violet-pale px-3.5 py-2.5" data-testid="acting-for-banner">
+                  <div className="flex items-center gap-2.5">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-violet-deep">
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 21c1.6-4 4.4-6 8-6s6.4 2 8 6" strokeLinecap="round" />
+                    </svg>
+                    <p className="text-xs">
+                      <span className="font-bold uppercase tracking-wide text-violet-deep">{tp('actingFor')}</span>{' '}
+                      <span className="font-bold text-txt">{actingForOrgName}</span>
+                    </p>
+                  </div>
+                  <div className="mt-2.5">
+                    <label className="label" htmlFor="declaredCommissionPerKg">
+                      {t('commissionPerKg')}
+                    </label>
+                    <input
+                      id="declaredCommissionPerKg"
+                      name="declaredCommissionPerKg"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      className="input"
+                      data-testid="quote-commission"
+                    />
+                    <p className="mt-1 text-[11px] text-slate2">{t('commissionHint')}</p>
+                  </div>
                 </div>
               )}
               <div className="grid gap-3 sm:grid-cols-2">
@@ -123,7 +141,7 @@ export function QuoteForm({
 
               {state.error && (
                 <p role="alert" className="rounded-lg bg-danger-pale px-3 py-2 text-xs font-semibold text-red-700">
-                  {state.error === 'alreadyQuoted' ? t('alreadyQuoted') : state.error}
+                  {state.error === 'alreadyQuoted' ? t('alreadyQuoted') : state.error === 'commissionRequired' ? t('commissionRequired') : state.error}
                 </p>
               )}
 
