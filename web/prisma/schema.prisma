@@ -833,6 +833,13 @@ model Quote {
   /// partner's — this field is provenance only, never an authorization check.
   draftedByPartnerId String?
   draftedByPartner   Partner? @relation(fields: [draftedByPartnerId], references: [id])
+  /// The partner's own declared commission, shown to the buyer as a
+  /// SEPARATE line item from unitPrice (never blended into it) — the core
+  /// trust mechanic PARTNER-PROGRAM.md §8 row 4 designed and N7.12 (§10)
+  /// checks against: a quote priced well above market with this null is the
+  /// hidden-markup pattern the platform flags. Always null on a
+  /// non-partner-drafted quote.
+  declaredCommissionPerKg Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

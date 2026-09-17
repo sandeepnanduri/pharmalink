@@ -651,7 +651,10 @@
     "submit": "Send quote",
     "submitted": "Quote sent",
     "alreadyQuoted": "You have already quoted on this RFQ.",
-    "notes": "Notes"
+    "notes": "Notes",
+    "commissionPerKg": "Your commission (per kg)",
+    "commissionHint": "Shown to the buyer as a separate line item from the quoted price — never blended in silently.",
+    "commissionRequired": "Declare your commission per kg to submit this quote."
   },
   "partnerMandate": {
     "actingFor": "Acting for",
@@ -734,7 +737,18 @@
     "ecosystemFinanceTitle": "Trade finance",
     "ecosystemFinanceDesc": "A preferential rate slab with a partner NBFC, underwritten against your own verified payout history.",
     "ecosystemLabTitle": "Independent lab verification",
-    "ecosystemLabDesc": "Order third-party CoA/GMP verification on a supplier you can't visit yourself, from an accredited lab."
+    "ecosystemLabDesc": "Order third-party CoA/GMP verification on a supplier you can't visit yourself, from an accredited lab.",
+    "dealRegTitle": "Register a deal",
+    "dealRegHint": "Claim a prospective buyer, supplier and molecule before you draft anything — protects the lead the moment you're working it, not only once a mandate exists.",
+    "dealRegYourOrg": "Org you represent",
+    "dealRegAsBuyer": "As their buyer's agent",
+    "dealRegAsSupplier": "As their supplier's agent",
+    "dealRegCas": "CAS number",
+    "dealRegSupplierLabel": "Prospective supplier",
+    "dealRegBuyerLabel": "Prospective buyer",
+    "dealRegCounterpartyPlaceholder": "Search verified organisations…",
+    "dealRegSubmit": "Register this deal",
+    "dealRegSuccess": "Deal registered"
   },
   "partnerProfile": {
     "archetype_indentor": "Indenting agent",
@@ -788,7 +802,14 @@
     "commissionSource": "Commission source",
     "commissionFrom": "{org}'s subscription — invoice {number}",
     "period": "Billing period",
-    "invoiceFooter": "This statement documents a subscription-revenue share paid directly by PharmaLink to the partner named above. It is not a trade invoice, carries no buyer or supplier payment, and PharmaLink never takes a cut of deal or quote value."
+    "invoiceFooter": "This statement documents a subscription-revenue share paid directly by PharmaLink to the partner named above. It is not a trade invoice, carries no buyer or supplier payment, and PharmaLink never takes a cut of deal or quote value.",
+    "gmvStatementCta": "Download GMV statement",
+    "ledgerExportCta": "Export for accounting (CSV)",
+    "gmvStatementTitle": "GMV & earnings statement",
+    "gmvStatementIntroductions": "Introductions sealed",
+    "gmvStatementRepresented": "Orgs currently represented",
+    "gmvStatementPayoutCount": "Payouts on record",
+    "gmvStatementFooter": "Generated from PharmaLink's own audit-logged transaction history. Every figure above is a count or a subscription-revenue-share total — never a percentage of deal or GMV value, consistent with PharmaLink's A1 boundary."
   },
   "partnerRewards": {
     "title": "Rewards",
@@ -837,6 +858,7 @@
     "noPartnerRecord": "Your onboarding didn't finish — complete the partner wizard to unlock your console.",
     "openMandates": "Open mandates",
     "quotesPending": "Quotes pending",
+    "responseRate": "Response rate",
     "dealsClosed": "Deals closed · this month",
     "gmvRepresented": "GMV represented",
     "informationalOnly": "Informational only",
@@ -854,6 +876,8 @@
     "priorityEmpty": "Nothing urgent right now.",
     "cert": "Cert",
     "certAlertLine": "{org}'s {name} needs attention",
+    "staleMandate": "Follow up",
+    "staleMandateLine": "{name} for {org} has had no response in over a week",
     "certExpiryTitle": "Certificate expiry",
     "certExpiryEmpty": "No certificates expiring soon.",
     "viewNetwork": "View your network",
@@ -1895,7 +1919,9 @@
     "noData": "No data",
     "disqualifiedNote": "A missing mandatory certificate is a hard gate — it cannot be offset by price or lead time.",
     "coverageFull": "All five components had data.",
-    "coveragePartial": "Scored on {pct}% of the model — {count} component(s) had no data yet."
+    "coveragePartial": "Scored on {pct}% of the model — {count} component(s) had no data yet.",
+    "markupFlag": "⚠ Undisclosed markup",
+    "markupFlagTitle": "Priced over 15% above the market median with no partner commission declared."
   },
   "ops": {
     "console": "Ops console",

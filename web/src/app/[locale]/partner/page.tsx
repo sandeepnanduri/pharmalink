@@ -45,7 +45,7 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ l
     (typeof BUCKETS)[number],
     typeof portfolio.mandates
   >;
-  const priority = portfolio.certAlerts.slice(0, 3);
+  const priority = portfolio.priorityItems.slice(0, 3);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -54,9 +54,10 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ l
 
       <VerificationBanner status={org?.status as never} role={user.role} reason={org?.rejectedReason} />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard label={t('openMandates')} value={portfolio.openMandates} testId="stat-open-mandates" />
         <StatCard label={t('quotesPending')} value={portfolio.quotesPending} testId="stat-quotes-pending" />
+        <StatCard label={t('responseRate')} value={portfolio.responseRate == null ? '—' : `${portfolio.responseRate}%`} testId="stat-response-rate" />
         <StatCard label={t('dealsClosed')} value={portfolio.dealsClosedThisMonth} testId="stat-deals-closed" />
         <StatCard label={t('gmvRepresented')} value={`$${Math.round(portfolio.gmvRepresented).toLocaleString()}`} hint={t('informationalOnly')} testId="stat-gmv" />
         <div className="card border-violet-pale bg-gradient-to-b from-white to-violet-pale/40 p-5">
@@ -109,12 +110,19 @@ export default async function PartnerDashboard({ params }: { params: Promise<{ l
               <p className="text-xs text-muted">{t('priorityEmpty')}</p>
             ) : (
               <div className="space-y-2.5">
-                {priority.map((c) => (
-                  <div key={c.id} className="flex items-start gap-2.5">
-                    <span className={c.level === 'expired' || c.level === 'critical' ? 'badge-rejected' : 'badge-pending'}>{t('cert')}</span>
-                    <p className="text-[12.5px] leading-snug">{t('certAlertLine', { org: c.org.name, name: c.name })}</p>
-                  </div>
-                ))}
+                {priority.map((p) =>
+                  p.kind === 'cert' ? (
+                    <div key={`cert-${p.id}`} className="flex items-start gap-2.5">
+                      <span className={p.level === 'expired' || p.level === 'critical' ? 'badge-rejected' : 'badge-pending'}>{t('cert')}</span>
+                      <p className="text-[12.5px] leading-snug">{t('certAlertLine', { org: p.orgName, name: p.name })}</p>
+                    </div>
+                  ) : (
+                    <div key={`stale-${p.id}`} className="flex items-start gap-2.5">
+                      <span className="badge-pending">{t('staleMandate')}</span>
+                      <p className="text-[12.5px] leading-snug">{t('staleMandateLine', { org: p.orgName, name: p.name })}</p>
+                    </div>
+                  )
+                )}
               </div>
             )}
           </section>

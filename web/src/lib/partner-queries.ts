@@ -81,6 +81,12 @@ export interface MandateRow {
   createdAt: Date;
 }
 
+/** One entry in the "Priority today" panel — a cert alert or a stale
+ *  sourcing-bucket mandate, normalised so the panel renders both generically. */
+export type PriorityItem =
+  | { kind: 'cert'; id: string; orgName: string; name: string; level: ReturnType<typeof certExpiryLevel>; expiresAt: Date | null }
+  | { kind: 'stale_mandate'; id: string; orgName: string; name: string; reference: string };
+
 /** Everything the Portfolio Console (N7.4) needs, in one call. */
 export async function getPortfolio(partnerOrgId: string) {
   const partner = await prisma.partner.findUnique({ where: { orgId: partnerOrgId } });
@@ -144,6 +150,15 @@ export async function getPortfolio(partnerOrgId: string) {
     }));
   const mandates = [...rfqRows, ...quoteRows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
+  // Response rate (PARTNER-PROGRAM.md §8 row 3 — specified, never built):
+  // quotes this partner actually submitted vs. still-open opportunities on a
+  // represented supplier they haven't responded to yet. Reuses
+  // getQuotableMandates as-is rather than re-deriving its broadcast-matching
+  // logic here.
+  const quotable = await getQuotableMandates(partnerOrgId);
+  const responseDenominator = draftedQuotes.length + quotable.length;
+  const responseRate = responseDenominator > 0 ? Math.round((draftedQuotes.length / responseDenominator) * 100) : null;
+
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   // Dedupe by deal id: if this partner drafted BOTH the RFQ and its winning
   // quote (representing the buyer and that supplier on the same deal — a
@@ -159,6 +174,20 @@ export async function getPortfolio(partnerOrgId: string) {
   const gmvRepresented = [...dealsById.values()].reduce((sum, d) => sum + d.totalValue, 0);
   const earningsToDate = payouts.reduce((sum, p) => sum + p.amount, 0);
 
+  // Priority-today task list (extends the panel that already showed cert
+  // alerts alone): adds a second, cheap-to-derive item kind from data this
+  // function already fetched — a sourcing-bucket RFQ (no quotes yet) that's
+  // gone quiet. Both kinds share one shape so the dashboard renders them
+  // generically rather than needing a second panel.
+  const STALE_MANDATE_DAYS = 7;
+  const staleCutoff = Date.now() - STALE_MANDATE_DAYS * 24 * 60 * 60 * 1000;
+  const priorityItems: PriorityItem[] = [
+    ...certAlerts.map((c) => ({ kind: 'cert' as const, id: c.id, orgName: c.org.name, name: c.name, level: c.level, expiresAt: c.expiresAt })),
+    ...mandates
+      .filter((m) => m.bucket === 'sourcing' && m.createdAt.getTime() < staleCutoff)
+      .map((m) => ({ kind: 'stale_mandate' as const, id: m.id, orgName: m.principalOrgName, name: m.productName, reference: m.reference })),
+  ].sort((a, b) => (a.kind === 'cert' && b.kind === 'cert' ? 0 : a.kind === 'cert' ? -1 : 1));
+
   return {
     partner,
     mandates,
@@ -167,7 +196,9 @@ export async function getPortfolio(partnerOrgId: string) {
     dealsClosedThisMonth,
     gmvRepresented,
     earningsToDate,
+    responseRate,
     certAlerts,
+    priorityItems,
   };
 }
 
@@ -457,6 +488,38 @@ export async function getPartnerEarnings(partnerOrgId: string) {
   return { partner, payouts, paidTotal, accruedTotal };
 }
 
+/**
+ * A bank-acceptable GMV & earnings statement — persona 7.2's stated need
+ * (PARTNER-PROGRAM.md §7.2): "no bank-acceptable proof of GMV for a
+ * working-capital loan." Reuses getPartnerEarnings's own totals rather than
+ * re-deriving them, and adds the two other evidentiary counts a lender
+ * would want: how many introductions this partner has sealed, and how many
+ * orgs currently represent live business through them. Never reads Deal/
+ * Quote value directly — same discipline getPartnerEarnings already keeps.
+ */
+export async function getPartnerGmvStatement(partnerOrgId: string) {
+  const partner = await prisma.partner.findUnique({ where: { orgId: partnerOrgId }, include: { org: true } });
+  if (!partner) return null;
+
+  const earnings = await getPartnerEarnings(partnerOrgId);
+  if (!earnings) return null;
+
+  const [introductionCount, representedOrgCount] = await Promise.all([
+    prisma.introduction.count({ where: { partnerId: partner.id } }),
+    prisma.partnerRepresentation.count({ where: { partnerId: partner.id, revokedAt: null } }),
+  ]);
+
+  return {
+    partner,
+    paidTotal: earnings.paidTotal,
+    accruedTotal: earnings.accruedTotal,
+    payoutCount: earnings.payouts.length,
+    introductionCount,
+    representedOrgCount,
+    generatedAt: new Date(),
+  };
+}
+
 export interface IncentiveMilestone {
   key: 'activation_bonus' | 'streak_bonus' | 'breadth_bonus' | 'referral_bonus';
   /** Which breadth tier this object represents (1/2/3) — undefined for every other kind. */
@@ -592,4 +655,48 @@ export async function searchPartners(filters: PartnerSearchFilters) {
     orderBy: { createdAt: 'desc' },
   });
   return partners;
+}
+
+export interface VerifiedOrgResult {
+  id: string;
+  name: string;
+  kind: string;
+  country: string;
+  city: string | null;
+}
+
+/**
+ * Name-contains search over verified buyer/seller orgs — the counterparty
+ * picker for deal registration (below). Deliberately NOT a general org
+ * directory: verified only, and the caller decides which `kind` to search
+ * (a partner registering a deal already knows which side they're missing).
+ */
+export async function searchVerifiedOrgs(kind: 'buyer' | 'seller', query: string): Promise<VerifiedOrgResult[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const orgs = await prisma.organization.findMany({
+    where: {
+      status: 'verified',
+      kind: { in: [kind, 'both'] },
+      name: { contains: q },
+    },
+    select: { id: true, name: true, kind: true, country: true, city: true },
+    orderBy: { name: 'asc' },
+    take: 10,
+  });
+  return orgs;
+}
+
+/**
+ * Deal registration (new — a partner claims a prospective buyer↔supplier↔
+ * molecule combination before any mandate exists), for the counterparty
+ * picker's other half: the orgs this partner already represents, filtered
+ * to the scope registration actually needs. Thin wrapper over
+ * getActiveRepresentations so the UI doesn't need two different shapes.
+ */
+export async function getRepresentedOrgsForDeal(partnerOrgId: string): Promise<ActiveRepresentation[]> {
+  const buyerSide = await getActiveRepresentations(partnerOrgId, 'rfq_draft');
+  const supplierSide = await getActiveRepresentations(partnerOrgId, 'quote_draft');
+  const seen = new Set<string>();
+  return [...buyerSide, ...supplierSide].filter((r) => (seen.has(r.orgId) ? false : (seen.add(r.orgId), true)));
 }

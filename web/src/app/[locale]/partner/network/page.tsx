@@ -1,9 +1,10 @@
 import { getTranslations, getFormatter, setRequestLocale } from 'next-intl/server';
 import { requireRole } from '@/lib/session';
-import { getPartnerNetwork } from '@/lib/partner-queries';
+import { getPartnerNetwork, getRepresentedOrgsForDeal } from '@/lib/partner-queries';
 import { hasScope } from '@/lib/partner';
 import { PartnerDocumentUploadSection } from '@/components/partner-document-upload-section';
 import { EcosystemServicesSection } from '@/components/ecosystem-services-section';
+import { DealRegistrationForm } from '@/components/deal-registration-form';
 
 // orgKind is 'buyer' | 'seller' | 'both' | 'partner' — 'seller' and 'partner'
 // both bucket with "supplier's agent" here (matching getPartnerNetwork's own
@@ -37,6 +38,7 @@ export default async function PartnerNetworkPage({ params }: { params: Promise<{
   const rows = user.orgId ? await getPartnerNetwork(user.orgId) : [];
   const active = rows.filter((r) => !r.revokedAt);
   const uploadEligible = active.filter((r) => hasScope(r.scopes, 'document_upload')).map((r) => ({ orgId: r.orgId, orgName: r.orgName }));
+  const representedForDeal = user.orgId ? await getRepresentedOrgsForDeal(user.orgId) : [];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -95,6 +97,7 @@ export default async function PartnerNetworkPage({ params }: { params: Promise<{
         </div>
       )}
 
+      <DealRegistrationForm represented={representedForDeal} />
       <PartnerDocumentUploadSection eligible={uploadEligible} />
       <EcosystemServicesSection />
     </div>

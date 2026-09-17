@@ -32,8 +32,21 @@ export default async function PartnerEarningsPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-extrabold">{t('title')}</h1>
-      <p className="mb-6 mt-1 text-sm text-muted">{t('subtitle')}</p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted">{t('subtitle')}</p>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/partner/earnings/statement/print" className="btn-ghost !py-2 text-xs" data-testid="gmv-statement-link">
+            {t('gmvStatementCta')}
+          </Link>
+          {/* A file download from an API route, not a page navigation — see seller/products/page.tsx's identical export link. */}
+          <a href="/api/partner/ledger-export" className="btn-ghost !py-2 text-xs" data-testid="ledger-export-link" download>
+            {t('ledgerExportCta')}
+          </a>
+        </div>
+      </div>
 
       {/* The A1 boundary, stated plainly — never implied by omission. */}
       <div className="mb-6 flex items-center gap-2.5 rounded-panel border border-line bg-white px-4 py-3">
