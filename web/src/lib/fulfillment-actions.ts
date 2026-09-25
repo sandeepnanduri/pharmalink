@@ -6,6 +6,7 @@ import { currentUser } from '@/lib/session';
 import { cleanText } from '@/lib/sanitize';
 import { canSellerSet, canBuyerConfirm } from '@/lib/shipment';
 import { validCounter, activeCounter, canRespond, canPropose } from '@/lib/negotiation';
+import { escrowEnabled, releaseEscrow } from '@/lib/escrow.server';
 
 export type FulfillmentState = { error?: string; ok?: boolean };
 
@@ -28,6 +29,7 @@ async function loadDealParties(dealId: string) {
       rfq: { select: { buyerOrgId: true } },
       quote: { select: { sellerOrgId: true } },
       shipment: true,
+      escrow: { select: { id: true } },
     },
   });
 }
@@ -74,6 +76,11 @@ export async function confirmDeliveryAction(formData: FormData): Promise<void> {
 
   await prisma.shipment.update({ where: { dealId }, data: { status: 'confirmed', confirmedAt: new Date() } });
   await audit('shipment.confirmed', 'Deal', dealId, user.id);
+  // Escrow release (product roadmap Phase 1) — no-op when escrow was never
+  // funded for this deal (the common case) or credentials aren't set.
+  if (escrowEnabled() && deal.escrow) {
+    void releaseEscrow(deal.escrow.id);
+  }
   revalidateOrders();
 }
 

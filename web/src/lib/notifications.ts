@@ -41,6 +41,9 @@ const KINDS: Record<string, NotificationKindMeta> = {
   'shortage.posted': { group: 'action', icon: 'alert', weight: 90 },
   'org.rejected': { group: 'action', icon: 'alert', weight: 85 },
   'shipment.overdue': { group: 'action', icon: 'truck', weight: 88 },
+  // Escrow (product roadmap Phase 1) — informational when it worked, but a
+  // failure needs the same attention as any other blocked payment.
+  'escrow.failed': { group: 'action', icon: 'alert', weight: 85 },
 
   // --- progress on something already in motion ------------------------------
   // A Sourcing Partner drafted this on the principal's behalf (EPIC N7 follow-
@@ -58,6 +61,8 @@ const KINDS: Record<string, NotificationKindMeta> = {
   'sample.shipped': { group: 'update', icon: 'truck', weight: 35 },
   'org.verified': { group: 'update', icon: 'check', weight: 55 },
   'review.received': { group: 'update', icon: 'bell', weight: 20 },
+  'escrow.funded': { group: 'update', icon: 'check', weight: 50 },
+  'escrow.released': { group: 'update', icon: 'check', weight: 55 },
 
   // --- background ----------------------------------------------------------
   'content.published': { group: 'info', icon: 'bell', weight: 10 },

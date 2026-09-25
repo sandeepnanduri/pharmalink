@@ -35,6 +35,39 @@ export type PartnerArchetype = (typeof PARTNER_ARCHETYPES)[number];
 export const PARTNER_TIERS = ['registered', 'qualified', 'specialist'] as const;
 export type PartnerTier = (typeof PARTNER_TIERS)[number];
 
+/** Completed-mandate-count thresholds, matching the product roadmap's own
+ *  published numbers (Qualified: 5 mandates, Specialist: 25 mandates + an
+ *  uploaded E&O insurance document — see eligibleTier below). */
+export const TIER_THRESHOLDS: Record<'qualified' | 'specialist', number> = {
+  qualified: 5,
+  specialist: 25,
+};
+
+const TIER_RANK: Record<PartnerTier, number> = { registered: 0, qualified: 1, specialist: 2 };
+
+/**
+ * The tier a partner's current stats qualify them for. Never a demotion
+ * signal by itself — the caller (partner-actions.ts's recomputeTier) only
+ * ever raises a partner's stored tier towards this result, never lowers it;
+ * this function itself also never returns lower than `currentTier`.
+ * `goodStanding` (an ops-set flag, `Partner.goodStanding`) is the closest
+ * this app gets to the roadmap's "0 disputes" criterion without building a
+ * full disputes feature — false caps eligibility at the current tier,
+ * blocking further promotion, but never triggers a demotion on its own.
+ */
+export function eligibleTier(
+  currentTier: PartnerTier,
+  completedMandateCount: number,
+  goodStanding: boolean,
+  hasEoInsurance: boolean
+): PartnerTier {
+  if (!goodStanding) return currentTier;
+  let computed: PartnerTier = 'registered';
+  if (completedMandateCount >= TIER_THRESHOLDS.qualified) computed = 'qualified';
+  if (completedMandateCount >= TIER_THRESHOLDS.specialist && hasEoInsurance) computed = 'specialist';
+  return TIER_RANK[computed] > TIER_RANK[currentTier] ? computed : currentTier;
+}
+
 /**
  * The one badge class every tier gets, on every page that shows one.
  * Deliberately never `badge-verified`/`badge-neutral`/etc. — those are
@@ -100,9 +133,19 @@ export function isAttributionActive(
  * write-path will use, added ahead of that write-path existing so the type
  * is ready. Nothing creates a PartnerPayout with one of these kinds yet;
  * getPartnerIncentives (partner-queries.ts) only READS the milestones they
- * describe, via INCENTIVE_MILESTONES below.
+ * describe, via INCENTIVE_MILESTONES below. `tier_bonus` (PARTNER-
+ * INCENTIVES.md:83) is the reward for crossing a tier — same read-only
+ * discipline; recomputeTier (partner-actions.ts) still writes no
+ * PartnerPayout, it only updates Partner.tier itself.
  */
-export const PARTNER_PAYOUT_KINDS = ['model_a_margin', 'activation_bonus', 'streak_bonus', 'breadth_bonus', 'referral_bonus'] as const;
+export const PARTNER_PAYOUT_KINDS = [
+  'model_a_margin',
+  'activation_bonus',
+  'streak_bonus',
+  'breadth_bonus',
+  'referral_bonus',
+  'tier_bonus',
+] as const;
 export type PartnerPayoutKind = (typeof PARTNER_PAYOUT_KINDS)[number];
 
 /** 27.5% of the subscription price, for 24 months from attribution — PARTNER-PROGRAM.md §3, Model A. */
@@ -139,11 +182,15 @@ export const BREADTH_TIERS = [3, 6, 10] as const;
 export const REFERRAL_TARGET = 1;
 
 /** USD, PARTNER-INCENTIVES.md §3's published amounts. */
-export const INCENTIVE_REWARD_USD: Record<'activation_bonus' | 'streak_bonus' | 'breadth_bonus' | 'referral_bonus', number> = {
+export const INCENTIVE_REWARD_USD: Record<
+  'activation_bonus' | 'streak_bonus' | 'breadth_bonus' | 'referral_bonus' | 'tier_bonus',
+  number
+> = {
   activation_bonus: 100,
   streak_bonus: 150,
   breadth_bonus: 100, // per tier crossed
   referral_bonus: 75,
+  tier_bonus: 40, // PARTNER-INCENTIVES.md:83 — per promotion (Qualified/Specialist)
 };
 
 /** Whether `b` falls within `days` of `a` — the Activation milestone's 14-day window. */

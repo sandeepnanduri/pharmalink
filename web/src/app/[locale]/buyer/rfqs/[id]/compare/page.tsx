@@ -94,6 +94,24 @@ export default async function CompareQuotesPage({ params }: { params: Promise<{ 
                         {t('markupFlag')}
                       </span>
                     )}
+                    {q.withinExclusivityWindow && (
+                      <span
+                        className="w-fit rounded-pill bg-brand-pale px-2 py-0.5 text-[10px] font-bold text-brand"
+                        data-testid={`exclusivity-flag-${q.id}`}
+                        title={t('exclusivityWindowTitle')}
+                      >
+                        {t('exclusivityWindow')}
+                      </span>
+                    )}
+                    {q.isRepeatOrder && (
+                      <span
+                        className="w-fit rounded-pill bg-brand-pale px-2 py-0.5 text-[10px] font-bold text-brand"
+                        data-testid={`repeat-order-flag-${q.id}`}
+                        title={t('repeatOrderTitle')}
+                      >
+                        {t('repeatOrder')}
+                      </span>
+                    )}
                     {q.match.disqualified ? (
                       <span className="w-fit rounded-pill bg-danger-pale px-2 py-0.5 text-[10px] font-bold text-danger">{t('notEligible')}</span>
                     ) : (

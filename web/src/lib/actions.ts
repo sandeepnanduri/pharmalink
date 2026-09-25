@@ -23,8 +23,10 @@ import { isAtLimit, parsePlan, ENTITLEMENTS } from '@/lib/plans';
 import { matchSuppliers, type MatchableSeller } from '@/lib/matching';
 import { parseSites, parseCredentials, validateOnboarding } from '@/lib/onboarding';
 import { resolveActingOrgId } from '@/lib/partner-queries';
-import { recordIntroductionIfNew, sealAttributionIfNew } from '@/lib/partner-actions';
+import { recordIntroductionIfNew, sealAttributionIfNew, recomputeTiersForAwardedDeal } from '@/lib/partner-actions';
 import { computePartnerPayoutAmount, isAttributionActive, MODEL_A_MARGIN_RATE } from '@/lib/partner';
+import { recordChainedEvent } from '@/lib/chain.server';
+import { escrowEnabled, initiateEscrow, PLATFORM_FEE_RATE } from '@/lib/escrow.server';
 import {
   categoryFromProductType,
   parseColdChain,
@@ -830,7 +832,7 @@ export async function acceptQuoteAction(formData: FormData): Promise<void> {
   const total = quote.unitPrice * quote.rfq.quantityKg;
   const dealCount = await prisma.deal.count();
 
-  await prisma.$transaction([
+  const [deal] = await prisma.$transaction([
     prisma.deal.create({
       data: {
         reference: `DEAL-${1000 + dealCount + 1}`,
@@ -865,7 +867,28 @@ export async function acceptQuoteAction(formData: FormData): Promise<void> {
     link: `/seller`,
   });
   await dispatchEvent('quote.awarded', { rfqId: quote.rfqId, reference: quote.rfq.reference, quoteId: quote.id, supplierOrgId: quote.sellerOrgId, total, currency: quote.currency });
-  await dispatchEvent('deal.created', { reference: `DEAL-${1000 + dealCount + 1}`, rfqId: quote.rfqId, total, currency: quote.currency });
+  await dispatchEvent('deal.created', { reference: deal.reference, rfqId: quote.rfqId, total, currency: quote.currency });
+  // "Blockchain-logged" (product roadmap Phase 1, step 8 — award/close): a
+  // real hash-chained, tamper-evident entry. See lib/chain.ts's doc comment.
+  void recordChainedEvent('Deal', deal.id, 'quote.awarded', user.id, {
+    reference: deal.reference,
+    rfqId: quote.rfqId,
+    quoteId: quote.id,
+    supplierOrgId: quote.sellerOrgId,
+    total,
+    currency: quote.currency,
+  });
+  // Escrow (product roadmap Phase 1) — no-ops until real Stripe Connect /
+  // Razorpay Escrow credentials exist; see lib/escrow.server.ts. Even when
+  // enabled, the named provider holds the funds, never PharmaLink itself.
+  if (escrowEnabled()) {
+    void initiateEscrow(deal.id, total, 0, Math.round(total * PLATFORM_FEE_RATE * 100) / 100, quote.currency);
+  }
+  // Tier progression: a completed mandate can move either side's partner
+  // towards Qualified/Specialist. Delegated to partner-actions.ts, not
+  // inlined here — see the PARTNER BOUNDARY comment above; this function's
+  // own source must stay clear of delegation-shaped identifiers.
+  void recomputeTiersForAwardedDeal(quote, user.id);
   redirect(`/${locale}/buyer/rfqs/${quote.rfqId}`);
 }
 

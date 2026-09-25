@@ -17,7 +17,9 @@ import {
   BREADTH_TIERS,
   REFERRAL_TARGET,
   INCENTIVE_REWARD_USD,
+  TIER_THRESHOLDS,
   type RepresentationScope,
+  type PartnerTier,
 } from '@/lib/partner';
 import { certExpiryLevel, needsAttention } from '@/lib/compliance';
 import { effectiveRfqStatus, canReceiveQuotes } from '@/lib/rfq';
@@ -200,6 +202,61 @@ export async function getPortfolio(partnerOrgId: string) {
     certAlerts,
     priorityItems,
   };
+}
+
+export type MandateStepStatus = 'done' | 'current' | 'pending' | 'na';
+export interface MandateStep {
+  key: 'posted' | 'introduction' | 'sourcing' | 'quoted' | 'negotiation' | 'awarded' | 'shipped' | 'confirmed';
+  status: MandateStepStatus;
+  at: Date | null;
+}
+
+/**
+ * The product roadmap's 8-step mandate workflow, derived entirely from
+ * fields that already exist (Rfq/Quote/CounterOffer/Deal/Shipment/
+ * Introduction) — no new state machine, no field that can drift from the
+ * data driving the rest of this app. `introduction`, `negotiation`,
+ * `shipped` and `confirmed` are all legitimately optional in this app (no
+ * escrow forces a shipment to be logged, deal registration is optional
+ * pre-work) — those read 'na' rather than 'pending forever' when absent.
+ */
+export async function getMandateWorkflowSteps(rfqId: string): Promise<MandateStep[] | null> {
+  const rfq = await prisma.rfq.findUnique({
+    where: { id: rfqId },
+    select: {
+      createdAt: true,
+      status: true,
+      quotes: { select: { createdAt: true, counters: { select: { status: true, createdAt: true } } } },
+      deal: { select: { createdAt: true, shipment: { select: { shippedAt: true, confirmedAt: true } } } },
+    },
+  });
+  if (!rfq) return null;
+
+  const introduction = await prisma.introduction.findFirst({ where: { rfqId }, select: { createdAt: true } });
+
+  const hasQuotes = rfq.quotes.length > 0;
+  const firstQuoteAt = hasQuotes ? rfq.quotes.reduce((min, q) => (q.createdAt < min ? q.createdAt : min), rfq.quotes[0].createdAt) : null;
+  const terminal = rfq.status === 'cancelled' || rfq.status === 'expired';
+  const awarded = rfq.status === 'awarded';
+
+  const negotiationEntries = rfq.quotes.flatMap((q) => q.counters);
+  const firstNegotiationAt = negotiationEntries.length
+    ? negotiationEntries.reduce((min, c) => (c.createdAt < min ? c.createdAt : min), negotiationEntries[0].createdAt)
+    : null;
+
+  const shipment = rfq.deal?.shipment ?? null;
+
+  const steps: MandateStep[] = [
+    { key: 'posted', status: 'done', at: rfq.createdAt },
+    { key: 'introduction', status: introduction ? 'done' : 'na', at: introduction?.createdAt ?? null },
+    { key: 'sourcing', status: hasQuotes || terminal || awarded ? 'done' : 'current', at: rfq.createdAt },
+    { key: 'quoted', status: hasQuotes ? 'done' : terminal ? 'na' : 'pending', at: firstQuoteAt },
+    { key: 'negotiation', status: firstNegotiationAt ? 'done' : 'na', at: firstNegotiationAt },
+    { key: 'awarded', status: awarded ? 'done' : terminal ? 'na' : hasQuotes ? 'pending' : 'na', at: rfq.deal?.createdAt ?? null },
+    { key: 'shipped', status: shipment?.shippedAt ? 'done' : rfq.deal ? 'pending' : 'na', at: shipment?.shippedAt ?? null },
+    { key: 'confirmed', status: shipment?.confirmedAt ? 'done' : shipment?.shippedAt ? 'pending' : 'na', at: shipment?.confirmedAt ?? null },
+  ];
+  return steps;
 }
 
 /**
@@ -532,6 +589,11 @@ export interface CommissionLedgerEntry {
   commissionPerKg: number;
   totalCommission: number;
   currency: string;
+  /** Commission Protection (product roadmap Phase 1) — informational only,
+   *  same meaning as CompareQuote's fields of the same name in
+   *  compare-queries.ts. */
+  withinExclusivityWindow: boolean;
+  isRepeatOrder: boolean;
 }
 
 /**
@@ -556,28 +618,43 @@ export async function getPartnerCommissionLedger(partnerOrgId: string) {
   const deals = await prisma.deal.findMany({
     where: { quote: { draftedByPartnerId: partner.id, declaredCommissionPerKg: { not: null } } },
     include: {
-      quote: { select: { declaredCommissionPerKg: true, currency: true, sellerOrg: { select: { name: true } } } },
-      rfq: { select: { productName: true, cas: true, quantityKg: true, buyerOrg: { select: { name: true } } } },
+      quote: { select: { declaredCommissionPerKg: true, currency: true, sellerOrgId: true, sellerOrg: { select: { name: true } } } },
+      rfq: { select: { productName: true, cas: true, quantityKg: true, buyerOrgId: true, buyerOrg: { select: { name: true } } } },
     },
     orderBy: { createdAt: 'desc' },
   });
 
-  const entries: CommissionLedgerEntry[] = deals.map((d) => {
-    const commissionPerKg = d.quote.declaredCommissionPerKg!; // filtered not-null above
-    return {
-      dealId: d.id,
-      reference: d.reference,
-      createdAt: d.createdAt,
-      productName: d.rfq.productName,
-      cas: d.rfq.cas,
-      buyerOrgName: d.rfq.buyerOrg.name,
-      supplierOrgName: d.quote.sellerOrg.name,
-      quantityKg: d.rfq.quantityKg,
-      commissionPerKg,
-      totalCommission: Math.round(d.rfq.quantityKg * commissionPerKg * 100) / 100,
-      currency: d.quote.currency,
-    };
-  });
+  const EXCLUSIVITY_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+  const entries: CommissionLedgerEntry[] = await Promise.all(
+    deals.map(async (d) => {
+      const commissionPerKg = d.quote.declaredCommissionPerKg!; // filtered not-null above
+      const [introduction, priorDeal] = await Promise.all([
+        prisma.introduction.findFirst({
+          where: { buyerOrgId: d.rfq.buyerOrgId, supplierOrgId: d.quote.sellerOrgId, cas: d.rfq.cas },
+          select: { createdAt: true },
+        }),
+        prisma.deal.findFirst({
+          where: { rfq: { buyerOrgId: d.rfq.buyerOrgId, cas: d.rfq.cas }, quote: { sellerOrgId: d.quote.sellerOrgId }, createdAt: { lt: d.createdAt } },
+          select: { id: true },
+        }),
+      ]);
+      return {
+        dealId: d.id,
+        reference: d.reference,
+        createdAt: d.createdAt,
+        productName: d.rfq.productName,
+        cas: d.rfq.cas,
+        buyerOrgName: d.rfq.buyerOrg.name,
+        supplierOrgName: d.quote.sellerOrg.name,
+        quantityKg: d.rfq.quantityKg,
+        commissionPerKg,
+        totalCommission: Math.round(d.rfq.quantityKg * commissionPerKg * 100) / 100,
+        currency: d.quote.currency,
+        withinExclusivityWindow: !!introduction && Date.now() - introduction.createdAt.getTime() <= EXCLUSIVITY_WINDOW_MS,
+        isRepeatOrder: !!priorDeal,
+      };
+    })
+  );
 
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const totalAllTime = entries.reduce((sum, e) => sum + e.totalCommission, 0);
@@ -587,8 +664,9 @@ export async function getPartnerCommissionLedger(partnerOrgId: string) {
 }
 
 export interface IncentiveMilestone {
-  key: 'activation_bonus' | 'streak_bonus' | 'breadth_bonus' | 'referral_bonus';
-  /** Which breadth tier this object represents (1/2/3) — undefined for every other kind. */
+  key: 'activation_bonus' | 'streak_bonus' | 'breadth_bonus' | 'referral_bonus' | 'tier_bonus';
+  /** Which breadth tier (1/2/3), or which partner tier (1=Qualified, 2=Specialist)
+   *  this object represents — undefined for activation_bonus/streak_bonus/referral_bonus. */
   tier?: number;
   earned: boolean;
   current: number;
@@ -610,15 +688,18 @@ export async function getPartnerIncentives(partnerOrgId: string): Promise<Incent
 
   const streakStart = new Date(Date.now() - STREAK_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-  const [firstIntroduction, firstRfq, firstQuote, streakRfqCount, streakQuoteCount, repCount, referredVerifiedPartners] = await Promise.all([
-    prisma.introduction.findFirst({ where: { partnerId: partner.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
-    prisma.rfq.findFirst({ where: { draftedByPartnerId: partner.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
-    prisma.quote.findFirst({ where: { draftedByPartnerId: partner.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
-    prisma.rfq.count({ where: { draftedByPartnerId: partner.id, createdAt: { gte: streakStart } } }),
-    prisma.quote.count({ where: { draftedByPartnerId: partner.id, createdAt: { gte: streakStart } } }),
-    prisma.partnerRepresentation.count({ where: { partnerId: partner.id, revokedAt: null } }),
-    prisma.partnerAttribution.count({ where: { partnerId: partner.id, org: { kind: 'partner', status: 'verified' } } }),
-  ]);
+  const [firstIntroduction, firstRfq, firstQuote, streakRfqCount, streakQuoteCount, repCount, referredVerifiedPartners, completedMandateCount, eoInsuranceCount] =
+    await Promise.all([
+      prisma.introduction.findFirst({ where: { partnerId: partner.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
+      prisma.rfq.findFirst({ where: { draftedByPartnerId: partner.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
+      prisma.quote.findFirst({ where: { draftedByPartnerId: partner.id }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
+      prisma.rfq.count({ where: { draftedByPartnerId: partner.id, createdAt: { gte: streakStart } } }),
+      prisma.quote.count({ where: { draftedByPartnerId: partner.id, createdAt: { gte: streakStart } } }),
+      prisma.partnerRepresentation.count({ where: { partnerId: partner.id, revokedAt: null } }),
+      prisma.partnerAttribution.count({ where: { partnerId: partner.id, org: { kind: 'partner', status: 'verified' } } }),
+      prisma.deal.count({ where: { OR: [{ rfq: { draftedByPartnerId: partner.id } }, { quote: { draftedByPartnerId: partner.id } }] } }),
+      prisma.document.count({ where: { orgId: partnerOrgId, kind: 'eo_insurance' } }),
+    ]);
 
   const milestones: IncentiveMilestone[] = [];
 
@@ -668,7 +749,63 @@ export async function getPartnerIncentives(partnerOrgId: string): Promise<Incent
     rewardUsd: INCENTIVE_REWARD_USD.referral_bonus,
   });
 
+  // Tier advancement — one card per rung, same one-object-per-rung pattern
+  // as breadth_bonus above. Rung 2 (Specialist) needs BOTH the mandate
+  // threshold AND an uploaded E&O insurance document (product roadmap
+  // Phase 1's own Specialist criterion) — represented as 2 progress units
+  // so a partner who's hit the mandate count but not yet uploaded
+  // insurance reads as 1/2, not silently stuck at a wrong fraction.
+  const tierRank: Record<PartnerTier, number> = { registered: 0, qualified: 1, specialist: 2 };
+  const reachedRank = tierRank[(partner.tier as PartnerTier) ?? 'registered'];
+  const hasEoInsurance = eoInsuranceCount > 0;
+  milestones.push({
+    key: 'tier_bonus',
+    tier: 1,
+    earned: reachedRank >= 1,
+    current: Math.min(completedMandateCount, TIER_THRESHOLDS.qualified),
+    target: TIER_THRESHOLDS.qualified,
+    rewardUsd: INCENTIVE_REWARD_USD.tier_bonus,
+  });
+  const specialistUnits = (completedMandateCount >= TIER_THRESHOLDS.specialist ? 1 : 0) + (hasEoInsurance ? 1 : 0);
+  milestones.push({
+    key: 'tier_bonus',
+    tier: 2,
+    earned: reachedRank >= 2,
+    current: reachedRank >= 2 ? 2 : specialistUnits,
+    target: 2,
+    rewardUsd: INCENTIVE_REWARD_USD.tier_bonus,
+  });
+
   return milestones;
+}
+
+export interface AdminPartnerRow {
+  id: string;
+  orgId: string;
+  orgName: string;
+  tier: string;
+  goodStanding: boolean;
+  mandatesCompleted: number;
+}
+
+/** Every verified/active partner, for the admin standing screen
+ *  (/admin/partners) — the only place Partner.goodStanding can be toggled. */
+export async function listPartnersForAdmin(): Promise<AdminPartnerRow[]> {
+  const partners = await prisma.partner.findMany({
+    where: { status: { not: 'pending' } },
+    include: { org: { select: { name: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+  return Promise.all(
+    partners.map(async (p) => ({
+      id: p.id,
+      orgId: p.orgId,
+      orgName: p.org.name,
+      tier: p.tier,
+      goodStanding: p.goodStanding,
+      mandatesCompleted: await prisma.deal.count({ where: { OR: [{ rfq: { draftedByPartnerId: p.id } }, { quote: { draftedByPartnerId: p.id } }] } }),
+    }))
+  );
 }
 
 /**

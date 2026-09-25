@@ -70,6 +70,7 @@ function staffGroups(ctx: NavContext): NavGroup[] {
       labelKey: 'groupOverview',
       items: allow(ctx.principal, 'admin:verify', [
         { href: '/admin', labelKey: 'verification', icon: 'shield', count: ctx.pendingVerifications },
+        { href: '/admin/partners', labelKey: 'adminPartners', icon: 'users' },
       ]),
     },
     {

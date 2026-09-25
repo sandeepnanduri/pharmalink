@@ -142,6 +142,11 @@ export function PartnerOnboardingForm() {
               <input id="taxRegistration" name="taxRegistration" className="input" placeholder="GSTIN" />
             </div>
             <div>
+              <FieldLabel htmlFor="panNumber">{t('panNumber')}</FieldLabel>
+              <input id="panNumber" name="panNumber" className="input" placeholder="ABCDE1234F" />
+              <p className="mt-1 text-[11px] text-muted">{t('panNumberHint')}</p>
+            </div>
+            <div>
               <FieldLabel htmlFor="country">{t('country')}</FieldLabel>
               <select id="country" name="country" className="input" defaultValue="India">
                 <option>India</option>
@@ -154,6 +159,11 @@ export function PartnerOnboardingForm() {
               <FieldLabel htmlFor="city">{t('city')}</FieldLabel>
               <input id="city" name="city" className="input" />
             </div>
+          </div>
+          <div>
+            <FieldLabel htmlFor="tradeReferences">{t('tradeReferences')}</FieldLabel>
+            <textarea id="tradeReferences" name="tradeReferences" rows={3} className="input" placeholder={t('tradeReferencesPlaceholder')} />
+            <p className="mt-1 text-[11px] text-muted">{t('tradeReferencesHint')}</p>
           </div>
           <div>
             <p className="label">{t('uploadDoc')}</p>

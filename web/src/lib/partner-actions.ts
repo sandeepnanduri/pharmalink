@@ -17,10 +17,12 @@ import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { currentUser } from '@/lib/session';
-import { REPRESENTATION_SCOPES, MODEL_A_WINDOW_MONTHS, canActFor, type RepresentationScope } from '@/lib/partner';
+import { REPRESENTATION_SCOPES, MODEL_A_WINDOW_MONTHS, canActFor, eligibleTier, type RepresentationScope } from '@/lib/partner';
+import { can } from '@/lib/rbac';
 import { generatePartnerCode } from '@/lib/partner-code.server';
 import { validatePartnerOnboarding } from '@/lib/partner-onboarding';
 import { getActiveRepresentation } from '@/lib/partner-queries';
+import { recordChainedEvent } from '@/lib/chain.server';
 
 async function audit(action: string, entity: string, entityId: string, actorId?: string, reason?: string) {
   await prisma.auditLog.create({ data: { action, entity, entityId, actorId: actorId ?? null, reason: reason ?? null } });
@@ -48,6 +50,8 @@ export async function submitPartnerOnboardingAction(_prev: ActionState, formData
   const country = String(formData.get('country') ?? '').trim();
   const city = String(formData.get('city') ?? '').trim() || null;
   const taxRegistration = String(formData.get('taxRegistration') ?? '').trim() || null;
+  const panNumber = String(formData.get('panNumber') ?? '').trim() || null;
+  const tradeReferences = String(formData.get('tradeReferences') ?? '').trim() || null;
   const sourcingCategories = String(formData.get('sourcingCategories') ?? '').trim() || null;
   const about = String(formData.get('about') ?? '').trim() || null;
   const rateCardAccepted = formData.get('rateCardAccepted') === 'on';
@@ -70,7 +74,7 @@ export async function submitPartnerOnboardingAction(_prev: ActionState, formData
   for (let attempt = 0; attempt < 5 && !partner; attempt++) {
     try {
       partner = await prisma.partner.create({
-        data: { orgId, code: generatePartnerCode(), archetype: archetype!, taxRegistration },
+        data: { orgId, code: generatePartnerCode(), archetype: archetype!, taxRegistration, panNumber, tradeReferences },
       });
     } catch (err) {
       if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2002') throw err;
@@ -177,6 +181,16 @@ export async function recordIntroductionIfNew(
       data: { partnerId, buyerOrgId, supplierOrgId, cas, rfqId: rfqId ?? null },
     });
     await audit('partner.introduction', 'Introduction', introduction.id, actorId);
+    // "Blockchain-logged" (product roadmap Phase 1, step 4): a real
+    // hash-chained, tamper-evident entry — see lib/chain.ts's doc comment
+    // for what this is and isn't. Best-effort; never blocks the caller.
+    void recordChainedEvent('Introduction', introduction.id, 'partner.introduction', actorId, {
+      partnerId,
+      buyerOrgId,
+      supplierOrgId,
+      cas,
+      rfqId: rfqId ?? null,
+    });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return; // first-claim-wins
     throw err;
@@ -260,4 +274,74 @@ export async function registerDealAction(_prev: ActionState, formData: FormData)
   await recordIntroductionIfNew(partner.id, buyerOrgId, supplierOrgId, cas, user.id);
   revalidatePath('/[locale]/partner/network', 'page');
   return { ok: true };
+}
+
+/**
+ * Tier progression (product roadmap Phase 1: Registered → Qualified →
+ * Specialist), wired for real — see lib/partner.ts's eligibleTier for the
+ * pure decision logic. Called after a Deal is created for this partner's
+ * drafted quote/RFQ (lib/actions.ts's acceptQuoteAction) and after an
+ * eo_insurance Document upload (app/api/documents/route.ts) — the only two
+ * events that can change what a partner is eligible for. Only ever
+ * promotes; never throws (best-effort, same discipline as
+ * recordChainedEvent — a tier-recompute failure must not fail the action
+ * that triggered it).
+ */
+export async function recomputeTier(partnerId: string, actorId?: string): Promise<void> {
+  try {
+    const partner = await prisma.partner.findUnique({ where: { id: partnerId }, select: { orgId: true, tier: true, goodStanding: true } });
+    if (!partner) return;
+    const [completedMandateCount, eoInsuranceCount] = await Promise.all([
+      prisma.deal.count({ where: { OR: [{ rfq: { draftedByPartnerId: partnerId } }, { quote: { draftedByPartnerId: partnerId } }] } }),
+      prisma.document.count({ where: { orgId: partner.orgId, kind: 'eo_insurance' } }),
+    ]);
+    const next = eligibleTier(partner.tier as 'registered' | 'qualified' | 'specialist', completedMandateCount, partner.goodStanding, eoInsuranceCount > 0);
+    if (next !== partner.tier) {
+      await prisma.partner.update({ where: { id: partnerId }, data: { tier: next } });
+      await audit('partner.tier.promoted', 'Partner', partnerId, actorId, `${partner.tier} -> ${next}`);
+    }
+  } catch {
+    // Best-effort — see doc comment above.
+  }
+}
+
+/**
+ * Recomputes tier for whichever partner(s) drafted the buyer or seller side
+ * of a just-awarded quote. Lives here, not inlined in actions.ts's
+ * acceptQuoteAction, deliberately — that function's own source is pinned
+ * (actions.partner-boundary.test.ts) to never reference draftedByPartnerId
+ * or other delegation-shaped identifiers, since a partner must never grow
+ * an accept-side branch there. This is a read-only side-effect on a
+ * *different* org's Partner row, triggered *after* the buyer's own award
+ * completes — not a delegation branch on the award itself.
+ */
+export async function recomputeTiersForAwardedDeal(
+  quote: { draftedByPartnerId: string | null; rfq: { draftedByPartnerId: string | null } },
+  actorId: string
+): Promise<void> {
+  const partnerIds = new Set([quote.draftedByPartnerId, quote.rfq.draftedByPartnerId].filter((id): id is string => !!id));
+  for (const partnerId of partnerIds) {
+    void recomputeTier(partnerId, actorId);
+  }
+}
+
+/**
+ * The one place Partner.goodStanding can be toggled — admin:verify-gated,
+ * same permission reviewOrgAction already uses (lib/actions.ts). This never
+ * demotes a tier already reached (see eligibleTier); it only blocks or
+ * unblocks FUTURE promotion. Surfaced on /admin/partners, the only screen
+ * that lists already-active partners (the existing admin review queue only
+ * shows orgs still pending initial verification).
+ */
+export async function setPartnerGoodStandingAction(formData: FormData): Promise<void> {
+  const user = await currentUser();
+  if (!user || !can(user.principal, 'admin:verify')) return;
+
+  const partnerId = String(formData.get('partnerId') ?? '');
+  const goodStanding = formData.get('goodStanding') === 'true';
+  if (!partnerId) return;
+
+  await prisma.partner.update({ where: { id: partnerId }, data: { goodStanding } });
+  await audit(goodStanding ? 'partner.standing.restored' : 'partner.standing.flagged', 'Partner', partnerId, user.id);
+  revalidatePath('/[locale]/admin/partners', 'page');
 }

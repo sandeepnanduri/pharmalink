@@ -7,6 +7,7 @@ import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
 import { routing, type Locale } from '@/i18n/routing';
 import { SignedInShell } from '@/components/signed-in-shell';
 import { ToastProvider } from '@/components/toaster';
+import { PwaRegister } from '@/components/pwa-register';
 import '../globals.css';
 
 /**
@@ -122,6 +123,7 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} className={`${display.variable} ${inter.variable} ${mono.variable}`}>
       <body className="min-h-screen font-sans antialiased">
+        <PwaRegister />
         <NextIntlClientProvider messages={messages}>
           <ToastProvider>
             {/* Marketing chrome for visitors, the console shell for anyone
