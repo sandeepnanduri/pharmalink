@@ -23,6 +23,19 @@ import { FieldLabel, FieldError, FormErrorSummary } from './form-field';
  * — representation is granted BY the represented org later (N7.6), never
  * self-declared at signup, and reference checks are an ops verification
  * step (F2.5), not a data field.
+ *
+ * Every field below is CONTROLLED (value/checked bound to `draft` state),
+ * not incidentally but load-bearingly: this whole wizard lives inside ONE
+ * `<form action={action}>`, and React resets every uncontrolled field in a
+ * form-action form once the action completes — success OR failure — same
+ * as a classic multi-page form starting fresh. A validation issue on step 4
+ * (e.g. the rate-card checkbox) used to wipe steps 1–3's already-typed
+ * values, including the very field a jump-back was sending the user to fix,
+ * which then failed native `required` validation on retry because that
+ * field lives in a `hidden` (CSS, not `display:none`-exempt) fieldset the
+ * browser cannot focus — found live: this silently blocked every real
+ * partner signup that ever hit a validation error. Controlled fields read
+ * from `draft`, which the DOM reset cannot touch.
  */
 export function PartnerOnboardingForm() {
   const t = useTranslations('partnerOnboarding');
@@ -30,6 +43,19 @@ export function PartnerOnboardingForm() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [archetype, setArchetype] = useState('');
+  const [draft, setDraft] = useState({
+    regNumber: '',
+    taxRegistration: '',
+    panNumber: '',
+    country: 'India',
+    city: '',
+    tradeReferences: '',
+    sourcingCategories: '',
+    about: '',
+    rateCardAccepted: false,
+  });
+  const setField = <K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
 
   const steps = [t('stepType'), t('stepIdentity'), t('stepSpecialisation'), t('stepAgreement')];
   const last = steps.length;
@@ -134,21 +160,37 @@ export function PartnerOnboardingForm() {
                 className={`input ${has('regNumberRequired') ? 'input-error' : ''}`}
                 placeholder="27ABCDE1234F1Z5"
                 data-testid="partner-reg-number"
+                value={draft.regNumber}
+                onChange={(e) => setField('regNumber', e.target.value)}
               />
               <FieldError id="regNumber-error" message={has('regNumberRequired') ? t('issue_regNumberRequired') : null} />
             </div>
             <div>
               <FieldLabel htmlFor="taxRegistration">{t('taxRegistration')}</FieldLabel>
-              <input id="taxRegistration" name="taxRegistration" className="input" placeholder="GSTIN" />
+              <input
+                id="taxRegistration"
+                name="taxRegistration"
+                className="input"
+                placeholder="GSTIN"
+                value={draft.taxRegistration}
+                onChange={(e) => setField('taxRegistration', e.target.value)}
+              />
             </div>
             <div>
               <FieldLabel htmlFor="panNumber">{t('panNumber')}</FieldLabel>
-              <input id="panNumber" name="panNumber" className="input" placeholder="ABCDE1234F" />
+              <input
+                id="panNumber"
+                name="panNumber"
+                className="input"
+                placeholder="ABCDE1234F"
+                value={draft.panNumber}
+                onChange={(e) => setField('panNumber', e.target.value)}
+              />
               <p className="mt-1 text-[11px] text-muted">{t('panNumberHint')}</p>
             </div>
             <div>
               <FieldLabel htmlFor="country">{t('country')}</FieldLabel>
-              <select id="country" name="country" className="input" defaultValue="India">
+              <select id="country" name="country" className="input" value={draft.country} onChange={(e) => setField('country', e.target.value)}>
                 <option>India</option>
                 <option>China</option>
                 <option>United States</option>
@@ -157,12 +199,20 @@ export function PartnerOnboardingForm() {
             </div>
             <div>
               <FieldLabel htmlFor="city">{t('city')}</FieldLabel>
-              <input id="city" name="city" className="input" />
+              <input id="city" name="city" className="input" value={draft.city} onChange={(e) => setField('city', e.target.value)} />
             </div>
           </div>
           <div>
             <FieldLabel htmlFor="tradeReferences">{t('tradeReferences')}</FieldLabel>
-            <textarea id="tradeReferences" name="tradeReferences" rows={3} className="input" placeholder={t('tradeReferencesPlaceholder')} />
+            <textarea
+              id="tradeReferences"
+              name="tradeReferences"
+              rows={3}
+              className="input"
+              placeholder={t('tradeReferencesPlaceholder')}
+              value={draft.tradeReferences}
+              onChange={(e) => setField('tradeReferences', e.target.value)}
+            />
             <p className="mt-1 text-[11px] text-muted">{t('tradeReferencesHint')}</p>
           </div>
           <div>
@@ -175,12 +225,27 @@ export function PartnerOnboardingForm() {
         <fieldset className={step === 3 ? 'space-y-4' : 'hidden'}>
           <div>
             <FieldLabel htmlFor="sourcingCategories">{t('sourcingCategories')}</FieldLabel>
-            <input id="sourcingCategories" name="sourcingCategories" className="input" placeholder={t('sourcingCategoriesPlaceholder')} />
+            <input
+              id="sourcingCategories"
+              name="sourcingCategories"
+              className="input"
+              placeholder={t('sourcingCategoriesPlaceholder')}
+              value={draft.sourcingCategories}
+              onChange={(e) => setField('sourcingCategories', e.target.value)}
+            />
             <p className="mt-1 text-xs text-muted">{t('sourcingCategoriesHint')}</p>
           </div>
           <div>
             <FieldLabel htmlFor="about">{t('about')}</FieldLabel>
-            <textarea id="about" name="about" rows={3} className="input" placeholder={t('aboutPlaceholder')} />
+            <textarea
+              id="about"
+              name="about"
+              rows={3}
+              className="input"
+              placeholder={t('aboutPlaceholder')}
+              value={draft.about}
+              onChange={(e) => setField('about', e.target.value)}
+            />
           </div>
         </fieldset>
 
@@ -197,6 +262,8 @@ export function PartnerOnboardingForm() {
               className="mt-0.5 accent-violet"
               aria-invalid={has('rateCardNotAccepted') || undefined}
               data-testid="rate-card-accept"
+              checked={draft.rateCardAccepted}
+              onChange={(e) => setField('rateCardAccepted', e.target.checked)}
             />
             <span>{t('rateCardConsent')}</span>
           </label>
@@ -215,8 +282,26 @@ export function PartnerOnboardingForm() {
           </button>
           {step < last ? (
             <button
+              key="next"
               type="button"
-              onClick={() => setStep((s) => s + 1)}
+              onClick={(e) => {
+                // Belt-and-suspenders against a real, confirmed browser bug:
+                // on the LAST "Next" click (step === last - 1), this button's
+                // ternary flips to the type="submit" variant in the same tree
+                // position. Without a distinct `key`, React updates the SAME
+                // DOM node's `type` attribute in place rather than mounting a
+                // fresh element, and some browsers evaluate a click's default
+                // action against the element's post-render attributes — so
+                // the click that was only meant to advance the step also
+                // submits the form, one step early, with step 4 (or later)
+                // never having been seen. Found live: this is what silently
+                // sent partners into "1 problem to fix" before they'd even
+                // reached the agreement step. `key` forces React to mount a
+                // genuinely new node for the submit button; preventDefault
+                // is the second, independent guard.
+                e.preventDefault();
+                setStep((s) => s + 1);
+              }}
               disabled={step === 1 && !archetype}
               className="btn-violet"
               data-testid="partner-onboarding-next"
@@ -224,7 +309,7 @@ export function PartnerOnboardingForm() {
               {t('next')}
             </button>
           ) : (
-            <button type="submit" disabled={pending} className="btn-violet" data-testid="partner-onboarding-submit">
+            <button key="submit" type="submit" disabled={pending} className="btn-violet" data-testid="partner-onboarding-submit">
               <ButtonContent pending={pending} label={t('submit')} />
             </button>
           )}

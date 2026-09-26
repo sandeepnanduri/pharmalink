@@ -33,6 +33,24 @@ export function OnboardingForm({ kind }: { kind: 'buyer' | 'seller' }) {
   // Drives whether a site is mandatory: only orgs that physically make product
   // need one, and the requirement has to react as the user changes the answer.
   const [supplierType, setSupplierType] = useState<string>('manufacturer');
+  // Every field below is CONTROLLED, load-bearingly: this wizard lives inside
+  // ONE <form action={action}>, and React resets every UNCONTROLLED field in
+  // a form-action form once the action completes — success OR failure. A
+  // validation issue on a later step used to wipe already-typed values on
+  // earlier ones (including the field a jump-back was sending the user to
+  // fix), which then failed native `required` validation on retry since
+  // that field sits in a `hidden` fieldset the browser can't focus — found
+  // live via the identical bug in partner-onboarding-form.tsx. `draft`
+  // survives the DOM reset because it's React state, not a DOM value.
+  const [draft, setDraft] = useState({
+    regNumber: '',
+    city: '',
+    companyType: BUYER_TYPES[0],
+    exportMarkets: '',
+    about: '',
+  });
+  const setField = <K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
 
   const steps =
     kind === 'seller'
@@ -132,6 +150,8 @@ export function OnboardingForm({ kind }: { kind: 'buyer' | 'seller' }) {
                 className={`input ${has('regNumberRequired') ? 'input-error' : ''}`}
                 placeholder="27ABCDE1234F1Z5"
                 data-testid="reg-number"
+                value={draft.regNumber}
+                onChange={(e) => setField('regNumber', e.target.value)}
               />
               <FieldError
                 id="regNumber-error"
@@ -140,14 +160,20 @@ export function OnboardingForm({ kind }: { kind: 'buyer' | 'seller' }) {
             </div>
             <div>
               <FieldLabel htmlFor="city">{t('city')}</FieldLabel>
-              <input id="city" name="city" className="input" />
+              <input id="city" name="city" className="input" value={draft.city} onChange={(e) => setField('city', e.target.value)} />
             </div>
             {kind === 'buyer' ? (
               <div>
                 <label className="label" htmlFor="companyType">
                   {t('companyType')}
                 </label>
-                <select id="companyType" name="companyType" className="input">
+                <select
+                  id="companyType"
+                  name="companyType"
+                  className="input"
+                  value={draft.companyType}
+                  onChange={(e) => setField('companyType', e.target.value)}
+                >
                   {BUYER_TYPES.map((b) => (
                     <option key={b} value={b}>
                       {b}
@@ -184,7 +210,14 @@ export function OnboardingForm({ kind }: { kind: 'buyer' | 'seller' }) {
                   <label className="label" htmlFor="exportMarkets">
                     {t('exportMarkets')}
                   </label>
-                  <input id="exportMarkets" name="exportMarkets" className="input" placeholder="US, EU, WHO" />
+                  <input
+                    id="exportMarkets"
+                    name="exportMarkets"
+                    className="input"
+                    placeholder="US, EU, WHO"
+                    value={draft.exportMarkets}
+                    onChange={(e) => setField('exportMarkets', e.target.value)}
+                  />
                 </div>
               </>
             )}
@@ -192,7 +225,7 @@ export function OnboardingForm({ kind }: { kind: 'buyer' | 'seller' }) {
               <label className="label" htmlFor="about">
                 {t('about')}
               </label>
-              <textarea id="about" name="about" rows={3} className="input" />
+              <textarea id="about" name="about" rows={3} className="input" value={draft.about} onChange={(e) => setField('about', e.target.value)} />
             </div>
           </div>
         </fieldset>
@@ -241,7 +274,14 @@ export function OnboardingForm({ kind }: { kind: 'buyer' | 'seller' }) {
                 <label className="label" htmlFor="markets">
                   {t('exportMarkets')}
                 </label>
-                <input id="markets" name="exportMarkets" className="input" placeholder="US, EU, WHO, India" />
+                <input
+                  id="markets"
+                  name="exportMarkets"
+                  className="input"
+                  placeholder="US, EU, WHO, India"
+                  value={draft.exportMarkets}
+                  onChange={(e) => setField('exportMarkets', e.target.value)}
+                />
               </div>
             </div>
           )}
@@ -270,11 +310,29 @@ export function OnboardingForm({ kind }: { kind: 'buyer' | 'seller' }) {
             {t('back')}
           </button>
           {step < last ? (
-            <button type="button" onClick={() => setStep((s) => s + 1)} className="btn-primary" data-testid="onboarding-next">
+            <button
+              key="next"
+              type="button"
+              onClick={(e) => {
+                // Belt-and-suspenders against a real, confirmed browser bug —
+                // see the identical fix (and its full explanation) on the
+                // matching button in partner-onboarding-form.tsx: on the LAST
+                // "Next" click, this ternary flips the SAME DOM node from
+                // type="button" to type="submit" in place (no `key`), and the
+                // click's default action can be evaluated against the
+                // post-render attributes — submitting the form one step
+                // early. `key` forces a fresh node; preventDefault is the
+                // second, independent guard.
+                e.preventDefault();
+                setStep((s) => s + 1);
+              }}
+              className="btn-primary"
+              data-testid="onboarding-next"
+            >
               {t('next')}
             </button>
           ) : (
-            <button type="submit" disabled={pending} className="btn-primary" data-testid="onboarding-submit">
+            <button key="submit" type="submit" disabled={pending} className="btn-primary" data-testid="onboarding-submit">
               <ButtonContent pending={pending} label={t('submit')} />
             </button>
           )}
