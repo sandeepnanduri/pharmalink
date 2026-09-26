@@ -2,9 +2,11 @@ import { notFound } from 'next/navigation';
 import { getFormatter, getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/routing';
 import { requireRole } from '@/lib/session';
-import { getPartnerMandateComparison, getPartnerQuoteMandateDetail } from '@/lib/partner-queries';
+import { getPartnerMandateComparison, getPartnerQuoteMandateDetail, getMandateWorkflowSteps } from '@/lib/partner-queries';
+import { getChainIntegrity } from '@/lib/chain.server';
 import { MatchBreakdown } from '@/components/match-breakdown';
 import { StatusBadge } from '@/components/status-badge';
+import { MandateStepTracker } from '@/components/mandate-step-tracker';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +33,7 @@ export default async function PartnerMandateDetailPage({ params }: { params: Pro
   const rfqData = user.orgId ? await getPartnerMandateComparison(user.orgId, id) : null;
   if (rfqData) {
     const { rfq, quotes, rows } = rfqData;
+    const [steps, chain] = await Promise.all([getMandateWorkflowSteps(id), getChainIntegrity()]);
 
     return (
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -50,6 +53,13 @@ export default async function PartnerMandateDetailPage({ params }: { params: Pro
         </div>
 
         <p className="mt-3 text-xs font-semibold text-violet-deep">{tm('readOnlyNote')}</p>
+
+        {steps && <MandateStepTracker steps={steps} />}
+
+        <p className="mb-4 flex items-center gap-1.5 text-[11px] text-muted" data-testid="chain-integrity" title={tm('chainIntegrityHint', { count: chain.entryCount })}>
+          <span className={chain.valid ? 'text-ok' : 'text-danger'}>{chain.valid ? '✓' : '⚠'}</span>
+          {chain.valid ? tm('chainVerified') : tm('chainBroken')}
+        </p>
 
         {quotes.length === 0 ? (
           <div className="card mt-4 py-14 text-center" data-testid="compare-empty">
@@ -77,6 +87,24 @@ export default async function PartnerMandateDetailPage({ params }: { params: Pro
                               title={t('markupFlagTitle')}
                             >
                               {t('markupFlag')}
+                            </span>
+                          )}
+                          {q.withinExclusivityWindow && (
+                            <span
+                              className="w-fit rounded-pill bg-brand-pale px-2 py-0.5 text-[10px] font-bold text-brand"
+                              data-testid={`exclusivity-flag-${q.id}`}
+                              title={t('exclusivityWindowTitle')}
+                            >
+                              {t('exclusivityWindow')}
+                            </span>
+                          )}
+                          {q.isRepeatOrder && (
+                            <span
+                              className="w-fit rounded-pill bg-brand-pale px-2 py-0.5 text-[10px] font-bold text-brand"
+                              data-testid={`repeat-order-flag-${q.id}`}
+                              title={t('repeatOrderTitle')}
+                            >
+                              {t('repeatOrder')}
                             </span>
                           )}
                         </div>
@@ -129,6 +157,7 @@ export default async function PartnerMandateDetailPage({ params }: { params: Pro
 
   const quote = user.orgId ? await getPartnerQuoteMandateDetail(user.orgId, id) : null;
   if (!quote) notFound();
+  const [steps, chain] = await Promise.all([getMandateWorkflowSteps(quote.rfqId), getChainIntegrity()]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
@@ -147,6 +176,13 @@ export default async function PartnerMandateDetailPage({ params }: { params: Pro
       </div>
 
       <p className="mt-3 text-xs font-semibold text-violet-deep">{tm('readOnlyNote')}</p>
+
+      {steps && <MandateStepTracker steps={steps} />}
+
+      <p className="mb-4 flex items-center gap-1.5 text-[11px] text-muted" data-testid="chain-integrity" title={tm('chainIntegrityHint', { count: chain.entryCount })}>
+        <span className={chain.valid ? 'text-ok' : 'text-danger'}>{chain.valid ? '✓' : '⚠'}</span>
+        {chain.valid ? tm('chainVerified') : tm('chainBroken')}
+      </p>
 
       <div className="card mt-6 space-y-3 text-sm">
         <div className="flex items-center justify-between">

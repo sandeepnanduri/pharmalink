@@ -12,6 +12,7 @@
     "products": "我的产品",
     "inquiries": "询价请求",
     "verification": "审核队列",
+    "adminPartners": "合作伙伴状态",
     "admin": "运营控制台",
     "login": "登录",
     "signup": "免费注册",
@@ -557,6 +558,11 @@
     "archetype_regulatory_consultant_desc": "具备 DMF/CEP 申报专长，受供应商聘用提供法规支持。",
     "regNumber": "注册号",
     "taxRegistration": "税务登记号（GSTIN）",
+    "panNumber": "PAN 号",
+    "panNumberHint": "自行申报，未经政府登记系统验证。",
+    "tradeReferences": "贸易推荐人",
+    "tradeReferencesPlaceholder": "每行一条：姓名、公司、电话或邮箱",
+    "tradeReferencesHint": "自行申报——如需核实，将在运营审核阶段进行，而非自动完成。",
     "country": "国家",
     "city": "城市",
     "uploadDoc": "身份证明文件",
@@ -710,7 +716,22 @@
     "revoke": "撤销",
     "confirmRevoke": "确认撤销 {name} 的代理权限？撤销后对方将无法再代表您起草。",
     "pastTitle": "历史记录",
-    "revoked": "已撤销"
+    "revoked": "已撤销",
+    "step_posted": "已发布",
+    "step_introduction": "引荐",
+    "step_sourcing": "寻源中",
+    "step_quoted": "已报价",
+    "step_negotiation": "议价",
+    "step_awarded": "已成交",
+    "step_shipped": "已发货",
+    "step_confirmed": "已确认收货",
+    "stepStatus_done": "已完成",
+    "stepStatus_current": "进行中",
+    "stepStatus_pending": "尚未开始",
+    "stepStatus_na": "不适用",
+    "chainVerified": "链完整性已验证",
+    "chainBroken": "链完整性校验失败",
+    "chainIntegrityHint": "基于 {count} 条哈希链平台事件独立重新计算——并非区块链，而是真实的防篡改日志。"
   },
   "partnerNetwork": {
     "title": "您的合作网络",
@@ -837,7 +858,12 @@
     "breadthTitle3": "覆盖广度 — 10 家机构",
     "breadthDesc3": "对 10 家不同机构持有有效代理权限。",
     "referralTitle": "推荐奖励",
-    "referralDesc": "推荐另一位寻源合作伙伴并完成认证。"
+    "referralDesc": "推荐另一位寻源合作伙伴并完成认证。",
+    "tierTitle1": "等级晋升 — 认证合作伙伴",
+    "tierDesc1": "完成 5 个委托单，从「已注册」晋升为「认证合作伙伴」。",
+    "tierTitle2": "等级晋升 — 专家合作伙伴",
+    "tierDesc2": "完成 25 个委托单并上传 E&O 职业责任险证明，晋升为「专家合作伙伴」。",
+    "eoInsuranceHint": "自行申报，未经保险公司验证 — 上传您的 E&O 职业责任险证明以满足此项要求。"
   },
   "buyerDash": {
     "welcome": "欢迎回来，{name}",
@@ -959,6 +985,24 @@
     "auditTrail": "审计轨迹",
     "summaryCounts": "{contacts} 位联系人 · {sites} 个厂址 · {certs} 项认证 · {docs} 份文件",
     "confirmReject": "确定驳回「{name}」？系统将告知其原因，且需重新提交申请。"
+  },
+  "adminPartners": {
+    "title": "合作伙伴状态",
+    "subtitle": "所有活跃的寻源合作伙伴。等级根据委托单历史自动计算——您在此唯一可控的是状态，这是本平台最接近纠纷记录的机制。",
+    "org": "合作伙伴",
+    "tier": "等级",
+    "mandatesCompleted": "已完成委托单",
+    "standing": "状态",
+    "action": "操作",
+    "goodStanding": "状态良好",
+    "flagged": "已标记",
+    "flagAction": "标记",
+    "restoreAction": "恢复",
+    "confirmFlag": "标记「{name}」？此操作将阻止其继续晋级，直至恢复为止——不会降低已达到的等级。",
+    "empty": "暂无活跃合作伙伴。",
+    "tier_registered": "已注册",
+    "tier_qualified": "认证合作伙伴",
+    "tier_specialist": "专家合作伙伴"
   },
   "common": {
     "loading": "加载中…",
@@ -1931,7 +1975,11 @@
     "coverageFull": "五个组成部分均有数据。",
     "coveragePartial": "基于模型的 {pct}% 评分——{count} 个部分尚无数据。",
     "markupFlag": "⚠ 佣金未披露",
-    "markupFlagTitle": "报价高于市场中位数 15% 以上，且未申报合作伙伴佣金。"
+    "markupFlagTitle": "报价高于市场中位数 15% 以上，且未申报合作伙伴佣金。",
+    "exclusivityWindow": "独家保护期",
+    "exclusivityWindowTitle": "合作伙伴在 90 天内引荐了该买家、供应商与分子组合——仅供参考，不具法律强制力。",
+    "repeatOrder": "复购订单",
+    "repeatOrderTitle": "该买家与供应商之间已就此分子存在过往成交记录——根据 PARTNER-INCENTIVES.md，可能适用优惠佣金率。"
   },
   "ops": {
     "console": "运营控制台",

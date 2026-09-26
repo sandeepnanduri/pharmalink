@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { requireRole } from '@/lib/session';
 import { getPartnerIncentives, type IncentiveMilestone } from '@/lib/partner-queries';
+import { DocumentUpload } from '@/components/document-upload';
 
 // Renders per-user data (session, milestone progress) — must never be served
 // from the static/full route cache.
@@ -8,11 +9,13 @@ export const dynamic = 'force-dynamic';
 
 function titleKey(m: IncentiveMilestone): string {
   if (m.key === 'breadth_bonus') return `breadthTitle${m.tier}`;
+  if (m.key === 'tier_bonus') return `tierTitle${m.tier}`;
   return `${m.key.replace('_bonus', '')}Title`;
 }
 
 function descKey(m: IncentiveMilestone): string {
   if (m.key === 'breadth_bonus') return `breadthDesc${m.tier}`;
+  if (m.key === 'tier_bonus') return `tierDesc${m.tier}`;
   return `${m.key.replace('_bonus', '')}Desc`;
 }
 
@@ -62,6 +65,12 @@ export default async function PartnerRewardsPage({ params }: { params: Promise<{
                 ${m.rewardUsd}
                 <span className="ml-1 font-sans text-[11px] font-semibold text-muted">{t('rewardSuffix')}</span>
               </p>
+              {m.key === 'tier_bonus' && m.tier === 2 && !m.earned && (
+                <div className="mt-3 border-t border-line pt-3">
+                  <p className="mb-2 text-[11px] text-muted">{t('eoInsuranceHint')}</p>
+                  <DocumentUpload kind="eo_insurance" />
+                </div>
+              )}
             </div>
           ))}
         </div>

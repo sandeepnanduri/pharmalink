@@ -53,6 +53,14 @@ export interface CompareQuote {
   /** N7.12: priced >15% above market with no declared commission — the
    *  hidden-markup pattern. Always false for a non-partner-drafted quote. */
   flaggedMarkup: boolean;
+  /** Commission Protection (product roadmap Phase 1) — informational only,
+   *  never enforced or fund-moving. True when this buyer↔supplier↔CAS
+   *  triple has a registered Introduction less than 90 days old. */
+  withinExclusivityWindow: boolean;
+  /** True when a prior Deal already exists for this exact buyer↔supplier↔CAS
+   *  triple — the roadmap's "reorder, eligible for a reduced commission
+   *  rate" case. Informational; this app computes no reduced rate itself. */
+  isRepeatOrder: boolean;
 }
 
 export interface CompareData {
@@ -130,6 +138,31 @@ export async function getQuoteComparison(rfqId: string, buyerOrgId: string): Pro
   const requiredCerts = parseCertList(rfq.requiredCerts);
   const windowDays = daysUntil(rfq.requiredBy);
 
+  // Commission Protection signals — batched across every quoting supplier at
+  // once, not per-quote, to avoid N+1 queries.
+  const sellerOrgIds = rfq.quotes.map((q) => q.sellerOrgId);
+  const EXCLUSIVITY_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+  const [introductions, priorDeals] = await Promise.all([
+    sellerOrgIds.length
+      ? prisma.introduction.findMany({
+          where: { buyerOrgId: rfq.buyerOrgId, cas: rfq.cas, supplierOrgId: { in: sellerOrgIds } },
+          select: { supplierOrgId: true, createdAt: true },
+        })
+      : Promise.resolve([]),
+    sellerOrgIds.length
+      ? prisma.deal.findMany({
+          where: {
+            rfq: { buyerOrgId: rfq.buyerOrgId, cas: rfq.cas },
+            quote: { sellerOrgId: { in: sellerOrgIds } },
+            createdAt: { lt: rfq.createdAt },
+          },
+          select: { quote: { select: { sellerOrgId: true } } },
+        })
+      : Promise.resolve([]),
+  ]);
+  const introductionBySupplier = new Map(introductions.map((i) => [i.supplierOrgId, i.createdAt]));
+  const repeatSuppliers = new Set(priorDeals.map((d) => d.quote.sellerOrgId));
+
   const quotes: CompareQuote[] = rfq.quotes.map((q) => {
     const certs = q.sellerOrg.certifications.map((c) => c.name);
     const leadDays = leadTimeToDays(q.leadTime);
@@ -156,6 +189,11 @@ export async function getQuoteComparison(rfqId: string, buyerOrgId: string): Pro
       // supplier pricing their own product high with no commission to
       // disclose is just a price, not a disclosure failure.
       flaggedMarkup: q.draftedByPartnerId != null && vsMarketPct != null && vsMarketPct > 15 && !q.declaredCommissionPerKg,
+      withinExclusivityWindow: (() => {
+        const introducedAt = introductionBySupplier.get(q.sellerOrgId);
+        return !!introducedAt && Date.now() - introducedAt.getTime() <= EXCLUSIVITY_WINDOW_MS;
+      })(),
+      isRepeatOrder: repeatSuppliers.has(q.sellerOrgId),
       match: matchScore({
         requiredCerts,
         heldCerts: certs,
@@ -202,6 +240,8 @@ export async function getQuoteComparison(rfqId: string, buyerOrgId: string): Pro
     row('total', `Total for ${rfq.quantityKg} kg`, cell((q) => `${q.currency} ${q.total.toLocaleString()}`), bestBy((q) => q.total, 'min'), true),
     row('vsMarket', 'vs market median', cell((q) => (q.vsMarketPct == null ? null : `${q.vsMarketPct > 0 ? '+' : ''}${q.vsMarketPct}%`)), bestBy((q) => q.vsMarketPct, 'min'), true),
     row('commission', 'Partner commission (disclosed)', cell((q) => (q.declaredCommissionPerKg == null ? null : `${q.currency} ${q.declaredCommissionPerKg.toFixed(2)}/kg`))),
+    row('exclusivity', 'Exclusivity window', cell((q) => (q.withinExclusivityWindow ? 'Active (< 90 days)' : null))),
+    row('repeat', 'Repeat order', cell((q) => (q.isRepeatOrder ? 'Yes — prior deal on file' : null))),
     row('match', 'Match score', cell((q) => (q.match.disqualified ? 'Not eligible' : q.match.score == null ? null : `${q.match.score}/100`)), bestBy((q) => q.match.score, 'max'), true),
     row('lead', 'Lead time', cell((q) => q.leadTime), bestBy((q) => leadTimeToDays(q.leadTime), 'min')),
     row('moq', 'Minimum order', cell((q) => `${q.moqKg} kg`), bestBy((q) => q.moqKg, 'min'), true),

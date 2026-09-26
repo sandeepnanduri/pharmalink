@@ -8,7 +8,9 @@ import {
   isAttributionActive,
   withinDays,
   breadthTiersReached,
+  eligibleTier,
   BREADTH_TIERS,
+  TIER_THRESHOLDS,
   type PartnerPayoutInput,
 } from './partner';
 
@@ -21,8 +23,15 @@ describe('trade-value / payout boundary (N7.10 — sibling guard to plans.ts N3.
     }
   });
 
-  it('lists Model A margin plus the four rewards-ladder bonus kinds — Model B bounty ships with N7.11', () => {
-    expect(PARTNER_PAYOUT_KINDS).toEqual(['model_a_margin', 'activation_bonus', 'streak_bonus', 'breadth_bonus', 'referral_bonus']);
+  it('lists Model A margin plus the five rewards-ladder bonus kinds — Model B bounty ships with N7.11', () => {
+    expect(PARTNER_PAYOUT_KINDS).toEqual([
+      'model_a_margin',
+      'activation_bonus',
+      'streak_bonus',
+      'breadth_bonus',
+      'referral_bonus',
+      'tier_bonus',
+    ]);
   });
 
   it('computes 27.5% of the subscription invoice, never a function of trade value', () => {
@@ -79,6 +88,34 @@ describe('breadthTiersReached', () => {
     expect(breadthTiersReached(6)).toBe(2);
     expect(breadthTiersReached(10)).toBe(3);
     expect(breadthTiersReached(50)).toBe(BREADTH_TIERS.length);
+  });
+});
+
+describe('eligibleTier (tier progression — Registered → Qualified → Specialist)', () => {
+  it('stays registered below the qualified threshold', () => {
+    expect(eligibleTier('registered', 0, true, false)).toBe('registered');
+    expect(eligibleTier('registered', TIER_THRESHOLDS.qualified - 1, true, false)).toBe('registered');
+  });
+
+  it('reaches qualified at the threshold, without needing E&O insurance', () => {
+    expect(eligibleTier('registered', TIER_THRESHOLDS.qualified, true, false)).toBe('qualified');
+  });
+
+  it('does not reach specialist without E&O insurance, even past the mandate threshold', () => {
+    expect(eligibleTier('qualified', TIER_THRESHOLDS.specialist, true, false)).toBe('qualified');
+  });
+
+  it('reaches specialist once both the mandate threshold and E&O insurance are met', () => {
+    expect(eligibleTier('qualified', TIER_THRESHOLDS.specialist, true, true)).toBe('specialist');
+  });
+
+  it('never demotes — a specialist with a later-recomputed lower count stays specialist', () => {
+    expect(eligibleTier('specialist', 0, true, false)).toBe('specialist');
+  });
+
+  it('blocks further promotion, but never demotes, when goodStanding is false', () => {
+    expect(eligibleTier('qualified', TIER_THRESHOLDS.specialist, false, true)).toBe('qualified');
+    expect(eligibleTier('specialist', 0, false, false)).toBe('specialist');
   });
 });
 

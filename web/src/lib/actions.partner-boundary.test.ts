@@ -188,3 +188,21 @@ describe('PartnerPayout schema shape (N7.10, sibling to the plans.test.ts revenu
     }
   });
 });
+
+describe('hash-chained audit log (product roadmap Phase 1\'s "blockchain-logged" — see lib/chain.ts)', () => {
+  it('recordIntroductionIfNew logs a ChainedAuditEntry for the introduction it just wrote', () => {
+    const src = readFileSync(new URL('./partner-actions.ts', import.meta.url), 'utf8');
+    const start = src.indexOf('export async function recordIntroductionIfNew');
+    const next = src.indexOf('\nexport ', start + 1);
+    const body = src.slice(start, next === -1 ? undefined : next);
+    expect(body).toContain("recordChainedEvent('Introduction'");
+  });
+
+  it('acceptQuoteAction logs a ChainedAuditEntry for the deal it just created', () => {
+    const src = readFileSync(new URL('./actions.ts', import.meta.url), 'utf8');
+    const start = src.indexOf('export async function acceptQuoteAction');
+    const next = src.indexOf('\nexport ', start + 1);
+    const body = src.slice(start, next === -1 ? undefined : next);
+    expect(body).toContain("recordChainedEvent('Deal'");
+  });
+});

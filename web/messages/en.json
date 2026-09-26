@@ -12,6 +12,7 @@
     "products": "My products",
     "inquiries": "Inquiries",
     "verification": "Verification queue",
+    "adminPartners": "Partner standing",
     "admin": "Ops console",
     "login": "Sign in",
     "signup": "Get started",
@@ -557,6 +558,11 @@
     "archetype_regulatory_consultant_desc": "DMF/CEP filing expertise, retained by a supplier for regulatory support.",
     "regNumber": "Registration number",
     "taxRegistration": "Tax registration (GSTIN)",
+    "panNumber": "PAN",
+    "panNumberHint": "Self-declared, not verified against a government registry.",
+    "tradeReferences": "Trade references",
+    "tradeReferencesPlaceholder": "One per line: name, company, phone or email",
+    "tradeReferencesHint": "Self-declared — a reference check, if any, happens during ops review, not automatically.",
     "country": "Country",
     "city": "City",
     "uploadDoc": "Identity document",
@@ -710,7 +716,22 @@
     "revoke": "Revoke",
     "confirmRevoke": "Revoke {name}'s representation? They will no longer be able to draft on your behalf.",
     "pastTitle": "Past",
-    "revoked": "Revoked"
+    "revoked": "Revoked",
+    "step_posted": "Posted",
+    "step_introduction": "Introduction",
+    "step_sourcing": "Sourcing",
+    "step_quoted": "Quoted",
+    "step_negotiation": "Negotiation",
+    "step_awarded": "Awarded",
+    "step_shipped": "Shipped",
+    "step_confirmed": "Confirmed",
+    "stepStatus_done": "Done",
+    "stepStatus_current": "In progress",
+    "stepStatus_pending": "Not yet",
+    "stepStatus_na": "N/A",
+    "chainVerified": "Chain integrity verified",
+    "chainBroken": "Chain integrity check failed",
+    "chainIntegrityHint": "Independently recomputed from {count} hash-chained platform events — not a blockchain, a real tamper-evident log."
   },
   "partnerNetwork": {
     "title": "Your network",
@@ -837,7 +858,12 @@
     "breadthTitle3": "Breadth — 10 orgs",
     "breadthDesc3": "Hold a live representation over 10 distinct orgs.",
     "referralTitle": "Advocacy",
-    "referralDesc": "Refer another Sourcing Partner who completes verification."
+    "referralDesc": "Refer another Sourcing Partner who completes verification.",
+    "tierTitle1": "Tier advancement — Qualified",
+    "tierDesc1": "Complete 5 mandates to advance from Registered to Qualified.",
+    "tierTitle2": "Tier advancement — Specialist",
+    "tierDesc2": "Complete 25 mandates and upload proof of E&O insurance to advance to Specialist.",
+    "eoInsuranceHint": "Self-declared, not verified against an insurer — upload your E&O insurance certificate to complete this requirement."
   },
   "buyerDash": {
     "welcome": "Welcome back, {name}",
@@ -959,6 +985,24 @@
     "auditTrail": "Audit trail",
     "summaryCounts": "{contacts} contact(s) · {sites} site(s) · {certs} certification(s) · {docs} document(s)",
     "confirmReject": "Reject {name}? They are told the reason and must re-apply."
+  },
+  "adminPartners": {
+    "title": "Partner standing",
+    "subtitle": "Every active Sourcing Partner. Tier is computed automatically from mandate history — the only thing you control here is standing, the closest this platform gets to a disputes record.",
+    "org": "Partner",
+    "tier": "Tier",
+    "mandatesCompleted": "Mandates completed",
+    "standing": "Standing",
+    "action": "Action",
+    "goodStanding": "Good standing",
+    "flagged": "Flagged",
+    "flagAction": "Flag",
+    "restoreAction": "Restore",
+    "confirmFlag": "Flag {name}? This blocks further tier promotion until restored — it does not demote a tier already reached.",
+    "empty": "No active partners yet.",
+    "tier_registered": "Registered",
+    "tier_qualified": "Qualified",
+    "tier_specialist": "Specialist"
   },
   "common": {
     "loading": "Loading…",
@@ -1931,7 +1975,11 @@
     "coverageFull": "All five components had data.",
     "coveragePartial": "Scored on {pct}% of the model — {count} component(s) had no data yet.",
     "markupFlag": "⚠ Undisclosed markup",
-    "markupFlagTitle": "Priced over 15% above the market median with no partner commission declared."
+    "markupFlagTitle": "Priced over 15% above the market median with no partner commission declared.",
+    "exclusivityWindow": "Exclusivity window",
+    "exclusivityWindowTitle": "This buyer, supplier and molecule were introduced by a partner less than 90 days ago — informational only, not legally enforced.",
+    "repeatOrder": "Repeat order",
+    "repeatOrderTitle": "A prior deal already exists between this buyer and supplier for this molecule — may be eligible for a reduced commission rate, per PARTNER-INCENTIVES.md."
   },
   "ops": {
     "console": "Ops console",

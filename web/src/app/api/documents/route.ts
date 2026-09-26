@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { currentUser } from '@/lib/session';
 import { store, sha256, storageKeyFor, safeFilename, validateUpload } from '@/lib/storage';
 import { resolveActingOrgId } from '@/lib/partner-queries';
+import { recomputeTier } from '@/lib/partner-actions';
 
 /**
  * Document upload (BACKLOG F2.3).
@@ -99,6 +100,14 @@ export async function POST(request: Request) {
   await prisma.auditLog.create({
     data: { action: 'document.uploaded', entity: 'Document', entityId: doc.id, actorId: user.id },
   });
+
+  // Tier progression's Specialist criterion (product roadmap Phase 1): an
+  // E&O insurance document is always the PARTNER's own org's document, never
+  // delegated — this fires only when a partner uploads to their own org.
+  if (String(form.get('kind') ?? '') === 'eo_insurance') {
+    const partner = await prisma.partner.findUnique({ where: { orgId: targetOrgId }, select: { id: true } });
+    if (partner) void recomputeTier(partner.id, user.id);
+  }
 
   return NextResponse.json(doc, { status: 201 });
 }

@@ -874,6 +874,7 @@ model Deal {
   termsJson  String
 
   shipment Shipment?
+  escrow   Escrow?
 
   createdAt DateTime @default(now())
 }
@@ -899,6 +900,35 @@ model Shipment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// Optional, fully gated escrow (product roadmap Phase 1) — see
+/// lib/escrow.server.ts's escrowEnabled(). Absent real Stripe Connect /
+/// Razorpay Escrow credentials, no row here is ever created: the platform's
+/// default A1 posture (lib/plans.ts — "holds no escrow, stays out of
+/// PCI/KYC-AML scope") is unchanged. When enabled, this tracks a provider's
+/// escrow state for one Deal; it is never the platform's own custody of
+/// funds — the named provider (Stripe/Razorpay) holds the money, this row
+/// is PharmaLink's record of what the provider reports.
+/// status: "pending" | "funded" | "released" | "disputed" | "failed"
+model Escrow {
+  id                String    @id @default(cuid())
+  dealId            String    @unique
+  deal              Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  provider          String // "stripe_connect" | "razorpay_escrow"
+  providerRef       String?
+  tradeValue        Float
+  commissionAmount  Float     @default(0)
+  platformFee       Float
+  currency          String    @default("USD")
+  status            String    @default("pending")
+  fundedAt          DateTime?
+  releasedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
 }
 
 // --------------------------------------------------------------------------
@@ -946,10 +976,13 @@ model Message {
 // --------------------------------------------------------------------------
 // Subscription billing
 //
-// The platform charges a SUBSCRIPTION only. It never holds, escrows or routes
-// buyer↔seller trade value, and takes no GMV commission — so it stays out of
-// PCI/KYC-AML scope. Invoices are issued here and settled OFF-PLATFORM (bank
-// transfer / external payment link); no card data is ever stored.
+// The platform's OWN revenue is a SUBSCRIPTION only — it takes no GMV
+// commission of its own, and this stays true regardless of the Escrow model
+// above. Invoices are issued here and settled OFF-PLATFORM (bank transfer /
+// external payment link); no card data is ever stored. Escrow of BUYER↔
+// SELLER trade value is a separate, opt-in, provider-held capability (see
+// Escrow's own doc comment) — off by default, and even when on, the money
+// is held by the named third-party provider, never by PharmaLink itself.
 // --------------------------------------------------------------------------
 
 /// status: "issued" | "paid" | "void"
@@ -1002,8 +1035,23 @@ model Partner {
   archetype       String
   status          String       @default("pending")
   tier            String       @default("registered")
+  /// Ops-revocable stand-in for the product roadmap's "0 disputes" tier
+  /// criterion — this app has no Dispute model (a real disputes feature is
+  /// its own, separate scope). false blocks further tier promotion (see
+  /// lib/partner.ts's eligibleTier); it never auto-demotes a tier already
+  /// reached. Set via setPartnerGoodStandingAction, admin:verify-gated.
+  goodStanding    Boolean      @default(true)
   rateCardVersion String       @default("2026-08")
   taxRegistration String? // GSTIN
+  /// Self-declared, NOT verified against any government API (that needs
+  /// DigiLocker/DUNS credentials this app doesn't have — see PARTNER-
+  /// PROGRAM.md and lib/partner-onboarding.ts). Never badge this as
+  /// verified KYC; the UI must label it self-declared.
+  panNumber       String?
+  /// Self-declared trade references, free text (name + contact per line),
+  /// same self-declared discipline as panNumber. A real reference-CHECK is
+  /// an ops verification step (F2.5), not a data field this app validates.
+  tradeReferences String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1326,6 +1374,29 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+/// A hash-chained sibling to AuditLog — NOT a blockchain (single DB, no
+/// distributed consensus), but genuinely tamper-evident: each row's `hash`
+/// commits to its own payload AND the previous row's `hash`, so editing or
+/// deleting any past row breaks every hash after it. `seq` gives a strict
+/// total order so `prevHash` is unambiguous even under concurrent writes
+/// racing on `createdAt`. See lib/chain.ts (pure hash/verify logic) and
+/// lib/chain.server.ts (the only writer). Written for the specific events
+/// PARTNER-PROGRAM.md/the product roadmap call "blockchain-logged":
+/// Introduction registration and quote-award (Deal creation).
+model ChainedAuditEntry {
+  seq       Int      @id @default(autoincrement())
+  entity    String
+  entityId  String
+  action    String
+  actorId   String?
+  dataHash  String // sha256 of the event's own payload (see lib/chain.ts)
+  prevHash  String // previous row's `hash`, or 64 zeros for the genesis row
+  hash      String // sha256(seq|entity|entityId|action|dataHash|prevHash)
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
 }
 
 // --------------------------------------------------------------------------
