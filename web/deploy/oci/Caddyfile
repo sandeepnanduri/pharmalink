@@ -30,3 +30,14 @@
 		format console
 	}
 }
+
+# Included as a second site in PharmaLink's tracked Caddyfile on the shared VM.
+sgsfinechem.duckdns.org {
+    encode zstd gzip
+    header Strict-Transport-Security "max-age=31536000"
+    reverse_proxy finechem-web:8080
+    log {
+        output stdout
+        format console
+    }
+}
