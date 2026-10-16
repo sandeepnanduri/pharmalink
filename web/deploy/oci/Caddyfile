@@ -41,3 +41,17 @@ sgsfinechem.duckdns.org {
         format console
     }
 }
+
+# Append to the existing shared Caddyfile; preserve the other sites.
+vsppharma.duckdns.org {
+    encode zstd gzip
+    reverse_proxy vsp-pharma-app:80 {
+        # The PHP application accepts this only from its configured trusted proxy.
+        # Overwrite it so callers cannot spoof the enquiry/login rate-limit IP.
+        header_up CF-Connecting-IP {remote_host}
+    }
+    log {
+        output stdout
+        format console
+    }
+}
